@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { VaultStatusDTO } from "@lifescribe/shared-types";
+import type { VaultStatusDTO } from "./api/client";
 import { api } from "./api/client";
 import FirstRunWizard from "./views/FirstRunWizard";
 import EmptyVault from "./views/EmptyVault";
