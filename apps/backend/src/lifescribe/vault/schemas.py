@@ -134,8 +134,63 @@ class VaultManifest(BaseModel):
         return self
 
 
+class JobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    COMPLETED_WITH_FAILURES = "completed_with_failures"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+
+
+class PerFileStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    SUCCEEDED_WITH_CONFLICT = "succeeded_with_conflict"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    SKIPPED_IDENTICAL = "skipped_identical"
+    CANCELLED = "cancelled"
+
+
+class PerFileEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    index: int = Field(ge=1)
+    path: str
+    status: PerFileStatus
+    source_id: str | None = None
+    extractor: str | None = None
+    error: str | None = None
+
+
+class IngestJobLog(_NoteBase):
+    type: Literal["IngestJobLog"]
+    status: JobStatus
+    started_at: datetime
+    finished_at: datetime | None
+    total: int = Field(ge=0)
+    succeeded: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    skipped: int = Field(ge=0)
+    cancelled: int = Field(ge=0)
+    app_version: str
+    files: list[PerFileEntry] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check_id_prefix(self) -> IngestJobLog:
+        if not self.id.startswith("job_"):
+            raise ValueError("IngestJobLog id must start with 'job_'")
+        return self
+
+
 Note = Annotated[
-    SourceRecord | DocumentRecord | ConnectorRecord | IngestionLogEntry | VaultManifest,
+    SourceRecord
+    | DocumentRecord
+    | ConnectorRecord
+    | IngestionLogEntry
+    | IngestJobLog
+    | VaultManifest,
     Field(discriminator="type"),
 ]
 

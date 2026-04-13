@@ -22,6 +22,7 @@ from lifescribe.vault.schemas import (
     ConnectorRecord,
     DocumentRecord,
     IngestionLogEntry,
+    IngestJobLog,
     Note,
     SourceRecord,
     VaultManifest,
@@ -88,6 +89,9 @@ def _relative_path_for(note: Note, root: Path) -> Path:
     if isinstance(note, ConnectorRecord):
         return root / "system" / "connectors" / f"{note.id}.md"
     if isinstance(note, IngestionLogEntry):
+        year_month = note.started_at.strftime("%Y-%m")
+        return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
+    if isinstance(note, IngestJobLog):
         year_month = note.started_at.strftime("%Y-%m")
         return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
     if isinstance(note, VaultManifest):
@@ -215,11 +219,12 @@ class VaultStore:
         items: list[tuple[Note, str]],
         *,
         commit_message: str,
+        extra_paths: list[str] | None = None,
     ) -> list[WriteResult]:
-        if not items:
+        if not items and not extra_paths:
             return []
         results: list[WriteResult] = []
-        staged: list[str] = []
+        staged: list[str] = list(extra_paths or [])
         for note, body in items:
             target = _relative_path_for(note, self.root)
             rel = target.relative_to(self.root).as_posix()
