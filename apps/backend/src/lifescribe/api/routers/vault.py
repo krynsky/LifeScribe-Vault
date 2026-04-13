@@ -96,3 +96,34 @@ def get_note(note_id: str) -> dict[str, Any]:
     except KeyError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
     return {"note": note.model_dump(mode="json"), "body": body}
+
+
+_SETTINGS_ID = "settings_default"
+
+
+class _SettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    privacy_mode: bool
+
+
+@router.get("/settings")
+def get_settings() -> dict[str, Any]:
+    store = _require_store()
+    try:
+        note, _ = store.read_note(_SETTINGS_ID)
+    except KeyError:
+        return VaultSettings(id=_SETTINGS_ID, type="VaultSettings").model_dump(mode="json")
+    assert isinstance(note, VaultSettings)
+    return note.model_dump(mode="json")
+
+
+@router.put("/settings")
+def put_settings(req: _SettingsUpdate) -> dict[str, Any]:
+    store = _require_store()
+    note = VaultSettings(
+        id=_SETTINGS_ID,
+        type="VaultSettings",
+        privacy_mode=req.privacy_mode,
+    )
+    store.write_note(note, body="", commit_message="settings: update")
+    return note.model_dump(mode="json")

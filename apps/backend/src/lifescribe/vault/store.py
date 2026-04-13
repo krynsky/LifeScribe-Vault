@@ -96,7 +96,7 @@ def _relative_path_for(note: Note, root: Path) -> Path:
         year_month = note.started_at.strftime("%Y-%m")
         return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
     if isinstance(note, VaultSettings):
-        return root / "system" / "settings.md"
+        return root / "system" / f"{note.id}.md"
     if isinstance(note, VaultManifest):
         return root / "system" / "vault.md"
     raise TypeError(f"Unknown note type: {type(note).__name__}")
