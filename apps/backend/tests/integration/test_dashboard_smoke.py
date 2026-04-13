@@ -7,8 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lifescribe.api.app import create_app
-from lifescribe.api.routers.vault import _State as _VaultState
 from lifescribe.api.routers.ingest import _IngestState
+from lifescribe.api.routers.vault import _State as _VaultState
 from lifescribe.vault.store import VaultStore
 
 TOKEN = "testtoken"
