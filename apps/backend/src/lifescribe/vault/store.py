@@ -7,6 +7,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lifescribe.migrations.framework import MigrationReport
 
 from lifescribe.vault.errors import (
     SchemaTooNewError,
@@ -254,6 +258,11 @@ class VaultStore:
                 continue
             if type_ is None or note.type == type_:
                 yield note
+
+    def migrate(self, target_version: int) -> MigrationReport:
+        from lifescribe.migrations.framework import apply_migrations
+
+        return apply_migrations(self, migrations=[], target_version=target_version)
 
     def is_hand_edited(self, note_id: str) -> bool:
         for md in self.root.rglob("*.md"):
