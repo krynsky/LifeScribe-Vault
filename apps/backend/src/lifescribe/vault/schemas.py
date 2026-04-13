@@ -184,13 +184,25 @@ class IngestJobLog(_NoteBase):
         return self
 
 
+class VaultSettings(_NoteBase):
+    type: Literal["VaultSettings"]
+    privacy_mode: bool = False
+
+    @model_validator(mode="after")
+    def _check_id_prefix(self) -> VaultSettings:
+        if not self.id.startswith("settings_"):
+            raise ValueError("VaultSettings id must start with 'settings_'")
+        return self
+
+
 Note = Annotated[
     SourceRecord
     | DocumentRecord
     | ConnectorRecord
     | IngestionLogEntry
     | IngestJobLog
-    | VaultManifest,
+    | VaultManifest
+    | VaultSettings,
     Field(discriminator="type"),
 ]
 
