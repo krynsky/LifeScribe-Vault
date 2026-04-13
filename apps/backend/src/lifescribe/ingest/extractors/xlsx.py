@@ -20,8 +20,8 @@ class XlsxExtractor:
     mimes: ClassVar[tuple[str, ...]] = (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-    NAME = "xlsx"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "xlsx"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         wb = load_workbook(str(path), read_only=True, data_only=True)

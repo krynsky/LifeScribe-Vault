@@ -9,8 +9,8 @@ from lifescribe.ingest.extractors.base import ExtractionResult
 
 class JsonExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("application/json",)
-    NAME = "json"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "json"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         try:

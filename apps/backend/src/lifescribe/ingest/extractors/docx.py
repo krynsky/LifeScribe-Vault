@@ -45,8 +45,8 @@ class DocxExtractor:
     mimes: ClassVar[tuple[str, ...]] = (
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
-    NAME = "docx"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "docx"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         doc = Document(str(path))

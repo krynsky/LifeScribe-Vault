@@ -15,8 +15,8 @@ def _md_escape_cell(value: str) -> str:
 
 class CsvExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("text/csv",)
-    NAME = "csv"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "csv"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         with path.open("r", encoding="utf-8", newline="") as f:

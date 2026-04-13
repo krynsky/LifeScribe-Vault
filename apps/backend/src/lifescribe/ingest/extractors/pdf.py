@@ -26,8 +26,8 @@ def _render_table(table: list[list[str | None]]) -> str:
 
 class PdfExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("application/pdf",)
-    NAME = "pdf"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "pdf"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         pages_md: list[str] = []

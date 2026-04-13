@@ -67,7 +67,8 @@ def _build_source_record(
     slug = sanitize_slug(title or src.stem)
     note_id = compose_id(type_prefix="src", slug=slug, short_hash=short)
     stat = src.stat()
-    page_count = extra.get("page_count") if isinstance(extra.get("page_count"), int) else None
+    _pc = extra.get("page_count")
+    page_count: int | None = _pc if isinstance(_pc, int) else None
     return SourceRecord(
         id=note_id,
         type="SourceRecord",

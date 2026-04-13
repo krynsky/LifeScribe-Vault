@@ -17,8 +17,8 @@ class ImageExtractor:
         "image/bmp",
         "image/tiff",
     )
-    NAME = "image"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "image"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         extra: dict[str, object] = {}

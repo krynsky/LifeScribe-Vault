@@ -41,8 +41,8 @@ def _read_text(path: Path) -> str:
 
 class TextExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
-    NAME = "text"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "text"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         return ExtractionResult(
@@ -54,8 +54,8 @@ class TextExtractor:
 
 class MarkdownExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("text/markdown",)
-    NAME = "markdown"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "markdown"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         return ExtractionResult(

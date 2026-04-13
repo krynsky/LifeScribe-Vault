@@ -40,7 +40,7 @@ def detect_mime(path: Path) -> str:
     # than our curated _EXT_MAP for text-based formats)
     strong_guesses = [g for g in guesses if g.mime_type and g.confidence >= 0.5]
     if strong_guesses:
-        return strong_guesses[0].mime_type
+        return str(strong_guesses[0].mime_type)
 
     # Extension map covers text-based formats precisely
     ext_mime = _EXT_MAP.get(path.suffix.lower())
@@ -49,7 +49,7 @@ def detect_mime(path: Path) -> str:
 
     # Low-confidence magic guess as last resort before octet-stream
     if guesses and guesses[0].mime_type:
-        return guesses[0].mime_type
+        return str(guesses[0].mime_type)
 
     return "application/octet-stream"
 

@@ -21,8 +21,8 @@ def _extract_html_title(raw: str) -> str | None:
 
 class HtmlExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("text/html",)
-    NAME = "html"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "html"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         raw = path.read_text(encoding="utf-8", errors="replace")
