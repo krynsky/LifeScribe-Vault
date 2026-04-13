@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { RouterProvider } from "react-router-dom";
+
 import type { VaultStatusDTO } from "./api/client";
 import { api } from "./api/client";
 import FirstRunWizard from "./views/FirstRunWizard";
-import EmptyVault from "./views/EmptyVault";
+import { router } from "./router";
 
 export default function App() {
   const [status, setStatus] = useState<VaultStatusDTO | null>(null);
@@ -23,5 +25,5 @@ export default function App() {
 
   if (status === null) return <div style={{ padding: 24 }}>Starting backend…</div>;
   if (!status.open || !status.manifest) return <FirstRunWizard onOpened={refresh} />;
-  return <EmptyVault manifest={status.manifest} />;
+  return <RouterProvider router={router} />;
 }
