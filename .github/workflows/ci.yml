@@ -74,6 +74,8 @@ jobs:
           npm run lint
           npm run format:check
           npm run typecheck
+      - name: Build frontend (required by tauri::generate_context!)
+        run: npm run build
       - name: Lint Rust
         working-directory: apps/desktop/src-tauri
         run: |
