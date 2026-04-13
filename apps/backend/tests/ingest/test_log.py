@@ -4,7 +4,11 @@ from datetime import UTC, datetime
 
 from lifescribe.ingest.log import render_log
 from lifescribe.vault.schemas import (
-    IngestJobLog, JobStatus, PerFileEntry, PerFileStatus, parse_note,
+    IngestJobLog,
+    JobStatus,
+    PerFileEntry,
+    PerFileStatus,
+    parse_note,
 )
 from lifescribe.vault.serialization import load_note
 
@@ -17,9 +21,14 @@ def _log(files: list[PerFileEntry], status: JobStatus) -> IngestJobLog:
         started_at=datetime(2026, 4, 12, 14, 8, 3, tzinfo=UTC),
         finished_at=None,
         total=len(files),
-        succeeded=sum(f.status in (PerFileStatus.SUCCEEDED, PerFileStatus.SUCCEEDED_WITH_CONFLICT) for f in files),
+        succeeded=sum(
+            f.status in (PerFileStatus.SUCCEEDED, PerFileStatus.SUCCEEDED_WITH_CONFLICT)
+            for f in files
+        ),
         failed=sum(f.status == PerFileStatus.FAILED for f in files),
-        skipped=sum(f.status in (PerFileStatus.SKIPPED, PerFileStatus.SKIPPED_IDENTICAL) for f in files),
+        skipped=sum(
+            f.status in (PerFileStatus.SKIPPED, PerFileStatus.SKIPPED_IDENTICAL) for f in files
+        ),
         cancelled=sum(f.status == PerFileStatus.CANCELLED for f in files),
         app_version="0.2.0",
         files=files,
@@ -28,10 +37,19 @@ def _log(files: list[PerFileEntry], status: JobStatus) -> IngestJobLog:
 
 def test_render_log_produces_gfm_table() -> None:
     files = [
-        PerFileEntry(index=1, path="/a.pdf", status=PerFileStatus.SUCCEEDED,
-                     source_id="src_a_abcd", extractor="pdf@0.1.0"),
-        PerFileEntry(index=2, path="/b.zip", status=PerFileStatus.SKIPPED,
-                     error="unsupported mime: application/zip"),
+        PerFileEntry(
+            index=1,
+            path="/a.pdf",
+            status=PerFileStatus.SUCCEEDED,
+            source_id="src_a_abcd",
+            extractor="pdf@0.1.0",
+        ),
+        PerFileEntry(
+            index=2,
+            path="/b.zip",
+            status=PerFileStatus.SKIPPED,
+            error="unsupported mime: application/zip",
+        ),
     ]
     log = _log(files, JobStatus.COMPLETED_WITH_FAILURES)
     md = render_log(log)
@@ -40,8 +58,15 @@ def test_render_log_produces_gfm_table() -> None:
 
 
 def test_render_log_roundtrips_through_load_note() -> None:
-    files = [PerFileEntry(index=1, path="/a.txt", status=PerFileStatus.SUCCEEDED,
-                          source_id="src_a_abcd", extractor="text@0.1.0")]
+    files = [
+        PerFileEntry(
+            index=1,
+            path="/a.txt",
+            status=PerFileStatus.SUCCEEDED,
+            source_id="src_a_abcd",
+            extractor="text@0.1.0",
+        )
+    ]
     log = _log(files, JobStatus.COMPLETED)
     full_text = render_log(log, include_frontmatter=True)
     note, body = load_note(full_text)

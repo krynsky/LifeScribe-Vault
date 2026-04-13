@@ -185,8 +185,12 @@ class IngestJobLog(_NoteBase):
 
 
 Note = Annotated[
-    SourceRecord | DocumentRecord | ConnectorRecord | IngestionLogEntry
-    | IngestJobLog | VaultManifest,
+    SourceRecord
+    | DocumentRecord
+    | ConnectorRecord
+    | IngestionLogEntry
+    | IngestJobLog
+    | VaultManifest,
     Field(discriminator="type"),
 ]
 

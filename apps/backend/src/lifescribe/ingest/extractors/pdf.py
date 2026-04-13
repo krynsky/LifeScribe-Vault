@@ -59,8 +59,10 @@ class PdfExtractor:
         if tables_md:
             body += "\n" + "\n".join(tables_md)
 
-        confidence = 1.0 if pages_with_text == page_count else (
-            0.5 if pages_with_text >= page_count / 2 else 0.2
+        confidence = (
+            1.0
+            if pages_with_text == page_count
+            else (0.5 if pages_with_text >= page_count / 2 else 0.2)
         )
 
         return ExtractionResult(

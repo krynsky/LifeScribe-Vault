@@ -23,15 +23,14 @@ def test_six_format_batch(tmp_path: Path) -> None:
     )
     # minimal PDF via the shared conftest helper
     from tests.ingest.conftest import _write_minimal_pdf
+
     pdf_path = tmp_path / "f.pdf"
     _write_minimal_pdf(pdf_path)
 
     files = [tmp_path / n for n in ["a.txt", "b.md", "c.json", "d.csv", "e.html", "f.pdf"]]
 
     pre = store._repo.log_oneline()
-    log = run_job(
-        store, files=files, registry=default_registry(), app_version="0.2.0"
-    )
+    log = run_job(store, files=files, registry=default_registry(), app_version="0.2.0")
     post = store._repo.log_oneline()
 
     assert len(post) == len(pre) + 1

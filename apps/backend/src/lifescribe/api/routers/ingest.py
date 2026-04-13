@@ -76,8 +76,13 @@ def get_job(job_id: str) -> dict[str, Any]:
         return {
             "job_id": job_id,
             "status": JobStatus.RUNNING.value,
-            "started_at": None, "finished_at": None,
-            "total": 0, "succeeded": 0, "failed": 0, "skipped": 0, "cancelled": 0,
+            "started_at": None,
+            "finished_at": None,
+            "total": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "skipped": 0,
+            "cancelled": 0,
             "files": [],
         }
     log = _read_log(store, job_id)

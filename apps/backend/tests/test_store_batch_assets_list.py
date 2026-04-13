@@ -107,6 +107,8 @@ def test_write_batch_includes_extra_paths_in_commit(tmp_path: Path) -> None:
 
     result = subprocess.run(
         ["git", "-C", str(store.root), "ls-files", "assets/ab/abcd/x.bin"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert result.stdout.strip() == "assets/ab/abcd/x.bin"

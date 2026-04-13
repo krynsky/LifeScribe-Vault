@@ -18,8 +18,16 @@ def _read_text(path: Path) -> str:
         match = from_bytes(raw).best()
         # charset_normalizer can misidentify short non-UTF-8 sequences;
         # prefer its guess only when it resolves to a Western/Latin family.
-        _latin_family = {"latin-1", "iso-8859-1", "iso-8859-2", "iso-8859-15",
-                         "cp1252", "cp1250", "windows-1252", "windows-1250"}
+        _latin_family = {
+            "latin-1",
+            "iso-8859-1",
+            "iso-8859-2",
+            "iso-8859-15",
+            "cp1252",
+            "cp1250",
+            "windows-1252",
+            "windows-1250",
+        }
         if match is not None and match.encoding.lower() in _latin_family:
             try:
                 text = raw.decode(match.encoding)

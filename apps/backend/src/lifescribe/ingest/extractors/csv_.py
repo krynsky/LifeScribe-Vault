@@ -49,7 +49,9 @@ class CsvExtractor:
         ]
         for row in data:
             padded = row + [""] * (len(header) - len(row))
-            lines.append("| " + " | ".join(_md_escape_cell(c) for c in padded[: len(header)]) + " |")
+            lines.append(
+                "| " + " | ".join(_md_escape_cell(c) for c in padded[: len(header)]) + " |"
+            )
         if truncated:
             lines.append("")
             lines.append(f"… truncated at {_MAX_ROWS} rows ({total} total) …")

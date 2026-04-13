@@ -12,7 +12,12 @@ from lifescribe.ingest.log import render_log
 from lifescribe.ingest.mime import detect_mime
 from lifescribe.vault.ids import compose_id, content_short_hash, sanitize_slug
 from lifescribe.vault.schemas import (
-    IngestJobLog, JobStatus, Note, PerFileEntry, PerFileStatus, SourceRecord,
+    IngestJobLog,
+    JobStatus,
+    Note,
+    PerFileEntry,
+    PerFileStatus,
+    SourceRecord,
 )
 from lifescribe.vault.store import VaultStore
 
@@ -89,7 +94,7 @@ def run_job(
     handle: JobHandle | None = None,
 ) -> IngestJobLog:
     started_at = datetime.now(UTC)
-    job_id = (handle.id if handle else new_job_id(started_at))
+    job_id = handle.id if handle else new_job_id(started_at)
     per_file: list[PerFileEntry] = []
     to_commit: list[tuple[Note, str]] = []
     asset_rels: list[str] = []
@@ -97,27 +102,39 @@ def run_job(
 
     for idx, src in enumerate(files, start=1):
         if handle is not None and handle.cancel_requested:
-            per_file.append(PerFileEntry(
-                index=idx, path=str(src), status=PerFileStatus.CANCELLED,
-            ))
+            per_file.append(
+                PerFileEntry(
+                    index=idx,
+                    path=str(src),
+                    status=PerFileStatus.CANCELLED,
+                )
+            )
             cancelled += 1
             continue
 
         if not src.exists():
-            per_file.append(PerFileEntry(
-                index=idx, path=str(src), status=PerFileStatus.FAILED,
-                error="file not found",
-            ))
+            per_file.append(
+                PerFileEntry(
+                    index=idx,
+                    path=str(src),
+                    status=PerFileStatus.FAILED,
+                    error="file not found",
+                )
+            )
             failed += 1
             continue
 
         mime = detect_mime(src)
         extractor = registry.find(mime)
         if extractor is None:
-            per_file.append(PerFileEntry(
-                index=idx, path=str(src), status=PerFileStatus.SKIPPED,
-                error=f"unsupported mime: {mime}",
-            ))
+            per_file.append(
+                PerFileEntry(
+                    index=idx,
+                    path=str(src),
+                    status=PerFileStatus.SKIPPED,
+                    error=f"unsupported mime: {mime}",
+                )
+            )
             skipped += 1
             continue
 
@@ -129,22 +146,30 @@ def run_job(
         # idempotency: same bytes + same filename → no-op if already in vault
         existing_path = store.root / "10_sources" / f"{probable_id}.md"
         if existing_path.exists():
-            per_file.append(PerFileEntry(
-                index=idx, path=str(src), status=PerFileStatus.SKIPPED_IDENTICAL,
-                source_id=probable_id,
-                extractor=f"{extractor.NAME}@{extractor.VERSION}",
-            ))
+            per_file.append(
+                PerFileEntry(
+                    index=idx,
+                    path=str(src),
+                    status=PerFileStatus.SKIPPED_IDENTICAL,
+                    source_id=probable_id,
+                    extractor=f"{extractor.NAME}@{extractor.VERSION}",
+                )
+            )
             skipped += 1
             continue
 
         try:
             result = extractor.extract(src)
         except Exception as e:  # per-file failure isolation
-            per_file.append(PerFileEntry(
-                index=idx, path=str(src), status=PerFileStatus.FAILED,
-                extractor=f"{extractor.NAME}@{extractor.VERSION}",
-                error=f"{type(e).__name__}: {e}",
-            ))
+            per_file.append(
+                PerFileEntry(
+                    index=idx,
+                    path=str(src),
+                    status=PerFileStatus.FAILED,
+                    extractor=f"{extractor.NAME}@{extractor.VERSION}",
+                    error=f"{type(e).__name__}: {e}",
+                )
+            )
             failed += 1
             continue
 
@@ -153,16 +178,26 @@ def run_job(
 
         now = datetime.now(UTC)
         rec = _build_source_record(
-            src=src, mime=mime, full_hash=full_hash,
-            extractor=result.extractor, confidence=result.confidence,
-            title=result.title, extra=result.extra_frontmatter,
-            job_id=job_id, now=now,
+            src=src,
+            mime=mime,
+            full_hash=full_hash,
+            extractor=result.extractor,
+            confidence=result.confidence,
+            title=result.title,
+            extra=result.extra_frontmatter,
+            job_id=job_id,
+            now=now,
         )
         to_commit.append((rec, result.body_markdown))
-        per_file.append(PerFileEntry(
-            index=idx, path=str(src), status=PerFileStatus.SUCCEEDED,
-            source_id=rec.id, extractor=result.extractor,
-        ))
+        per_file.append(
+            PerFileEntry(
+                index=idx,
+                path=str(src),
+                status=PerFileStatus.SUCCEEDED,
+                source_id=rec.id,
+                extractor=result.extractor,
+            )
+        )
         succeeded += 1
 
     finished_at = datetime.now(UTC)

@@ -113,12 +113,16 @@ def test_extractor_exception_marks_file_failed(tmp_path: Path) -> None:
 
 def test_cancel_flag_stops_at_next_file(tmp_path: Path) -> None:
     store = VaultStore.init(tmp_path / "v", app_version="0.2.0")
-    a = tmp_path / "a.txt"; a.write_text("a", encoding="utf-8")
-    b = tmp_path / "b.txt"; b.write_text("b", encoding="utf-8")
-    c = tmp_path / "c.txt"; c.write_text("c", encoding="utf-8")
+    a = tmp_path / "a.txt"
+    a.write_text("a", encoding="utf-8")
+    b = tmp_path / "b.txt"
+    b.write_text("b", encoding="utf-8")
+    c = tmp_path / "c.txt"
+    c.write_text("c", encoding="utf-8")
 
     # Set cancel before job starts so the first iteration sees it.
     from lifescribe.ingest.pipeline import JobHandle
+
     handle = JobHandle(id="job_2026-04-12_14-08-03_aaaa", cancel_requested=True)
     reg = ExtractorRegistry()
     reg.register(_FakeText())

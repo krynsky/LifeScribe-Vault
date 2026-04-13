@@ -35,9 +35,12 @@ class HtmlExtractor:
             favor_recall=True,
         )
         if not body:
-            body = trafilatura.extract(
-                raw, output_format="markdown", favor_recall=True, no_fallback=False
-            ) or ""
+            body = (
+                trafilatura.extract(
+                    raw, output_format="markdown", favor_recall=True, no_fallback=False
+                )
+                or ""
+            )
 
         # trafilatura 2.0.0 extract_metadata() may return the h1 as title
         # instead of the <title> tag — extract it directly via lxml.
@@ -48,9 +51,7 @@ class HtmlExtractor:
                 title = meta.title
 
         if not body.strip():
-            body = "\n".join(
-                line.strip() for line in raw.splitlines() if line.strip()
-            )
+            body = "\n".join(line.strip() for line in raw.splitlines() if line.strip())
 
         return ExtractionResult(
             body_markdown=body.rstrip() + "\n",
