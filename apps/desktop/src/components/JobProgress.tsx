@@ -31,12 +31,7 @@ export default function JobProgress({ job, onCancel, cancelling = false }: Props
         <Counter label="Σ" value={job.total} tone="muted" />
       </div>
       {!terminal && (
-        <button
-          type="button"
-          className={styles.cancel}
-          onClick={onCancel}
-          disabled={cancelling}
-        >
+        <button type="button" className={styles.cancel} onClick={onCancel} disabled={cancelling}>
           {cancelling ? "Cancelling…" : "Cancel"}
         </button>
       )}
@@ -44,7 +39,15 @@ export default function JobProgress({ job, onCancel, cancelling = false }: Props
   );
 }
 
-function Counter({ label, value, tone }: { label: string; value: number; tone: "ok" | "bad" | "muted" }) {
+function Counter({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "ok" | "bad" | "muted";
+}) {
   return (
     <div className={styles.counter} data-tone={tone}>
       <span className={styles.counterLabel}>{label}</span>

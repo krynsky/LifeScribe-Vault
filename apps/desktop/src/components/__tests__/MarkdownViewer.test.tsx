@@ -18,9 +18,7 @@ describe("MarkdownViewer", () => {
   });
 
   it("sanitizes raw HTML by default", () => {
-    const { container } = render(
-      <MarkdownViewer body={"<script>alert(1)</script>\n\nOK"} />,
-    );
+    const { container } = render(<MarkdownViewer body={"<script>alert(1)</script>\n\nOK"} />);
     expect(container.querySelector("script")).toBeNull();
     expect(screen.getByText(/OK/)).toBeInTheDocument();
   });
