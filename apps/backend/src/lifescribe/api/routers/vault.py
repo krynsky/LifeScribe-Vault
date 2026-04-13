@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from lifescribe import __version__
 from lifescribe.vault.errors import (
@@ -12,6 +12,7 @@ from lifescribe.vault.errors import (
     VaultAlreadyInitializedError,
     VaultNotFoundError,
 )
+from lifescribe.vault.schemas import VaultSettings
 from lifescribe.vault.store import VaultStore
 
 router = APIRouter(prefix="/vault", tags=["vault"])
@@ -60,3 +61,28 @@ def open_endpoint(req: _OpenRequest) -> dict[str, Any]:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
     _State.store = store
     return {"open": True, "manifest": _manifest_dict(store)}
+
+
+_ALLOWED_NOTE_TYPES = {
+    "SourceRecord",
+    "DocumentRecord",
+    "ConnectorRecord",
+    "IngestionLogEntry",
+    "IngestJobLog",
+    "VaultManifest",
+    "VaultSettings",
+}
+
+
+def _require_store() -> VaultStore:
+    if _State.store is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "vault not open")
+    return _State.store
+
+
+@router.get("/notes")
+def list_notes(type: str) -> list[dict[str, Any]]:
+    if type not in _ALLOWED_NOTE_TYPES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown type: {type}")
+    store = _require_store()
+    return [n.model_dump(mode="json") for n in store.list_notes(type_=type)]
