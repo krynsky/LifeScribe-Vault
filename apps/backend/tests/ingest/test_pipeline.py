@@ -57,3 +57,55 @@ def test_single_file_happy_path(tmp_path: Path) -> None:
     # Log file exists
     log_files = list((store.root / "system" / "logs" / "ingestion").rglob(f"{log.id}.md"))
     assert len(log_files) == 1
+
+
+def test_reimport_identical_is_skipped(tmp_path: Path) -> None:
+    store = VaultStore.init(tmp_path / "v", app_version="0.2.0")
+    src = tmp_path / "a.txt"
+    src.write_text("hello", encoding="utf-8")
+    reg = ExtractorRegistry()
+    reg.register(_FakeText())
+
+    run_job(store, files=[src], registry=reg, app_version="0.2.0")
+    pre = store._repo.log_oneline()
+    log2 = run_job(store, files=[src], registry=reg, app_version="0.2.0")
+    post = store._repo.log_oneline()
+
+    assert log2.skipped == 1
+    assert log2.files[0].status == PerFileStatus.SKIPPED_IDENTICAL
+    # Second run still commits (the log itself), so exactly one new commit:
+    assert len(post) == len(pre) + 1
+
+
+def test_unknown_mime_is_skipped_not_failed(tmp_path: Path) -> None:
+    store = VaultStore.init(tmp_path / "v", app_version="0.2.0")
+    blob = tmp_path / "x.xyz"
+    blob.write_bytes(b"\x00\x01\x02")
+    reg = ExtractorRegistry()  # no extractors registered
+
+    log = run_job(store, files=[blob], registry=reg, app_version="0.2.0")
+    assert log.skipped == 1
+    assert log.failed == 0
+    assert log.files[0].status == PerFileStatus.SKIPPED
+    assert "unsupported mime" in (log.files[0].error or "")
+
+
+def test_extractor_exception_marks_file_failed(tmp_path: Path) -> None:
+    class _Boom:
+        mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
+        NAME = "boom"
+        VERSION = "0.1.0"
+
+        def extract(self, path: Path) -> ExtractionResult:
+            raise RuntimeError("nope")
+
+    store = VaultStore.init(tmp_path / "v", app_version="0.2.0")
+    src = tmp_path / "a.txt"
+    src.write_text("x", encoding="utf-8")
+    reg = ExtractorRegistry()
+    reg.register(_Boom())
+
+    log = run_job(store, files=[src], registry=reg, app_version="0.2.0")
+    assert log.status == JobStatus.COMPLETED_WITH_FAILURES
+    assert log.files[0].status == PerFileStatus.FAILED
+    assert "RuntimeError: nope" in (log.files[0].error or "")
