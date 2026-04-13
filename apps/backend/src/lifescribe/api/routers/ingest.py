@@ -3,10 +3,9 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
 
 from lifescribe import __version__
 from lifescribe.api.routers.vault import _State as _VaultState
@@ -23,6 +22,7 @@ _REGISTRY = default_registry()
 
 class _IngestState:
     active: JobHandle | None = None
+    _tasks: ClassVar[set[asyncio.Task[None]]] = set()
 
 
 def _require_store() -> Any:
@@ -65,7 +65,9 @@ async def post_job(req: JobRequest) -> dict[str, Any]:
         finally:
             _IngestState.active = None
 
-    asyncio.create_task(_run())
+    task = asyncio.create_task(_run())
+    _IngestState._tasks.add(task)
+    task.add_done_callback(_IngestState._tasks.discard)
     return {"job_id": job_id, "status": "queued", "total": len(req.files)}
 
 

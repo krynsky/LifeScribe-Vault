@@ -161,8 +161,8 @@ def test_ingest_job_log_roundtrip() -> None:
     from lifescribe.vault.schemas import (
         IngestJobLog,
         JobStatus,
-        PerFileStatus,
         PerFileEntry,
+        PerFileStatus,
         parse_note,
     )
 

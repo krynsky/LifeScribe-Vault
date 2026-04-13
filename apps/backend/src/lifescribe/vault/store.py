@@ -21,8 +21,8 @@ from lifescribe.vault.gitwrap import GitRepo
 from lifescribe.vault.schemas import (
     ConnectorRecord,
     DocumentRecord,
-    IngestJobLog,
     IngestionLogEntry,
+    IngestJobLog,
     Note,
     SourceRecord,
     VaultManifest,
