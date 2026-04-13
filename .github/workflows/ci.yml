@@ -57,7 +57,10 @@ jobs:
           components: rustfmt, clippy
       - name: Install JS deps (workspace root)
         working-directory: .
-        run: npm ci
+        shell: bash
+        run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
       - name: Create placeholder sidecar binary
         shell: bash
         run: |
