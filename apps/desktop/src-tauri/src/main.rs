@@ -9,6 +9,7 @@ use sidecar::{backend_info, spawn_backend, BackendState};
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(BackendState {
             ready: Mutex::new(None),
             child: Mutex::new(None),
