@@ -86,3 +86,13 @@ def list_notes(type: str) -> list[dict[str, Any]]:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown type: {type}")
     store = _require_store()
     return [n.model_dump(mode="json") for n in store.list_notes(type_=type)]
+
+
+@router.get("/notes/{note_id}")
+def get_note(note_id: str) -> dict[str, Any]:
+    store = _require_store()
+    try:
+        note, body = store.read_note(note_id)
+    except KeyError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
+    return {"note": note.model_dump(mode="json"), "body": body}

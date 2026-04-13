@@ -76,3 +76,21 @@ def test_list_notes_requires_open_vault(tmp_path: Path) -> None:
     client = TestClient(create_app(auth_token=TOKEN))
     r = client.get("/vault/notes?type=SourceRecord", headers=HEADERS)
     assert r.status_code == 409
+
+
+def test_get_note_returns_frontmatter_and_body(client_with_store: TestClient) -> None:
+    store = _State.store
+    assert store is not None
+    _make_source(store, "src_gamma-33333333", "Gamma")
+
+    r = client_with_store.get("/vault/notes/src_gamma-33333333", headers=HEADERS)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["note"]["id"] == "src_gamma-33333333"
+    assert body["note"]["type"] == "SourceRecord"
+    assert body["body"].startswith("# Gamma")
+
+
+def test_get_note_404(client_with_store: TestClient) -> None:
+    r = client_with_store.get("/vault/notes/src_missing", headers=HEADERS)
+    assert r.status_code == 404
