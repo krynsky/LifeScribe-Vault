@@ -23,7 +23,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --all-extras
       - name: Lint
         run: |
           uv run ruff format --check .
@@ -55,7 +55,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - run: npm ci
+      - name: Install JS deps (workspace root)
+        working-directory: .
+        run: npm ci
+      - name: Create placeholder sidecar binary
+        shell: bash
+        run: |
+          TRIPLE=$(rustc -vV | sed -n 's/host: //p')
+          mkdir -p src-tauri/binaries
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            : > "src-tauri/binaries/lifescribe-backend-${TRIPLE}.exe"
+          else
+            : > "src-tauri/binaries/lifescribe-backend-${TRIPLE}"
+            chmod +x "src-tauri/binaries/lifescribe-backend-${TRIPLE}"
+          fi
       - name: Lint JS/TS
         run: |
           npm run lint
