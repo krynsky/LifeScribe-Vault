@@ -69,9 +69,7 @@ def test_foundation_end_to_end(tmp_path: Path) -> None:
     assert body == "Hello, world."
 
     pre_log = store._repo.log_oneline()
-    store.write_note(
-        rec, body="Hello, world. redux.", commit_message="ingest: updated content"
-    )
+    store.write_note(rec, body="Hello, world. redux.", commit_message="ingest: updated content")
     post_log = store._repo.log_oneline()
     assert len(post_log) == len(pre_log) + 1
 

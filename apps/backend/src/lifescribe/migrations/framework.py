@@ -56,8 +56,8 @@ def apply_migrations(
             created_at=store.manifest.created_at,
             migrations=[
                 *store.manifest.migrations,
-                MigrationRecord(
-                    **{"from": mig.from_version, "to": mig.to_version, "applied_at": now}
+                MigrationRecord.model_validate(
+                    {"from": mig.from_version, "to": mig.to_version, "applied_at": now}
                 ),
             ],
         )

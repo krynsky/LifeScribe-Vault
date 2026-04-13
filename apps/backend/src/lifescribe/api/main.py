@@ -15,7 +15,8 @@ from lifescribe.api.app import create_app
 def _pick_free_port(host: str) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, 0))
-        return s.getsockname()[1]
+        port: int = s.getsockname()[1]
+        return port
 
 
 def main() -> None:
@@ -25,11 +26,7 @@ def main() -> None:
     parser.add_argument("--auth-token", default=None)
     args = parser.parse_args()
 
-    token = (
-        args.auth_token
-        or os.environ.get("LIFESCRIBE_AUTH_TOKEN")
-        or secrets.token_urlsafe(32)
-    )
+    token = args.auth_token or os.environ.get("LIFESCRIBE_AUTH_TOKEN") or secrets.token_urlsafe(32)
     port = args.port if args.port != 0 else _pick_free_port(args.host)
 
     print(
