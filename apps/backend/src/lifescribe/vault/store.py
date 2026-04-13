@@ -21,6 +21,7 @@ from lifescribe.vault.gitwrap import GitRepo
 from lifescribe.vault.schemas import (
     ConnectorRecord,
     DocumentRecord,
+    IngestJobLog,
     IngestionLogEntry,
     Note,
     SourceRecord,
@@ -88,6 +89,9 @@ def _relative_path_for(note: Note, root: Path) -> Path:
     if isinstance(note, ConnectorRecord):
         return root / "system" / "connectors" / f"{note.id}.md"
     if isinstance(note, IngestionLogEntry):
+        year_month = note.started_at.strftime("%Y-%m")
+        return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
+    if isinstance(note, IngestJobLog):
         year_month = note.started_at.strftime("%Y-%m")
         return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
     if isinstance(note, VaultManifest):

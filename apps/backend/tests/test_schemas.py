@@ -155,3 +155,46 @@ class TestConnectorAndLog:
             errors=[],
         )
         assert e.job_id == e.id
+
+
+def test_ingest_job_log_roundtrip() -> None:
+    from lifescribe.vault.schemas import (
+        IngestJobLog, JobStatus, PerFileStatus, PerFileEntry, parse_note,
+    )
+    log = IngestJobLog(
+        id="job_2026-04-12_14-08-03_abc1",
+        type="IngestJobLog",
+        status=JobStatus.COMPLETED,
+        started_at=datetime(2026, 4, 12, 14, 8, 3, tzinfo=UTC),
+        finished_at=datetime(2026, 4, 12, 14, 9, 41, tzinfo=UTC),
+        total=2, succeeded=1, failed=0, skipped=1, cancelled=0,
+        app_version="0.2.0",
+        files=[
+            PerFileEntry(
+                index=1, path="/abs/a.pdf", status=PerFileStatus.SUCCEEDED,
+                source_id="src_report_abc1", extractor="pdf@0.1.0", error=None,
+            ),
+            PerFileEntry(
+                index=2, path="/abs/b.zip", status=PerFileStatus.SKIPPED,
+                source_id=None, extractor=None, error="unsupported mime: application/zip",
+            ),
+        ],
+    )
+    dumped = log.model_dump(mode="json")
+    parsed = parse_note(dumped)
+    assert parsed == log
+    assert parsed.id.startswith("job_")
+
+
+def test_ingest_job_log_id_prefix_rejected() -> None:
+    from lifescribe.vault.schemas import IngestJobLog, JobStatus
+    with pytest.raises(ValueError, match="id must start with 'job_'"):
+        IngestJobLog(
+            id="bad",
+            type="IngestJobLog",
+            status=JobStatus.QUEUED,
+            started_at=datetime(2026, 4, 12, 14, 8, 3, tzinfo=UTC),
+            finished_at=None,
+            total=0, succeeded=0, failed=0, skipped=0, cancelled=0,
+            app_version="0.2.0", files=[],
+        )
