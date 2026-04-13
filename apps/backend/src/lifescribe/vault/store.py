@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -11,7 +13,14 @@ from lifescribe.vault.errors import (
     VaultNotFoundError,
 )
 from lifescribe.vault.gitwrap import GitRepo
-from lifescribe.vault.schemas import VaultManifest
+from lifescribe.vault.schemas import (
+    ConnectorRecord,
+    DocumentRecord,
+    IngestionLogEntry,
+    Note,
+    SourceRecord,
+    VaultManifest,
+)
 from lifescribe.vault.serialization import dump_note, load_note
 
 SCHEMA_VERSION = 1
@@ -52,6 +61,45 @@ This folder is reserved for a future sub-project. It will be populated
 once the associated feature ships. See the top-level overview spec for
 the v1 / v2 scope split.
 """
+
+
+@dataclass
+class WriteResult:
+    path: Path
+    conflict: bool
+    committed: bool
+
+
+def _relative_path_for(note: Note, root: Path) -> Path:
+    if isinstance(note, SourceRecord):
+        return root / "10_sources" / f"{note.id}.md"
+    if isinstance(note, DocumentRecord):
+        return root / "10_sources" / note.parent_source / f"{note.id}.md"
+    if isinstance(note, ConnectorRecord):
+        return root / "system" / "connectors" / f"{note.id}.md"
+    if isinstance(note, IngestionLogEntry):
+        year_month = note.started_at.strftime("%Y-%m")
+        return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
+    if isinstance(note, VaultManifest):
+        return root / "system" / "vault.md"
+    raise TypeError(f"Unknown note type: {type(note).__name__}")
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        delete=False,
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    ) as tmp:
+        tmp.write(text)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_name = tmp.name
+    os.replace(tmp_name, path)
 
 
 @dataclass
@@ -112,3 +160,46 @@ class VaultStore:
             )
         repo = GitRepo.open(root)
         return cls(root=root, manifest=note, app_version=app_version, _repo=repo)
+
+    def write_note(
+        self,
+        note: Note,
+        *,
+        body: str = "",
+        commit_message: str,
+    ) -> WriteResult:
+        target = _relative_path_for(note, self.root)
+        rel = target.relative_to(self.root).as_posix()
+        text = dump_note(note, body=body)
+
+        if target.exists() and self._repo.is_modified(rel):
+            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            conflict_path = target.with_name(
+                f"{target.stem}.conflict-{stamp}{target.suffix}"
+            )
+            _atomic_write(conflict_path, text)
+            self._repo.add([conflict_path.relative_to(self.root).as_posix()])
+            self._repo.commit(
+                f"conflict: {note.id} hand-edited; wrote {conflict_path.name}",
+                author_name=APP_GIT_AUTHOR_NAME,
+                author_email=APP_GIT_AUTHOR_EMAIL,
+            )
+            return WriteResult(path=conflict_path, conflict=True, committed=True)
+
+        _atomic_write(target, text)
+        self._repo.add([rel])
+        self._repo.commit(
+            commit_message,
+            author_name=APP_GIT_AUTHOR_NAME,
+            author_email=APP_GIT_AUTHOR_EMAIL,
+        )
+        return WriteResult(path=target, conflict=False, committed=True)
+
+    def read_note(self, note_id: str) -> tuple[Note, str]:
+        for md in self.root.rglob("*.md"):
+            if md.stem == note_id:
+                return load_note(md.read_text(encoding="utf-8"))
+        raise KeyError(f"No note with id {note_id!r} found in vault")
+
+    def exists(self, note_id: str) -> bool:
+        return any(md.stem == note_id for md in self.root.rglob("*.md"))
