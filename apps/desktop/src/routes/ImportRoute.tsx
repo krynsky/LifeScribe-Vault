@@ -43,7 +43,10 @@ export default function ImportRoute() {
     <div>
       <h1>Import</h1>
       {banner && (
-        <div role="alert" style={{ background: "#fde", padding: 10, borderRadius: 6, marginBottom: 12 }}>
+        <div
+          role="alert"
+          style={{ background: "#fde", padding: 10, borderRadius: 6, marginBottom: 12 }}
+        >
           {banner}
         </div>
       )}

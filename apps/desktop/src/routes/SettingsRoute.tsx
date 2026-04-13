@@ -31,11 +31,7 @@ export default function SettingsRoute() {
       <section style={{ marginBottom: 24 }}>
         <h2>Privacy</h2>
         <label>
-          <input
-            type="checkbox"
-            checked={privacy}
-            onChange={(e) => setPrivacy(e.target.checked)}
-          />{" "}
+          <input type="checkbox" checked={privacy} onChange={(e) => setPrivacy(e.target.checked)} />{" "}
           Privacy mode (master switch; no enforcement yet)
         </label>
       </section>

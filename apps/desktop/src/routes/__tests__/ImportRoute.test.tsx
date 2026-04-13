@@ -14,10 +14,7 @@ describe("ImportRoute", () => {
     let poll = 0;
     server.use(
       http.post(`${BASE}/ingest/jobs`, () =>
-        HttpResponse.json(
-          { job_id: "job_x", status: "queued", total: 2 },
-          { status: 202 },
-        ),
+        HttpResponse.json({ job_id: "job_x", status: "queued", total: 2 }, { status: 202 }),
       ),
       http.get(`${BASE}/ingest/jobs/job_x`, () => {
         poll += 1;

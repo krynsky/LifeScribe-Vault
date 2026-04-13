@@ -12,9 +12,7 @@ describe("BrowseRoute", () => {
   it("lists SourceRecord notes and navigates to viewer on click", async () => {
     server.use(
       http.get(`${BASE}/vault/notes`, () =>
-        HttpResponse.json([
-          { id: "src_alpha", type: "SourceRecord", original_filename: "a.txt" },
-        ]),
+        HttpResponse.json([{ id: "src_alpha", type: "SourceRecord", original_filename: "a.txt" }]),
       ),
     );
     renderWithProviders(

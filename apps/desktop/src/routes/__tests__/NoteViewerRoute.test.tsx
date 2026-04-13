@@ -23,9 +23,7 @@ describe("NoteViewerRoute", () => {
       </Routes>,
       { initialEntries: ["/browse/src_alpha"] },
     );
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Title" })).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Title" })).toBeInTheDocument());
     expect(screen.getByText("Hello")).toBeInTheDocument();
     expect(screen.getByText(/src_alpha/)).toBeInTheDocument();
   });
