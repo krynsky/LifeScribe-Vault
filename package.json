@@ -1,0 +1,5 @@
+{
+  "name": "lifescribe-vault",
+  "private": true,
+  "workspaces": ["apps/desktop", "packages/*"]
+}

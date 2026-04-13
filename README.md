@@ -21,3 +21,10 @@ for the overview and per-subsystem design documents.
 ## License
 
 [MIT](LICENSE)
+
+## Regenerating shared types
+
+After changing backend API routes, run:
+
+- Unix: `bash scripts/gen-types.sh`
+- Windows: `powershell -File scripts/gen-types.ps1`
