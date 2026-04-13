@@ -11,3 +11,14 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
 }));
+
+export const dragDropHandlers = new Set<(e: unknown) => void>();
+
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({
+    onDragDropEvent: (cb: (e: unknown) => void) => {
+      dragDropHandlers.add(cb);
+      return Promise.resolve(() => dragDropHandlers.delete(cb));
+    },
+  }),
+}));
