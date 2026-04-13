@@ -50,3 +50,20 @@ def hello_docx(tmp_path: Path) -> Path:
     p = tmp_path / "h.docx"
     doc.save(str(p))
     return p
+
+
+@pytest.fixture
+def hello_xlsx(tmp_path: Path) -> Path:
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Data"
+    ws.append(["name", "qty"])
+    ws.append(["apple", 3])
+    ws.append(["pear", 5])
+    ws2 = wb.create_sheet("Notes")
+    ws2.append(["id", "memo"])
+    ws2.append([1, "hello"])
+    p = tmp_path / "h.xlsx"
+    wb.save(str(p))
+    return p
