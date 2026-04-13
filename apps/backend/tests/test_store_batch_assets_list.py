@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -69,3 +70,43 @@ def test_is_hand_edited(tmp_vault: Path) -> None:
     assert store.is_hand_edited(rec.id) is False
     result.path.write_text("tampered\n", encoding="utf-8")
     assert store.is_hand_edited(rec.id) is True
+
+
+def test_write_batch_includes_extra_paths_in_commit(tmp_path: Path) -> None:
+    store = VaultStore.init(tmp_path / "v", app_version="0.2.0")
+
+    # write an asset out-of-band
+    asset = store.root / "assets" / "ab" / "abcd" / "x.bin"
+    asset.parent.mkdir(parents=True)
+    asset.write_bytes(b"\x00\x01")
+
+    rec = SourceRecord(
+        id="src_x_abcd",
+        type="SourceRecord",
+        source_path="/tmp/x.bin",
+        source_hash="sha256:0",
+        source_mtime=datetime(2026, 4, 12, tzinfo=UTC),
+        imported_at=datetime(2026, 4, 12, tzinfo=UTC),
+        imported_by_job="job_2026-04-12_x_abcd",
+        extractor="fake@0.1.0",
+        extractor_confidence=1.0,
+        links={"parent_source": None, "derived_from": []},
+        tags=[],
+        mime_type="application/octet-stream",
+        original_filename="x.bin",
+        size_bytes=2,
+    )
+    pre = store._repo.log_oneline()
+    store.write_batch(
+        [(rec, "")],
+        commit_message="ingest: x",
+        extra_paths=["assets/ab/abcd/x.bin"],
+    )
+    post = store._repo.log_oneline()
+    assert len(post) == len(pre) + 1
+
+    result = subprocess.run(
+        ["git", "-C", str(store.root), "ls-files", "assets/ab/abcd/x.bin"],
+        capture_output=True, text=True, check=True,
+    )
+    assert result.stdout.strip() == "assets/ab/abcd/x.bin"

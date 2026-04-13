@@ -219,11 +219,12 @@ class VaultStore:
         items: list[tuple[Note, str]],
         *,
         commit_message: str,
+        extra_paths: list[str] | None = None,
     ) -> list[WriteResult]:
-        if not items:
+        if not items and not extra_paths:
             return []
         results: list[WriteResult] = []
-        staged: list[str] = []
+        staged: list[str] = list(extra_paths or [])
         for note, body in items:
             target = _relative_path_for(note, self.root)
             rel = target.relative_to(self.root).as_posix()
