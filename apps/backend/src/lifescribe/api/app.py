@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI
 
 from lifescribe import __version__
 from lifescribe.api.auth import make_auth_dependency
+from lifescribe.api.routers.vault import router as vault_router
 
 
 def create_app(*, auth_token: str) -> FastAPI:
@@ -13,6 +14,7 @@ def create_app(*, auth_token: str) -> FastAPI:
         version=__version__,
         dependencies=[Depends(require_auth)],
     )
+    app.include_router(vault_router)
 
     @app.get("/health")
     def health() -> dict[str, str]:
