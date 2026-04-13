@@ -21,6 +21,9 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
+# PyInstaller
+*.spec
+
 # Node / JS
 node_modules/
 dist/
