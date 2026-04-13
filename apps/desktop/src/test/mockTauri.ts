@@ -22,3 +22,9 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
     },
   }),
 }));
+
+export const openDialogMock = vi.fn();
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: (...args: unknown[]) => openDialogMock(...args),
+}));
