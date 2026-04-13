@@ -67,3 +67,12 @@ def hello_xlsx(tmp_path: Path) -> Path:
     p = tmp_path / "h.xlsx"
     wb.save(str(p))
     return p
+
+
+@pytest.fixture
+def hello_png(tmp_path: Path) -> Path:
+    from PIL import Image
+    img = Image.new("RGB", (20, 10), color=(255, 0, 0))
+    p = tmp_path / "h.png"
+    img.save(str(p))
+    return p
