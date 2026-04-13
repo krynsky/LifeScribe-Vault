@@ -30,3 +30,23 @@ def hello_pdf(tmp_path: Path) -> Path:
     p = tmp_path / "hello.pdf"
     _write_minimal_pdf(p)
     return p
+
+
+@pytest.fixture
+def hello_docx(tmp_path: Path) -> Path:
+    from docx import Document
+    doc = Document()
+    doc.core_properties.title = "Hello"
+    doc.core_properties.author = "Alice"
+    doc.add_heading("H1 Heading", level=1)
+    doc.add_paragraph("First paragraph.")
+    doc.add_heading("Sub", level=2)
+    doc.add_paragraph("Second paragraph.")
+    table = doc.add_table(rows=2, cols=2)
+    table.rows[0].cells[0].text = "a"
+    table.rows[0].cells[1].text = "b"
+    table.rows[1].cells[0].text = "1"
+    table.rows[1].cells[1].text = "2"
+    p = tmp_path / "h.docx"
+    doc.save(str(p))
+    return p
