@@ -54,9 +54,7 @@ def test_hand_edit_routes_to_conflict_file(tmp_vault: Path) -> None:
     store = VaultStore.init(tmp_vault, app_version="0.1.0")
     rec = _src()
     first = store.write_note(rec, body="v1", commit_message="ingest: v1")
-    first.path.write_text(
-        first.path.read_text(encoding="utf-8") + "\nhand\n", encoding="utf-8"
-    )
+    first.path.write_text(first.path.read_text(encoding="utf-8") + "\nhand\n", encoding="utf-8")
     second = store.write_note(rec, body="v2", commit_message="ingest: v2")
     assert second.conflict is True
     assert ".conflict-" in second.path.name

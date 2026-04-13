@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -70,6 +71,11 @@ class WriteResult:
     committed: bool
 
 
+@dataclass
+class AssetRef:
+    path: Path
+
+
 def _relative_path_for(note: Note, root: Path) -> Path:
     if isinstance(note, SourceRecord):
         return root / "10_sources" / f"{note.id}.md"
@@ -132,9 +138,7 @@ class VaultStore:
             created_at=datetime.now(UTC),
             migrations=[],
         )
-        (root / "system" / "vault.md").write_text(
-            dump_note(manifest, body=""), encoding="utf-8"
-        )
+        (root / "system" / "vault.md").write_text(dump_note(manifest, body=""), encoding="utf-8")
 
         repo = GitRepo.init(root, initial_branch="main")
         repo.add(["."])
@@ -174,9 +178,7 @@ class VaultStore:
 
         if target.exists() and self._repo.is_modified(rel):
             stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-            conflict_path = target.with_name(
-                f"{target.stem}.conflict-{stamp}{target.suffix}"
-            )
+            conflict_path = target.with_name(f"{target.stem}.conflict-{stamp}{target.suffix}")
             _atomic_write(conflict_path, text)
             self._repo.add([conflict_path.relative_to(self.root).as_posix()])
             self._repo.commit(
@@ -203,3 +205,58 @@ class VaultStore:
 
     def exists(self, note_id: str) -> bool:
         return any(md.stem == note_id for md in self.root.rglob("*.md"))
+
+    def write_batch(
+        self,
+        items: list[tuple[Note, str]],
+        *,
+        commit_message: str,
+    ) -> list[WriteResult]:
+        if not items:
+            return []
+        results: list[WriteResult] = []
+        staged: list[str] = []
+        for note, body in items:
+            target = _relative_path_for(note, self.root)
+            rel = target.relative_to(self.root).as_posix()
+            if target.exists() and self._repo.is_modified(rel):
+                stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+                conflict_path = target.with_name(f"{target.stem}.conflict-{stamp}{target.suffix}")
+                _atomic_write(conflict_path, dump_note(note, body=body))
+                staged.append(conflict_path.relative_to(self.root).as_posix())
+                results.append(WriteResult(path=conflict_path, conflict=True, committed=False))
+            else:
+                _atomic_write(target, dump_note(note, body=body))
+                staged.append(rel)
+                results.append(WriteResult(path=target, conflict=False, committed=False))
+        self._repo.add(staged)
+        self._repo.commit(
+            commit_message,
+            author_name=APP_GIT_AUTHOR_NAME,
+            author_email=APP_GIT_AUTHOR_EMAIL,
+        )
+        return [WriteResult(path=r.path, conflict=r.conflict, committed=True) for r in results]
+
+    def write_asset(self, src: Path, *, canonical_name: str | None = None) -> AssetRef:
+        name = canonical_name or src.name
+        dest = self.root / "assets" / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(Path(src).read_bytes())
+        return AssetRef(path=dest)
+
+    def list_notes(self, *, type_: str | None = None) -> Iterator[Note]:
+        for md in self.root.rglob("*.md"):
+            if md.name == "README.md":
+                continue
+            try:
+                note, _ = load_note(md.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if type_ is None or note.type == type_:
+                yield note
+
+    def is_hand_edited(self, note_id: str) -> bool:
+        for md in self.root.rglob("*.md"):
+            if md.stem == note_id:
+                return self._repo.is_modified(md.relative_to(self.root).as_posix())
+        return False
