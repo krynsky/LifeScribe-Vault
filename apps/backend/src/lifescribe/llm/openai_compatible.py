@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
@@ -128,9 +130,6 @@ def _build_payload(req: ChatRequest, *, stream: bool) -> dict[str, object]:
 
 
 async def _iter_sse_chunks(resp: httpx.Response) -> AsyncIterator[ChatChunk]:
-    import json
-    import logging
-
     log = logging.getLogger(__name__)
     async for line in resp.aiter_lines():
         if not line or not line.startswith("data:"):
