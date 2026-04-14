@@ -286,6 +286,21 @@ class VaultStore:
             return None
         return _relative_path_for(note, self.root)
 
+    def delete_note(self, note_id: str, *, commit_message: str) -> None:
+        """Delete a note file and commit the deletion."""
+        target = self.path_for(note_id)
+        if target is None:
+            raise KeyError(note_id)
+        if target.exists():
+            target.unlink()
+        rel = target.relative_to(self.root).as_posix()
+        self._repo.add([rel])
+        self._repo.commit(
+            commit_message,
+            author_name=APP_GIT_AUTHOR_NAME,
+            author_email=APP_GIT_AUTHOR_EMAIL,
+        )
+
     def migrate(self, target_version: int) -> MigrationReport:
         from lifescribe.migrations.framework import apply_migrations
 

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import re
 import secrets as _secrets
-from pathlib import Path
 
 from lifescribe.vault.schemas import ChatSession, ChatTurn
-from lifescribe.vault.store import APP_GIT_AUTHOR_EMAIL, APP_GIT_AUTHOR_NAME, VaultStore
+from lifescribe.vault.store import VaultStore
 
 
 def auto_title(message: str) -> str:
@@ -88,23 +87,18 @@ class SessionStore:
         ]
         # Sort by file mtime (newest first) so that sessions created later appear first.
         # This is reliable even when multiple sessions share the same turn timestamp.
-        chats_dir = Path(self._vault.root) / "70_chats"
 
         def _mtime(s: ChatSession) -> float:
-            p = chats_dir / f"{s.id}.md"
-            return p.stat().st_mtime if p.exists() else 0.0
+            path = self._vault.path_for(s.id)
+            if path and path.exists():
+                return path.stat().st_mtime
+            return 0.0
 
         sessions.sort(key=_mtime, reverse=True)
         return sessions
 
     def delete(self, session_id: str) -> None:
-        target = Path(self._vault.root) / "70_chats" / f"{session_id}.md"
-        if target.exists():
-            target.unlink()
-        rel = target.relative_to(self._vault.root).as_posix()
-        self._vault._repo.add([rel])
-        self._vault._repo.commit(
-            f"chat: delete session {session_id}",
-            author_name=APP_GIT_AUTHOR_NAME,
-            author_email=APP_GIT_AUTHOR_EMAIL,
+        self._vault.delete_note(
+            session_id,
+            commit_message=f"chat: delete session {session_id}",
         )
