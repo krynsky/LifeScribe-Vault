@@ -221,3 +221,38 @@ def test_ingest_job_log_id_prefix_rejected() -> None:
             app_version="0.2.0",
             files=[],
         )
+
+
+def test_llm_provider_note_parses_and_enforces_id_prefix() -> None:
+    from lifescribe.vault.schemas import LLMProvider, parse_note
+
+    data = {
+        "id": "llm_lmstudio_default",
+        "type": "LLMProvider",
+        "schema_version": 1,
+        "adapter": "openai_compatible",
+        "display_name": "LM Studio",
+        "base_url": "http://127.0.0.1:1234/v1",
+        "local": True,
+        "secret_ref": None,
+        "default_model": None,
+        "enabled": True,
+    }
+    note = parse_note(data)
+    assert isinstance(note, LLMProvider)
+    assert note.display_name == "LM Studio"
+    assert note.local is True
+
+
+def test_llm_provider_rejects_bad_id_prefix() -> None:
+    import pytest
+    from lifescribe.vault.schemas import LLMProvider
+
+    with pytest.raises(ValueError, match="llm_"):
+        LLMProvider(
+            id="bad_id",
+            type="LLMProvider",
+            display_name="X",
+            base_url="http://127.0.0.1:1234/v1",
+            local=True,
+        )
