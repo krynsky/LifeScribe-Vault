@@ -23,6 +23,7 @@ from lifescribe.vault.schemas import (
     DocumentRecord,
     IngestionLogEntry,
     IngestJobLog,
+    LLMProvider,
     Note,
     SourceRecord,
     VaultManifest,
@@ -49,6 +50,7 @@ _ACTIVE_FOLDERS = [
     "system/connectors",
     "system/logs/ingestion",
     "system/migrations",
+    "system/providers",
 ]
 
 _GITIGNORE = """.obsidian/workspace*
@@ -95,6 +97,8 @@ def _relative_path_for(note: Note, root: Path) -> Path:
     if isinstance(note, IngestJobLog):
         year_month = note.started_at.strftime("%Y-%m")
         return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
+    if isinstance(note, LLMProvider):
+        return root / "system" / "providers" / f"{note.id}.md"
     if isinstance(note, VaultSettings):
         return root / "system" / f"{note.id}.md"
     if isinstance(note, VaultManifest):
