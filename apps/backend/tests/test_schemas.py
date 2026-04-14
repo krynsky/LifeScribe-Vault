@@ -6,6 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from lifescribe.vault.schemas import (
+    ChatCitation,
+    ChatSession,
+    ChatTurn,
     ConnectorRecord,
     DocumentRecord,
     IngestionLogEntry,
@@ -257,3 +260,42 @@ def test_llm_provider_rejects_bad_id_prefix() -> None:
             base_url="http://127.0.0.1:1234/v1",
             local=True,
         )
+
+
+def test_chat_session_roundtrip() -> None:
+    now = datetime.now(tz=UTC)
+    session = ChatSession(
+        id="chat_test_ab12cd",
+        type="ChatSession",
+        title="hello world",
+        provider_id="llm_lm_studio_abc",
+        model="qwen3-14b",
+        turns=[
+            ChatTurn(role="user", content="hi", created_at=now),
+            ChatTurn(
+                role="assistant",
+                content="Hello! [1]",
+                created_at=now,
+                citations=[
+                    ChatCitation(
+                        marker=1,
+                        note_id="doc_xyz",
+                        chunk_id="deadbeef1234",
+                        score=8.2,
+                        resolved=True,
+                    )
+                ],
+            ),
+        ],
+    )
+    dumped = session.model_dump(mode="json")
+    restored = ChatSession.model_validate(dumped)
+    assert restored.title == "hello world"
+    assert restored.turns[1].citations[0].note_id == "doc_xyz"
+    assert restored.turns[1].citations[0].resolved is True
+
+
+def test_chat_turn_default_empty_retrieval_false() -> None:
+    turn = ChatTurn(role="user", content="x", created_at=datetime.now(tz=UTC))
+    assert turn.empty_retrieval is False
+    assert turn.citations == []

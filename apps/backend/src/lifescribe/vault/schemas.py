@@ -187,6 +187,8 @@ class IngestJobLog(_NoteBase):
 class VaultSettings(_NoteBase):
     type: Literal["VaultSettings"]
     privacy_mode: bool = False
+    default_chat_provider_id: str | None = None
+    default_chat_model: str | None = None
 
     @model_validator(mode="after")
     def _check_id_prefix(self) -> VaultSettings:
@@ -212,6 +214,32 @@ class LLMProvider(_NoteBase):
         return self
 
 
+class ChatCitation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    marker: int
+    note_id: str
+    chunk_id: str
+    score: float
+    resolved: bool
+
+
+class ChatTurn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    citations: list[ChatCitation] = Field(default_factory=list)
+    empty_retrieval: bool = False
+
+
+class ChatSession(_NoteBase):
+    type: Literal["ChatSession"] = "ChatSession"
+    title: str
+    provider_id: str
+    model: str
+    turns: list[ChatTurn] = Field(default_factory=list)
+
+
 Note = Annotated[
     SourceRecord
     | DocumentRecord
@@ -220,7 +248,8 @@ Note = Annotated[
     | IngestJobLog
     | VaultManifest
     | VaultSettings
-    | LLMProvider,
+    | LLMProvider
+    | ChatSession,
     Field(discriminator="type"),
 ]
 
