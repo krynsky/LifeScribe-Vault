@@ -275,6 +275,17 @@ class VaultStore:
             if type_ is None or note.type == type_:
                 yield note
 
+    def path_for(self, note_id: str) -> Path | None:
+        """Return the absolute filesystem path for the note with the given id.
+
+        Returns None if the note cannot be found in the vault.
+        """
+        try:
+            note, _ = self.read_note(note_id)
+        except KeyError:
+            return None
+        return _relative_path_for(note, self.root)
+
     def migrate(self, target_version: int) -> MigrationReport:
         from lifescribe.migrations.framework import apply_migrations
 
