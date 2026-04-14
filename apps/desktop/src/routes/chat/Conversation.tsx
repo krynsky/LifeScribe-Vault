@@ -9,6 +9,7 @@ import type {
   RetrievalChunkDTO,
 } from "../../api/client";
 import { backendUrl, backendToken } from "../../api/client";
+import { useSettings } from "../../api/queries";
 import { MessageBubble } from "./MessageBubble";
 import { CitationChips } from "./CitationChips";
 import { RetrievedPanel } from "./RetrievedPanel";
@@ -32,6 +33,7 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
   const [state, setState] = useState<UIState>({ kind: "idle" });
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [provider, setProvider] = useState<{ id: string; model: string; local: boolean } | null>(null);
+  const { data: settings } = useSettings();
 
   const history: ChatTurnDTO[] = session?.turns ?? [];
 
@@ -121,7 +123,7 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
           </div>
         )}
       </div>
-      <ChatInput onSend={send} provider={provider} privacyMode={false} />
+      <ChatInput onSend={send} provider={provider} privacyMode={settings?.privacy_mode ?? false} />
     </div>
   );
 }
