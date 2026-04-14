@@ -25,6 +25,17 @@ class Indexer:
                 count += 1
         return count
 
+    def count_stale(self) -> int:
+        known = self._index.all_note_mtimes()
+        stale = 0
+        seen: set[str] = set()
+        for note_id, path in self._iter_indexable():
+            seen.add(note_id)
+            if known.get(note_id) != path.stat().st_mtime:
+                stale += 1
+        stale += len(set(known) - seen)
+        return stale
+
     def reindex_stale(self) -> int:
         known = self._index.all_note_mtimes()
         touched = 0

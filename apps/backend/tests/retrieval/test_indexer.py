@@ -98,6 +98,30 @@ def test_reindex_stale_picks_up_mtime_drift(setup, tmp_path):
     assert idx.search("dogs", k=5)
 
 
+def test_count_stale(setup, tmp_path):
+    from lifescribe.vault.schemas import DocumentRecord, SourceRecord
+
+    vault, idx, indexer = setup
+    vault.write_note(
+        SourceRecord(**_make_src()),
+        body="",
+        commit_message="t: src",
+    )
+    vault.write_note(
+        DocumentRecord(**_make_doc()),
+        body="content",
+        commit_message="t: doc",
+    )
+    indexer.reindex_all()
+    assert indexer.count_stale() == 0
+
+    import os
+    path = tmp_path / "10_sources" / "src_a" / "doc_a.md"
+    future = path.stat().st_mtime + 10
+    os.utime(path, (future, future))
+    assert indexer.count_stale() == 1
+
+
 def test_reindex_all_removes_notes_that_disappeared(setup, tmp_path):
     from lifescribe.vault.schemas import DocumentRecord, SourceRecord
 

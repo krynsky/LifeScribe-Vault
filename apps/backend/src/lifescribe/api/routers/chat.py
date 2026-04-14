@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -113,6 +116,50 @@ async def _encode_events(gen: AsyncIterator) -> AsyncIterator[bytes]:
             separators=(",", ":"),
         )
         yield f"event: error\ndata: {payload}\n\n".encode("utf-8")
+
+
+_reindex_lock = threading.Lock()
+
+
+def _require_indexer() -> Indexer:
+    if _State.indexer is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "vault_not_open"})
+    return _State.indexer
+
+
+def _require_index() -> FTSIndex:
+    if _State.index is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "vault_not_open"})
+    return _State.index
+
+
+@router.post("/reindex")
+def reindex() -> dict[str, Any]:
+    indexer = _require_indexer()
+    _require_index()
+    if not _reindex_lock.acquire(blocking=False):
+        raise HTTPException(
+            409, {"code": "reindex_in_progress", "message": "rebuild already running"}
+        )
+    try:
+        started = time.monotonic()
+        indexed = indexer.reindex_all()
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        return {
+            "indexed_notes": indexed,
+            "elapsed_ms": elapsed_ms,
+            "last_indexed_at": datetime.now(tz=UTC).isoformat(),
+        }
+    finally:
+        _reindex_lock.release()
+
+
+@router.get("/index/status")
+def index_status() -> dict[str, Any]:
+    index = _require_index()
+    indexer = _require_indexer()
+    st = index.status()
+    return {**st, "stale_notes": indexer.count_stale()}
 
 
 @router.post("/send")
