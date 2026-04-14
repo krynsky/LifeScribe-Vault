@@ -284,6 +284,23 @@ export const api = {
   },
 };
 
+/** Resolves to the backend base URL, waiting for the sidecar to start if needed. */
+export async function backendUrl(): Promise<string> {
+  const b = await getBackend();
+  return `http://${b.host}:${b.port}`;
+}
+
+/** Resolves to the bearer token, waiting for the sidecar to start if needed. */
+export async function backendToken(): Promise<string> {
+  const b = await getBackend();
+  return b.token;
+}
+
 export function __resetClientCacheForTests(): void {
   cached = null;
+}
+
+/** @internal — expose cached backend for tests */
+export function __setClientCacheForTests(info: { host: string; port: number; token: string }): void {
+  cached = info;
 }
