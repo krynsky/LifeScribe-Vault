@@ -66,7 +66,8 @@ class OpenAICompatibleClient:
             raise UpstreamError(0, f"network error: {exc}") from exc
         if resp.status_code >= 400:
             raise UpstreamError(resp.status_code, f"HTTP {resp.status_code}", body=resp.text)
-        data = resp.json().get("data", [])
+        body = resp.json()
+        data = body.get("data", []) if isinstance(body, dict) else body
         return [
             ModelInfo(id=item["id"], context_length=item.get("context_length")) for item in data
         ]

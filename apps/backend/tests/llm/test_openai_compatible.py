@@ -32,6 +32,15 @@ async def test_list_models_parses_response(httpx_mock: HTTPXMock, client) -> Non
     assert [m.id for m in models] == ["llama-3", "qwen-2"]
 
 
+async def test_list_models_parses_bare_array_response(httpx_mock: HTTPXMock, client) -> None:
+    httpx_mock.add_response(
+        url="http://127.0.0.1:1234/v1/models",
+        json=[{"id": "gpt-4o-mini"}, {"id": "phi-3"}],
+    )
+    models = await client.list_models(privacy_mode=False)
+    assert [m.id for m in models] == ["gpt-4o-mini", "phi-3"]
+
+
 async def test_privacy_blocks_remote_base_url(httpx_mock: HTTPXMock) -> None:
     client = OpenAICompatibleClient(base_url="https://api.github.com/v1", token="t", local=False)
     with pytest.raises(PrivacyViolation):
