@@ -97,6 +97,16 @@ class SessionStore:
         sessions.sort(key=_mtime, reverse=True)
         return sessions
 
+    def patch_first_turn(self, session_id: str, turn: ChatTurn) -> ChatSession:
+        session = self.read(session_id)
+        session.turns[0] = turn
+        self._vault.write_note(
+            session,
+            body=_render_body(session.turns),
+            commit_message=f"chat: session {session_id} patch first turn",
+        )
+        return session
+
     def delete(self, session_id: str) -> None:
         self._vault.delete_note(
             session_id,

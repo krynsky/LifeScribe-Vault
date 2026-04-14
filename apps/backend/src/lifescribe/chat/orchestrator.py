@@ -15,9 +15,12 @@ from lifescribe.retrieval.indexer import Indexer
 from lifescribe.vault.schemas import ChatCitation, ChatTurn
 
 from .prompt import build_system_prompt
-from .sessions import SessionStore, auto_title, _render_body
+from .sessions import SessionStore, auto_title
 
-_BM25_CUTOFF = 0.0  # FTS5 bm25() scores are negative; keep any match (score < 0)
+_BM25_CUTOFF = 0.0  # FTS5 bm25() scores are negative; keep any real match (score < 0)
+# Note: small corpora produce scores very close to 0 (e.g. -1e-06), so a stricter
+# negative threshold would incorrectly reject valid matches.  The empty-retrieval
+# gate relies on FTS returning no rows (not score filtering), so 0.0 is correct.
 _TOP_K = 6
 _HISTORY_CAP = 10
 _CITE_RE = re.compile(r"\[(\d+)\]")
@@ -38,7 +41,14 @@ class ChatEvent:
 
 
 class ChatOrchestrator:
-    def __init__(self, *, sessions, index, indexer, llm) -> None:
+    def __init__(
+        self,
+        *,
+        sessions: SessionStore,
+        index: FTSIndex,
+        indexer: Indexer,
+        llm: LLMService,
+    ) -> None:
         self._sessions = sessions
         self._index = index
         self._indexer = indexer
@@ -71,15 +81,9 @@ class ChatOrchestrator:
             else:
                 # Update the first turn (already persisted) to have empty_retrieval=True,
                 # then append the empty assistant turn.
-                # We re-read the session fresh, patch turns[0], write it back, then append.
-                fresh = self._sessions.read(session.id)
-                fresh.turns[0] = ChatTurn(
-                    role="user", content=req.message, created_at=now, empty_retrieval=True
-                )
-                self._sessions._vault.write_note(
-                    fresh,
-                    body=_render_body(fresh.turns),
-                    commit_message=f"chat: session {fresh.id} mark empty retrieval",
+                self._sessions.patch_first_turn(
+                    session.id,
+                    ChatTurn(role="user", content=req.message, created_at=now, empty_retrieval=True),
                 )
                 self._sessions.append_turn_pair(
                     session_id=session.id,
