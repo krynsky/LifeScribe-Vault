@@ -110,6 +110,8 @@ export interface VaultSettingsDTO {
   type: "VaultSettings";
   schema_version?: number;
   privacy_mode: boolean;
+  default_chat_provider_id?: string | null;
+  default_chat_model?: string | null;
   [k: string]: unknown;
 }
 
@@ -234,8 +236,11 @@ export const api = {
   note: (id: string) => request<NoteEnvelope>("GET", `/vault/notes/${encodeURIComponent(id)}`),
 
   settings: () => request<VaultSettingsDTO>("GET", "/vault/settings"),
-  saveSettings: (payload: { privacy_mode: boolean }) =>
-    request<VaultSettingsDTO>("PUT", "/vault/settings", payload),
+  saveSettings: (payload: {
+    privacy_mode: boolean;
+    default_chat_provider_id?: string | null;
+    default_chat_model?: string | null;
+  }) => request<VaultSettingsDTO>("PUT", "/vault/settings", payload),
 
   ingest: {
     create: (files: string[]) => request<JobDTO>("POST", "/ingest/jobs", { files }),

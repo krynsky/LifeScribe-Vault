@@ -481,6 +481,10 @@ export interface components {
         _SettingsUpdate: {
             /** Privacy Mode */
             privacy_mode: boolean;
+            /** Default Chat Provider Id */
+            default_chat_provider_id?: string | null;
+            /** Default Chat Model */
+            default_chat_model?: string | null;
         };
     };
     responses: never;

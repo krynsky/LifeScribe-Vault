@@ -143,6 +143,8 @@ _SETTINGS_ID = "settings_default"
 class _SettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     privacy_mode: bool
+    default_chat_provider_id: str | None = None
+    default_chat_model: str | None = None
 
 
 @router.get("/settings")
@@ -163,6 +165,8 @@ def put_settings(req: _SettingsUpdate) -> dict[str, Any]:
         id=_SETTINGS_ID,
         type="VaultSettings",
         privacy_mode=req.privacy_mode,
+        default_chat_provider_id=req.default_chat_provider_id,
+        default_chat_model=req.default_chat_model,
     )
     store.write_note(note, body="", commit_message="settings: update")
     return note.model_dump(mode="json")

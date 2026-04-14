@@ -86,7 +86,11 @@ export function useSettings() {
 export function useSaveSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { privacy_mode: boolean }) => api.saveSettings(payload),
+    mutationFn: (payload: {
+      privacy_mode: boolean;
+      default_chat_provider_id?: string | null;
+      default_chat_model?: string | null;
+    }) => api.saveSettings(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["settings"] }),
   });
 }
