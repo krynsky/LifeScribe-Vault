@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from lifescribe import __version__
+from lifescribe.api.routers.llm import set_vault_store as _llm_set_store
 from lifescribe.vault.errors import (
     SchemaTooNewError,
     VaultAlreadyInitializedError,
@@ -48,6 +49,7 @@ def init_endpoint(req: _InitRequest) -> dict[str, Any]:
     except VaultAlreadyInitializedError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
     _State.store = store
+    _llm_set_store(store)
     return {"open": True, "manifest": _manifest_dict(store)}
 
 
@@ -60,6 +62,7 @@ def open_endpoint(req: _OpenRequest) -> dict[str, Any]:
     except SchemaTooNewError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
     _State.store = store
+    _llm_set_store(store)
     return {"open": True, "manifest": _manifest_dict(store)}
 
 

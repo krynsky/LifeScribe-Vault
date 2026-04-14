@@ -18,6 +18,10 @@ export default [
         fetch: "readonly",
         URL: "readonly",
         Response: "readonly",
+        ReadableStream: "readonly",
+        TextEncoder: "readonly",
+        TextDecoder: "readonly",
+        AbortSignal: "readonly",
       },
     },
     plugins: {

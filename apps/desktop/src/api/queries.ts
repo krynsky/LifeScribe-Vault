@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient, UseQueryOptions } from "@tanstack/react-query";
 
-import { api, JobDTO, NoteEnvelope, VaultSettingsDTO } from "./client";
+import {
+  api,
+  JobDTO,
+  LLMProviderDTO,
+  ModelInfoDTO,
+  NoteEnvelope,
+  VaultSettingsDTO,
+} from "./client";
 
 const TERMINAL: ReadonlyArray<JobDTO["status"]> = [
   "completed",
@@ -77,5 +84,78 @@ export function useSaveSettings() {
   return useMutation({
     mutationFn: (payload: { privacy_mode: boolean }) => api.saveSettings(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["settings"] }),
+  });
+}
+
+export function useLLMProviders() {
+  return useQuery<LLMProviderDTO[]>({
+    queryKey: ["llm", "providers"],
+    queryFn: () => api.llm.listProviders(),
+  });
+}
+
+export function useLLMProvider(id: string | undefined) {
+  return useQuery<LLMProviderDTO>({
+    queryKey: ["llm", "provider", id],
+    queryFn: () => api.llm.getProvider(id as string),
+    enabled: !!id,
+  });
+}
+
+export function useCreateLLMProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<LLMProviderDTO>) => api.llm.createProvider(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["llm", "providers"] }),
+  });
+}
+
+export function useUpdateLLMProvider(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<LLMProviderDTO>) => api.llm.updateProvider(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["llm", "providers"] });
+      qc.invalidateQueries({ queryKey: ["llm", "provider", id] });
+      qc.invalidateQueries({ queryKey: ["llm", "models", id] });
+    },
+  });
+}
+
+export function useDeleteLLMProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.llm.deleteProvider(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["llm", "providers"] }),
+  });
+}
+
+export function useSetLLMCredential(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (value: string) => api.llm.setCredential(id, value),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["llm", "provider", id] });
+      qc.invalidateQueries({ queryKey: ["llm", "models", id] });
+    },
+  });
+}
+
+export function useDeleteLLMCredential(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.llm.deleteCredential(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["llm", "provider", id] });
+      qc.invalidateQueries({ queryKey: ["llm", "models", id] });
+    },
+  });
+}
+
+export function useLLMModels(id: string | undefined) {
+  return useQuery<ModelInfoDTO[]>({
+    queryKey: ["llm", "models", id],
+    queryFn: () => api.llm.listModels(id as string),
+    enabled: !!id,
   });
 }

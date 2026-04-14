@@ -195,6 +195,23 @@ class VaultSettings(_NoteBase):
         return self
 
 
+class LLMProvider(_NoteBase):
+    type: Literal["LLMProvider"] = "LLMProvider"
+    adapter: Literal["openai_compatible"] = "openai_compatible"
+    display_name: str
+    base_url: str
+    local: bool
+    secret_ref: str | None = None
+    default_model: str | None = None
+    enabled: bool = True
+
+    @model_validator(mode="after")
+    def _check_id_prefix(self) -> LLMProvider:
+        if not self.id.startswith("llm_"):
+            raise ValueError("LLMProvider id must start with 'llm_'")
+        return self
+
+
 Note = Annotated[
     SourceRecord
     | DocumentRecord
@@ -202,7 +219,8 @@ Note = Annotated[
     | IngestionLogEntry
     | IngestJobLog
     | VaultManifest
-    | VaultSettings,
+    | VaultSettings
+    | LLMProvider,
     Field(discriminator="type"),
 ]
 

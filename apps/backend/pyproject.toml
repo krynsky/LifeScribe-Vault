@@ -19,6 +19,7 @@ dependencies = [
   "python-docx>=1.1",
   "openpyxl>=3.1",
   "Pillow>=10.4",
+  "keyring>=24",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +30,8 @@ dev = [
   "mypy>=1.11",
   "types-PyYAML>=6",
   "pyinstaller>=6.10",
+  "keyrings.alt>=5",
+  "pytest-httpx>=0.30",
 ]
 
 [project.scripts]

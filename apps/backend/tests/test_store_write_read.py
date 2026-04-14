@@ -67,3 +67,24 @@ def test_exists(tmp_vault: Path) -> None:
     rec = _src()
     store.write_note(rec, body="", commit_message="ingest: x")
     assert store.exists(rec.id) is True
+
+
+def test_write_llm_provider_goes_to_system_providers(tmp_path) -> None:
+    from lifescribe.vault.schemas import LLMProvider
+    from lifescribe.vault.store import VaultStore
+
+    store = VaultStore.init(tmp_path / "v", app_version="test")
+    note = LLMProvider(
+        id="llm_lmstudio_default",
+        type="LLMProvider",
+        display_name="LM Studio",
+        base_url="http://127.0.0.1:1234/v1",
+        local=True,
+    )
+    result = store.write_note(note, body="", commit_message="llm: add lmstudio")
+    assert result.path == tmp_path / "v" / "system" / "providers" / "llm_lmstudio_default.md"
+    assert result.path.exists()
+
+    loaded, _body = store.read_note("llm_lmstudio_default")
+    assert isinstance(loaded, LLMProvider)
+    assert loaded.display_name == "LM Studio"
