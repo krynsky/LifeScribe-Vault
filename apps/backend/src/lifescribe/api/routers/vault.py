@@ -54,6 +54,9 @@ def _wire_chat_stack(store: VaultStore) -> None:
         llm=LLMService(store=store),
     )
     _retrieval_set_index(index)
+    # Lazy import to avoid circular dependency (ingest imports vault._State at module level).
+    from lifescribe.api.routers.ingest import set_indexer as _ingest_set_indexer  # noqa: PLC0415
+    _ingest_set_indexer(indexer)
     _chat_set_wiring(
         sessions=sessions,
         orchestrator=orchestrator,

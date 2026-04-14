@@ -96,11 +96,13 @@ class Indexer:
         if isinstance(note, DocumentRecord):
             return chunk_text(body, note_id=note.id)
         if isinstance(note, SourceRecord):
-            synthetic = (
+            # Index the extracted body content (if present) plus metadata.
+            metadata = (
                 f"{note.source_path} imported {note.imported_at} "
                 f"tags {','.join(note.tags or [])}"
             )
-            return chunk_text(synthetic, note_id=note.id)
+            text = f"{metadata}\n\n{body}".strip() if body else metadata
+            return chunk_text(text, note_id=note.id)
         if isinstance(note, ChatSession):
             combined = "\n\n".join(
                 f"{turn.role}: {turn.content}" for turn in note.turns

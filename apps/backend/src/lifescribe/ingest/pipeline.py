@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from lifescribe.ingest.extractors.registry import ExtractorRegistry
 from lifescribe.ingest.jobs import new_job_id
@@ -20,6 +22,11 @@ from lifescribe.vault.schemas import (
     SourceRecord,
 )
 from lifescribe.vault.store import VaultStore
+
+if TYPE_CHECKING:
+    from lifescribe.retrieval.indexer import Indexer
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -93,6 +100,7 @@ def run_job(
     registry: ExtractorRegistry,
     app_version: str,
     handle: JobHandle | None = None,
+    indexer: "Indexer | None" = None,
 ) -> IngestJobLog:
     started_at = datetime.now(UTC)
     job_id = handle.id if handle else new_job_id(started_at)
@@ -229,4 +237,18 @@ def run_job(
     items.extend(to_commit)
     message = f"ingest: {job_id} ({succeeded} ok, {failed} failed, {skipped} skipped)"
     store.write_batch(items, commit_message=message, extra_paths=asset_rels)
+
+    # reindex newly-written notes so they are immediately searchable
+    try:
+        if indexer is not None:
+            new_note_ids = [
+                entry.source_id
+                for entry in log.files
+                if entry.source_id is not None
+            ]
+            if new_note_ids:
+                indexer.reindex_notes(new_note_ids)
+    except Exception as exc:
+        logger.warning("post-commit reindex failed: %s", exc)
+
     return log
