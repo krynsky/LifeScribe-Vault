@@ -92,6 +92,7 @@ def test_write_llm_provider_goes_to_system_providers(tmp_path) -> None:
 
 def test_chat_session_routes_to_70_chats(tmp_path):
     from datetime import UTC, datetime
+
     from lifescribe.vault.schemas import ChatSession, ChatTurn
     from lifescribe.vault.store import VaultStore
 

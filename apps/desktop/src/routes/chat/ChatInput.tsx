@@ -14,8 +14,7 @@ interface Props {
 
 export function ChatInput({ onSend, provider, privacyMode }: Props) {
   const [draft, setDraft] = useState("");
-  const blocked =
-    !provider || (privacyMode && !provider.local);
+  const blocked = !provider || (privacyMode && !provider.local);
 
   function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {

@@ -34,6 +34,7 @@ def client(tmp_path) -> TestClient:
 def unopened_client() -> TestClient:
     from lifescribe.api.routers import chat as chat_router
     from lifescribe.api.routers import retrieval as retrieval_router
+
     # Clear any state left by a prior test so the vault is truly un-opened.
     retrieval_router.set_index(None)
     chat_router.set_wiring(sessions=None, orchestrator=None, index=None, indexer=None)
@@ -43,15 +44,25 @@ def unopened_client() -> TestClient:
 @pytest.fixture
 def seeded_index(client):
     from lifescribe.api.routers.retrieval import _State
+
     idx = _State.index
     assert idx is not None
     from lifescribe.retrieval.chunker import Chunk
+
     idx.upsert_note(
-        note_id="doc_a", note_type="DocumentRecord", tags=["planning"],
+        note_id="doc_a",
+        note_type="DocumentRecord",
+        tags=["planning"],
         imported_at="2026-04-14T00:00:00Z",
-        chunks=[Chunk(note_id="doc_a", chunk_id="c1",
-                      content="quarterly planning notes",
-                      start_offset=0, end_offset=26)],
+        chunks=[
+            Chunk(
+                note_id="doc_a",
+                chunk_id="c1",
+                content="quarterly planning notes",
+                start_offset=0,
+                end_offset=26,
+            )
+        ],
     )
     return idx
 
@@ -63,6 +74,7 @@ def client_with_stub_llm(client):
     class _StubLLM:
         async def stream_chat(self, req):
             from lifescribe.llm.base import ChatChunk
+
             yield ChatChunk(delta="stub answer [1]", finish_reason=None)
             yield ChatChunk(delta="", finish_reason="stop")
 
@@ -78,6 +90,7 @@ def client_with_stub_llm_and_seeded_index(client_with_stub_llm, seeded_index):
 @pytest.fixture
 def client_with_busy_indexer(client):
     from lifescribe.api.routers.chat import _reindex_lock
+
     _reindex_lock.acquire()
     yield client
     _reindex_lock.release()

@@ -26,26 +26,26 @@ describe("parseChatSendStream", () => {
     for await (const ev of parseChatSendStream(stream(CANNED))) {
       events.push(ev.event);
     }
-    expect(events).toEqual([
-      "session", "retrieval", "chunk", "chunk", "citations", "done",
-    ]);
+    expect(events).toEqual(["session", "retrieval", "chunk", "chunk", "citations", "done"]);
   });
 
   it("parses chunk deltas", async () => {
     const deltas: string[] = [];
     for await (const ev of parseChatSendStream(stream(CANNED))) {
-      if (ev.event === "chunk") deltas.push((ev.data as any).delta);
+      if (ev.event === "chunk") deltas.push((ev.data as { delta: string }).delta);
     }
     expect(deltas).toEqual(["hello ", "[1]"]);
   });
 
   it("propagates error frames as exceptions", async () => {
     const frame = `event: error\ndata: {"code":"upstream_error","message":"boom"}\n\n`;
-    await expect((async () => {
-      for await (const _ of parseChatSendStream(stream(frame))) {
-        // drain
-      }
-    })()).rejects.toThrow(/boom/);
+    await expect(
+      (async () => {
+        for await (const _ev of parseChatSendStream(stream(frame))) {
+          // drain
+        }
+      })(),
+    ).rejects.toThrow(/boom/);
   });
 
   it("emits no_context", async () => {

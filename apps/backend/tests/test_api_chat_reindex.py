@@ -20,8 +20,7 @@ def test_index_status(client: TestClient) -> None:
     r = client.get("/chat/index/status", headers=_auth())
     assert r.status_code == 200
     body = r.json()
-    for key in ("last_indexed_at", "note_count", "chunk_count",
-                "db_size_bytes", "stale_notes"):
+    for key in ("last_indexed_at", "note_count", "chunk_count", "db_size_bytes", "stale_notes"):
         assert key in body
 
 

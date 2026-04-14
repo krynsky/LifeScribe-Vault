@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -11,7 +11,7 @@ from lifescribe.chat.orchestrator import ChatOrchestrator, ChatSendRequest
 from lifescribe.chat.sessions import SessionStore
 from lifescribe.llm.base import ChatChunk
 from lifescribe.retrieval.chunker import Chunk
-from lifescribe.retrieval.index import FTSIndex, SearchResult
+from lifescribe.retrieval.index import FTSIndex
 from lifescribe.retrieval.indexer import Indexer
 from lifescribe.vault.store import VaultStore
 
@@ -37,7 +37,7 @@ async def _collect(gen) -> list[tuple[str, dict]]:
 
 @pytest.mark.asyncio
 async def test_empty_retrieval_short_circuits(orch):
-    o, idx, llm, _, sessions = orch
+    o, _idx, llm, _, sessions = orch
     req = ChatSendRequest(session_id=None, message="anything", provider_id="p", model="m")
     events = await _collect(o.send(req))
     names = [e[0] for e in events]
@@ -50,10 +50,21 @@ async def test_empty_retrieval_short_circuits(orch):
 
 @pytest.mark.asyncio
 async def test_happy_path_streams_and_persists(orch, monkeypatch):
-    o, idx, llm, vault, sessions = orch
+    o, idx, llm, _vault, sessions = orch
     idx.upsert_note(
-        note_id="doc_a", note_type="DocumentRecord", tags=[], imported_at="",
-        chunks=[Chunk(note_id="doc_a", chunk_id="cc", content="quarterly plans", start_offset=0, end_offset=14)],
+        note_id="doc_a",
+        note_type="DocumentRecord",
+        tags=[],
+        imported_at="",
+        chunks=[
+            Chunk(
+                note_id="doc_a",
+                chunk_id="cc",
+                content="quarterly plans",
+                start_offset=0,
+                end_offset=14,
+            )
+        ],
     )
 
     async def fake_stream(req) -> AsyncIterator[ChatChunk]:
@@ -87,8 +98,13 @@ async def test_happy_path_streams_and_persists(orch, monkeypatch):
 async def test_unresolved_citation_flagged(orch):
     o, idx, llm, _, _ = orch
     idx.upsert_note(
-        note_id="doc_a", note_type="DocumentRecord", tags=[], imported_at="",
-        chunks=[Chunk(note_id="doc_a", chunk_id="cc", content="hello", start_offset=0, end_offset=5)],
+        note_id="doc_a",
+        note_type="DocumentRecord",
+        tags=[],
+        imported_at="",
+        chunks=[
+            Chunk(note_id="doc_a", chunk_id="cc", content="hello", start_offset=0, end_offset=5)
+        ],
     )
 
     async def fake_stream(req):
@@ -109,16 +125,24 @@ async def test_unresolved_citation_flagged(orch):
 async def test_history_cap_10_turns(orch):
     o, idx, llm, _, sessions = orch
     idx.upsert_note(
-        note_id="doc_a", note_type="DocumentRecord", tags=[], imported_at="",
-        chunks=[Chunk(note_id="doc_a", chunk_id="cc", content="topic", start_offset=0, end_offset=5)],
+        note_id="doc_a",
+        note_type="DocumentRecord",
+        tags=[],
+        imported_at="",
+        chunks=[
+            Chunk(note_id="doc_a", chunk_id="cc", content="topic", start_offset=0, end_offset=5)
+        ],
     )
     from lifescribe.vault.schemas import ChatTurn
+
     first = ChatTurn(role="user", content="seed", created_at=datetime.now(tz=UTC))
     session = sessions.create(title="t", provider_id="p", model="m", first_turn=first)
     for i in range(11):
         sessions.append_turn_pair(
             session_id=session.id,
-            user=ChatTurn(role="user", content=f"u{i}", created_at=datetime.now(tz=UTC)) if i % 2 else None,
+            user=ChatTurn(role="user", content=f"u{i}", created_at=datetime.now(tz=UTC))
+            if i % 2
+            else None,
             assistant=ChatTurn(role="assistant", content=f"a{i}", created_at=datetime.now(tz=UTC)),
         )
 

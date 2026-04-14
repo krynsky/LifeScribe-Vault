@@ -24,15 +24,21 @@ interface Props {
 
 type UIState =
   | { kind: "idle" }
-  | { kind: "streaming"; assistant: string; chunks: RetrievalChunkDTO[];
-      citations: ChatCitationDTO[] }
+  | {
+      kind: "streaming";
+      assistant: string;
+      chunks: RetrievalChunkDTO[];
+      citations: ChatCitationDTO[];
+    }
   | { kind: "no_context" };
 
 export function Conversation({ sessionId, session, onSessionCreated }: Props) {
   const qc = useQueryClient();
   const [state, setState] = useState<UIState>({ kind: "idle" });
   const [pendingUser, setPendingUser] = useState<string | null>(null);
-  const [provider, setProvider] = useState<{ id: string; model: string; local: boolean } | null>(null);
+  const [provider, setProvider] = useState<{ id: string; model: string; local: boolean } | null>(
+    null,
+  );
   const { data: settings } = useSettings();
 
   const history: ChatTurnDTO[] = session?.turns ?? [];
@@ -43,22 +49,18 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
     setState({ kind: "streaming", assistant: "", chunks: [], citations: [] });
     try {
       const [url, token] = await Promise.all([backendUrl(), backendToken()]);
-      const gen = await chatSend(
-        `${url}/chat/send`,
-        token,
-        {
-          session_id: sessionId ?? null,
-          message,
-          provider_id: provider.id,
-          model: provider.model,
-        },
-      );
+      const gen = await chatSend(`${url}/chat/send`, token, {
+        session_id: sessionId ?? null,
+        message,
+        provider_id: provider.id,
+        model: provider.model,
+      });
       for await (const ev of gen) {
         applyEvent(ev);
       }
       qc.invalidateQueries({ queryKey: ["chat", "sessions"] });
       if (sessionId) qc.invalidateQueries({ queryKey: ["chat", "session", sessionId] });
-    } catch (_err) {
+    } catch {
       // error is surfaced via MessageBubble render of the partial assistant content
     } finally {
       setPendingUser(null);
@@ -72,21 +74,13 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
       if (!sessionId) onSessionCreated(id);
     } else if (ev.event === "retrieval") {
       const chunks = (ev.data as { chunks: RetrievalChunkDTO[] }).chunks;
-      setState((s) =>
-        s.kind === "streaming" ? { ...s, chunks } : s,
-      );
+      setState((s) => (s.kind === "streaming" ? { ...s, chunks } : s));
     } else if (ev.event === "chunk") {
       const delta = (ev.data as { delta: string }).delta;
-      setState((s) =>
-        s.kind === "streaming"
-          ? { ...s, assistant: s.assistant + delta }
-          : s,
-      );
+      setState((s) => (s.kind === "streaming" ? { ...s, assistant: s.assistant + delta } : s));
     } else if (ev.event === "citations") {
       const citations = (ev.data as { citations: ChatCitationDTO[] }).citations;
-      setState((s) =>
-        s.kind === "streaming" ? { ...s, citations } : s,
-      );
+      setState((s) => (s.kind === "streaming" ? { ...s, citations } : s));
     } else if (ev.event === "no_context") {
       setState({ kind: "no_context" });
     }
@@ -97,29 +91,19 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
       <ModelPill selected={provider} onChange={setProvider} />
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
         {history.map((t, i) => (
-          <MessageBubble
-            key={i}
-            role={t.role}
-            content={t.content}
-            citations={t.citations}
-          />
+          <MessageBubble key={i} role={t.role} content={t.content} citations={t.citations} />
         ))}
         {pendingUser && <MessageBubble role="user" content={pendingUser} citations={[]} />}
         {state.kind === "streaming" && (
           <>
-            <MessageBubble
-              role="assistant"
-              content={state.assistant}
-              citations={state.citations}
-            />
+            <MessageBubble role="assistant" content={state.assistant} citations={state.citations} />
             <CitationChips citations={state.citations} />
             <RetrievedPanel chunks={state.chunks} />
           </>
         )}
         {state.kind === "no_context" && (
           <div style={{ color: "#888", padding: 16 }}>
-            No relevant notes found in your vault.{" "}
-            <a href="/settings">Rebuild index</a>
+            No relevant notes found in your vault. <a href="/settings">Rebuild index</a>
           </div>
         )}
       </div>

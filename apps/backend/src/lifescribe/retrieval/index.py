@@ -45,9 +45,7 @@ class FTSIndex:
             cls._set_meta(conn, "vault_id", vault_id)
         elif stored_id != vault_id:
             conn.close()
-            raise cls.VaultMismatch(
-                f"index at {path} belongs to vault {stored_id}, not {vault_id}"
-            )
+            raise cls.VaultMismatch(f"index at {path} belongs to vault {stored_id}, not {vault_id}")
         return cls(conn, path=path)
 
     @staticmethod

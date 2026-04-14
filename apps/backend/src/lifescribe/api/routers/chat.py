@@ -46,17 +46,15 @@ def _require_sessions() -> SessionStore:
     return _State.sessions
 
 
-def _envelope(session) -> dict[str, Any]:
+def _envelope(session: Any) -> dict[str, Any]:
     return {
         "id": session.id,
         "title": session.title,
         "provider_id": session.provider_id,
         "model": session.model,
         "turn_count": len(session.turns),
-        "created_at": (session.turns[0].created_at.isoformat()
-                       if session.turns else None),
-        "updated_at": (session.turns[-1].created_at.isoformat()
-                       if session.turns else None),
+        "created_at": (session.turns[0].created_at.isoformat() if session.turns else None),
+        "updated_at": (session.turns[-1].created_at.isoformat() if session.turns else None),
     }
 
 
@@ -72,9 +70,7 @@ def get_session(session_id: str) -> dict[str, Any]:
     try:
         session = store.read(session_id)
     except KeyError as err:
-        raise HTTPException(
-            404, {"code": "session_not_found", "message": session_id}
-        ) from err
+        raise HTTPException(404, {"code": "session_not_found", "message": session_id}) from err
     return session.model_dump(mode="json")
 
 
@@ -84,9 +80,7 @@ def delete_session(session_id: str) -> None:
     try:
         store.read(session_id)
     except KeyError as err:
-        raise HTTPException(
-            404, {"code": "session_not_found", "message": session_id}
-        ) from err
+        raise HTTPException(404, {"code": "session_not_found", "message": session_id}) from err
     store.delete(session_id)
 
 
@@ -104,18 +98,18 @@ class _ChatSendBody(BaseModel):
     model: str
 
 
-async def _encode_events(gen: AsyncIterator) -> AsyncIterator[bytes]:
+async def _encode_events(gen: AsyncIterator[Any]) -> AsyncIterator[bytes]:
     try:
         async for ev in gen:
             payload = json.dumps(ev.data, default=str, separators=(",", ":"))
-            yield f"event: {ev.event}\ndata: {payload}\n\n".encode("utf-8")
+            yield f"event: {ev.event}\ndata: {payload}\n\n".encode()
     except LLMError as exc:
         payload = json.dumps(
             {"code": getattr(exc, "code", "llm_error"), "message": str(exc)},
             default=str,
             separators=(",", ":"),
         )
-        yield f"event: error\ndata: {payload}\n\n".encode("utf-8")
+        yield f"event: error\ndata: {payload}\n\n".encode()
 
 
 _reindex_lock = threading.Lock()
@@ -171,6 +165,4 @@ async def chat_send(body: _ChatSendBody) -> StreamingResponse:
         provider_id=body.provider_id,
         model=body.model,
     )
-    return StreamingResponse(
-        _encode_events(orch.send(req)), media_type="text/event-stream"
-    )
+    return StreamingResponse(_encode_events(orch.send(req)), media_type="text/event-stream")

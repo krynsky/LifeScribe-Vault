@@ -20,8 +20,10 @@ export function RetrievedPanel({ chunks }: Props) {
               <Link to={`/browse/${c.note_id}?chunk=${c.chunk_id}`}>
                 [{c.n}] {c.note_id} — {c.note_type} (score {c.score.toFixed(2)})
               </Link>
-              <div style={{ fontSize: 12, color: "#666" }}
-                   dangerouslySetInnerHTML={{ __html: c.snippet }} />
+              <div
+                style={{ fontSize: 12, color: "#666" }}
+                dangerouslySetInnerHTML={{ __html: c.snippet }}
+              />
             </li>
           ))}
         </ul>

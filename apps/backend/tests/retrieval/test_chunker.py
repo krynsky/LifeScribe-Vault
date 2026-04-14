@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from lifescribe.retrieval.chunker import Chunk, chunk_text
+from itertools import pairwise
+
+from lifescribe.retrieval.chunker import chunk_text
 
 TARGET = 500  # approx tokens
 SHORT = "one paragraph here.\n\nanother paragraph."
@@ -52,5 +54,5 @@ def test_chunks_cover_full_text_contiguously() -> None:
     # start_offset of first is 0; end of last is len(text); chunks don't overlap
     assert chunks[0].start_offset == 0
     assert chunks[-1].end_offset == len(text)
-    for a, b in zip(chunks, chunks[1:]):
+    for a, b in pairwise(chunks):
         assert a.end_offset <= b.start_offset

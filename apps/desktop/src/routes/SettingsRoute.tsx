@@ -77,11 +77,7 @@ function ChatIndex() {
           {status.stale_notes} stale note(s) — rebuild recommended.
         </div>
       )}
-      <button
-        type="button"
-        disabled={reindex.isPending}
-        onClick={() => reindex.mutate()}
-      >
+      <button type="button" disabled={reindex.isPending} onClick={() => reindex.mutate()}>
         {reindex.isPending ? "Rebuilding…" : "Rebuild index"}
       </button>
     </fieldset>

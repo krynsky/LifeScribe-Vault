@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
+
 from lifescribe.vault.schemas import (
     ChatSession,
     DocumentRecord,
@@ -43,9 +47,8 @@ class Indexer:
         for note_id, path in self._iter_indexable():
             seen.add(note_id)
             mtime = path.stat().st_mtime
-            if known.get(note_id) != mtime:
-                if self._reindex_one(note_id):
-                    touched += 1
+            if known.get(note_id) != mtime and self._reindex_one(note_id):
+                touched += 1
         for gone in set(known) - seen:
             self._index.delete_note(gone)
             touched += 1
@@ -60,7 +63,7 @@ class Indexer:
                 touched += 1
         return touched
 
-    def _iter_indexable(self):
+    def _iter_indexable(self) -> Iterator[tuple[str, Path]]:
         for note in self._vault.list_notes():
             if note.type not in _INDEXED_TYPES:
                 continue
@@ -92,20 +95,17 @@ class Indexer:
         )
         return True
 
-    def _build_chunks(self, note, body: str) -> list[Chunk]:
+    def _build_chunks(self, note: Any, body: str) -> list[Chunk]:
         if isinstance(note, DocumentRecord):
             return chunk_text(body, note_id=note.id)
         if isinstance(note, SourceRecord):
             # Index the extracted body content (if present) plus metadata.
             metadata = (
-                f"{note.source_path} imported {note.imported_at} "
-                f"tags {','.join(note.tags or [])}"
+                f"{note.source_path} imported {note.imported_at} tags {','.join(note.tags or [])}"
             )
             text = f"{metadata}\n\n{body}".strip() if body else metadata
             return chunk_text(text, note_id=note.id)
         if isinstance(note, ChatSession):
-            combined = "\n\n".join(
-                f"{turn.role}: {turn.content}" for turn in note.turns
-            )
+            combined = "\n\n".join(f"{turn.role}: {turn.content}" for turn in note.turns)
             return chunk_text(combined, note_id=note.id)
         return []

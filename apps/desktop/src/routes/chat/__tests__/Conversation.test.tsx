@@ -44,9 +44,7 @@ function setupProviderHandlers() {
         default_chat_model: null,
       }),
     ),
-    http.get(`${BASE}/llm/providers/p1/models`, () =>
-      HttpResponse.json([{ id: "m1" }]),
-    ),
+    http.get(`${BASE}/llm/providers/p1/models`, () => HttpResponse.json([{ id: "m1" }])),
   );
 }
 
@@ -67,9 +65,7 @@ async function pickProviderAndTypeMessage(text: string) {
   await userEvent.type(screen.getByPlaceholderText(/ask about your vault/i), text);
 
   // Confirm send button is enabled
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: /send/i })).not.toBeDisabled(),
-  );
+  await waitFor(() => expect(screen.getByRole("button", { name: /send/i })).not.toBeDisabled());
 }
 
 describe("Conversation", () => {
@@ -111,10 +107,12 @@ describe("Conversation", () => {
   it("calls onSessionCreated with new session id on send", async () => {
     setupProviderHandlers();
     server.use(
-      http.post(`${BASE}/chat/send`, () =>
-        new HttpResponse(SSE_BODY, {
-          headers: { "Content-Type": "text/event-stream" },
-        }),
+      http.post(
+        `${BASE}/chat/send`,
+        () =>
+          new HttpResponse(SSE_BODY, {
+            headers: { "Content-Type": "text/event-stream" },
+          }),
       ),
       http.get(`${BASE}/chat/sessions`, () => HttpResponse.json([])),
     );
@@ -138,7 +136,9 @@ describe("Conversation", () => {
   it("shows no_context empty state during streaming", async () => {
     setupProviderHandlers();
     let resolveStream!: () => void;
-    const streamReady = new Promise<void>((r) => { resolveStream = r; });
+    const streamReady = new Promise<void>((r) => {
+      resolveStream = r;
+    });
 
     server.use(
       http.post(`${BASE}/chat/send`, async () => {
@@ -156,11 +156,7 @@ describe("Conversation", () => {
       http.get(`${BASE}/chat/sessions`, () => HttpResponse.json([])),
     );
     renderWithProviders(
-      <Conversation
-        sessionId={undefined}
-        session={undefined}
-        onSessionCreated={() => undefined}
-      />,
+      <Conversation sessionId={undefined} session={undefined} onSessionCreated={() => undefined} />,
     );
 
     await pickProviderAndTypeMessage("anything");
@@ -173,9 +169,7 @@ describe("Conversation", () => {
     // (The no_context state may be brief, so we verify onSessionCreated wasn't called
     // and the input was cleared, indicating send completed)
     await waitFor(() =>
-      expect(
-        screen.getByPlaceholderText(/ask about your vault/i),
-      ).toHaveValue(""),
+      expect(screen.getByPlaceholderText(/ask about your vault/i)).toHaveValue(""),
     );
   });
 });

@@ -61,7 +61,9 @@ class ChatOrchestrator:
         if req.session_id is None:
             session = self._sessions.create(
                 title=auto_title(req.message) or "new chat",
-                provider_id=req.provider_id, model=req.model, first_turn=user_turn,
+                provider_id=req.provider_id,
+                model=req.model,
+                first_turn=user_turn,
             )
             created_new = True
         else:
@@ -75,31 +77,49 @@ class ChatOrchestrator:
             if not created_new:
                 self._sessions.append_turn_pair(
                     session_id=session.id,
-                    user=ChatTurn(role="user", content=req.message, created_at=now, empty_retrieval=True),
-                    assistant=ChatTurn(role="assistant", content="", created_at=now, empty_retrieval=True),
+                    user=ChatTurn(
+                        role="user", content=req.message, created_at=now, empty_retrieval=True
+                    ),
+                    assistant=ChatTurn(
+                        role="assistant", content="", created_at=now, empty_retrieval=True
+                    ),
                 )
             else:
                 # Update the first turn (already persisted) to have empty_retrieval=True,
                 # then append the empty assistant turn.
                 self._sessions.patch_first_turn(
                     session.id,
-                    ChatTurn(role="user", content=req.message, created_at=now, empty_retrieval=True),
+                    ChatTurn(
+                        role="user", content=req.message, created_at=now, empty_retrieval=True
+                    ),
                 )
                 self._sessions.append_turn_pair(
                     session_id=session.id,
-                    assistant=ChatTurn(role="assistant", content="", created_at=now, empty_retrieval=True),
+                    assistant=ChatTurn(
+                        role="assistant", content="", created_at=now, empty_retrieval=True
+                    ),
                 )
             yield ChatEvent("no_context", {"message": "No relevant notes found in your vault."})
             yield ChatEvent("done", {"finish_reason": "no_context"})
             return
 
-        yield ChatEvent("retrieval", {
-            "chunks": [
-                {"n": i + 1, "note_id": c.note_id, "chunk_id": c.chunk_id, "note_type": c.note_type,
-                 "score": c.score, "snippet": c.snippet, "tags": c.tags}
-                for i, c in enumerate(chunks)
-            ]
-        })
+        yield ChatEvent(
+            "retrieval",
+            {
+                "chunks": [
+                    {
+                        "n": i + 1,
+                        "note_id": c.note_id,
+                        "chunk_id": c.chunk_id,
+                        "note_type": c.note_type,
+                        "score": c.score,
+                        "snippet": c.snippet,
+                        "tags": c.tags,
+                    }
+                    for i, c in enumerate(chunks)
+                ]
+            },
+        )
 
         system_prompt = build_system_prompt(chunks)
         history_turns = [] if created_new else list(session.turns)
@@ -116,7 +136,9 @@ class ChatOrchestrator:
         async for chunk in self._llm.stream_chat(chat_req):
             if chunk.delta:
                 accumulated += chunk.delta
-                yield ChatEvent("chunk", {"delta": chunk.delta, "finish_reason": chunk.finish_reason})
+                yield ChatEvent(
+                    "chunk", {"delta": chunk.delta, "finish_reason": chunk.finish_reason}
+                )
             if chunk.finish_reason is not None:
                 finish_reason = chunk.finish_reason
 
@@ -124,12 +146,17 @@ class ChatOrchestrator:
         yield ChatEvent("citations", {"citations": [c.model_dump() for c in citations]})
 
         assistant_turn = ChatTurn(
-            role="assistant", content=accumulated, created_at=datetime.now(tz=UTC), citations=citations
+            role="assistant",
+            content=accumulated,
+            created_at=datetime.now(tz=UTC),
+            citations=citations,
         )
         if created_new:
             self._sessions.append_turn_pair(session_id=session.id, assistant=assistant_turn)
         else:
-            self._sessions.append_turn_pair(session_id=session.id, user=user_turn, assistant=assistant_turn)
+            self._sessions.append_turn_pair(
+                session_id=session.id, user=user_turn, assistant=assistant_turn
+            )
 
         self._indexer.reindex_notes([session.id])
 
@@ -145,7 +172,17 @@ class ChatOrchestrator:
         for n in markers:
             if 1 <= n <= len(chunks):
                 c = chunks[n - 1]
-                out.append(ChatCitation(marker=n, note_id=c.note_id, chunk_id=c.chunk_id, score=c.score, resolved=True))
+                out.append(
+                    ChatCitation(
+                        marker=n,
+                        note_id=c.note_id,
+                        chunk_id=c.chunk_id,
+                        score=c.score,
+                        resolved=True,
+                    )
+                )
             else:
-                out.append(ChatCitation(marker=n, note_id="", chunk_id="", score=0.0, resolved=False))
+                out.append(
+                    ChatCitation(marker=n, note_id="", chunk_id="", score=0.0, resolved=False)
+                )
         return out

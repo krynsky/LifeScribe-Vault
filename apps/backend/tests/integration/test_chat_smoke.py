@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -19,9 +18,9 @@ def _parse_sse(text: str) -> list[tuple[str, dict]]:
         data_lines = []
         for line in frame.splitlines():
             if line.startswith("event:"):
-                event = line[len("event:"):].strip()
+                event = line[len("event:") :].strip()
             elif line.startswith("data:"):
-                data_lines.append(line[len("data:"):].lstrip())
+                data_lines.append(line[len("data:") :].lstrip())
         if data_lines:
             events.append((event, json.loads("\n".join(data_lines))))
     return events
@@ -33,8 +32,12 @@ def test_end_to_end_chat_with_vault(
     client = client_with_stub_llm_and_seeded_index
     r = client.post(
         "/chat/send",
-        json={"session_id": None, "message": "what about planning?",
-              "provider_id": "p", "model": "m"},
+        json={
+            "session_id": None,
+            "message": "what about planning?",
+            "provider_id": "p",
+            "model": "m",
+        },
         headers=_auth(),
     )
     assert r.status_code == 200
@@ -62,8 +65,7 @@ def test_end_to_end_chat_with_vault(
 def test_empty_vault_returns_no_context(client_with_stub_llm: TestClient) -> None:
     r = client_with_stub_llm.post(
         "/chat/send",
-        json={"session_id": None, "message": "anything",
-              "provider_id": "p", "model": "m"},
+        json={"session_id": None, "message": "anything", "provider_id": "p", "model": "m"},
         headers=_auth(),
     )
     events = _parse_sse(r.text)

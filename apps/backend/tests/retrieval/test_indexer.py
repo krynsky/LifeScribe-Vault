@@ -90,6 +90,7 @@ def test_reindex_stale_picks_up_mtime_drift(setup, tmp_path):
     text = path.read_text(encoding="utf-8")
     path.write_text(text.replace("cats", "dogs"), encoding="utf-8")
     import os
+
     future = path.stat().st_mtime + 10
     os.utime(path, (future, future))
 
@@ -101,7 +102,7 @@ def test_reindex_stale_picks_up_mtime_drift(setup, tmp_path):
 def test_count_stale(setup, tmp_path):
     from lifescribe.vault.schemas import DocumentRecord, SourceRecord
 
-    vault, idx, indexer = setup
+    vault, _idx, indexer = setup
     vault.write_note(
         SourceRecord(**_make_src()),
         body="",
@@ -116,6 +117,7 @@ def test_count_stale(setup, tmp_path):
     assert indexer.count_stale() == 0
 
     import os
+
     path = tmp_path / "10_sources" / "src_a" / "doc_a.md"
     future = path.stat().st_mtime + 10
     os.utime(path, (future, future))

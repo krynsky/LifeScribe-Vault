@@ -1,1 +1,9 @@
-{"default":{"identifier":"default","description":"Default capability granted to the main window.","local":true,"windows":["main"],"permissions":["core:default","dialog:default"]}}
+{
+  "default": {
+    "identifier": "default",
+    "description": "Default capability granted to the main window.",
+    "local": true,
+    "windows": ["main"],
+    "permissions": ["core:default", "dialog:default"]
+  }
+}

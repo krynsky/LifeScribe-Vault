@@ -48,11 +48,7 @@ function renderWithChips(text: string, byMarker: Map<number, ChatCitationDTO>) {
       );
     }
     return (
-      <span
-        key={i}
-        title="unresolved citation"
-        style={{ color: "#c00" }}
-      >
+      <span key={i} title="unresolved citation" style={{ color: "#c00" }}>
         [{n}⚠]
       </span>
     );

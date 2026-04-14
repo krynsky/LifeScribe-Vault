@@ -41,7 +41,9 @@ export function ModelPill({ selected, onChange }: Props) {
         >
           <option value="">— pick —</option>
           {providers?.map((p) => (
-            <option key={p.id} value={p.id}>{p.display_name}</option>
+            <option key={p.id} value={p.id}>
+              {p.display_name}
+            </option>
           ))}
         </select>
       </label>{" "}
@@ -49,13 +51,15 @@ export function ModelPill({ selected, onChange }: Props) {
         Model:{" "}
         <select
           value={selected?.model ?? ""}
-          onChange={(e) =>
-            selected && onChange({ ...selected, model: e.target.value })
-          }
+          onChange={(e) => selected && onChange({ ...selected, model: e.target.value })}
           disabled={!selected}
         >
           <option value="">— pick —</option>
-          {models?.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
+          {models?.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.id}
+            </option>
+          ))}
         </select>
       </label>
     </div>

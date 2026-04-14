@@ -8,9 +8,17 @@ describe("api.chat", () => {
   it("listSessions", async () => {
     server.use(
       http.get(`${BASE}/chat/sessions`, () =>
-        HttpResponse.json([{ id: "chat_a", title: "t", provider_id: "p",
-                             model: "m", turn_count: 2,
-                             created_at: "", updated_at: "" }]),
+        HttpResponse.json([
+          {
+            id: "chat_a",
+            title: "t",
+            provider_id: "p",
+            model: "m",
+            turn_count: 2,
+            created_at: "",
+            updated_at: "",
+          },
+        ]),
       ),
     );
     const sessions = await api.chat.listSessions();
@@ -20,9 +28,14 @@ describe("api.chat", () => {
   it("getSession", async () => {
     server.use(
       http.get(`${BASE}/chat/sessions/chat_a`, () =>
-        HttpResponse.json({ id: "chat_a", type: "ChatSession",
-                             title: "t", provider_id: "p", model: "m",
-                             turns: [] }),
+        HttpResponse.json({
+          id: "chat_a",
+          type: "ChatSession",
+          title: "t",
+          provider_id: "p",
+          model: "m",
+          turns: [],
+        }),
       ),
     );
     const session = await api.chat.getSession("chat_a");
@@ -44,8 +57,7 @@ describe("api.chat", () => {
   it("reindex", async () => {
     server.use(
       http.post(`${BASE}/chat/reindex`, () =>
-        HttpResponse.json({ indexed_notes: 5, elapsed_ms: 200,
-                             last_indexed_at: "now" }),
+        HttpResponse.json({ indexed_notes: 5, elapsed_ms: 200, last_indexed_at: "now" }),
       ),
     );
     const r = await api.chat.reindex();
@@ -55,9 +67,13 @@ describe("api.chat", () => {
   it("indexStatus", async () => {
     server.use(
       http.get(`${BASE}/chat/index/status`, () =>
-        HttpResponse.json({ last_indexed_at: "now", note_count: 10,
-                             chunk_count: 30, db_size_bytes: 1024,
-                             stale_notes: 0 }),
+        HttpResponse.json({
+          last_indexed_at: "now",
+          note_count: 10,
+          chunk_count: 30,
+          db_size_bytes: 1024,
+          stale_notes: 0,
+        }),
       ),
     );
     const r = await api.chat.indexStatus();
@@ -69,10 +85,20 @@ describe("api.retrieval", () => {
   it("search", async () => {
     server.use(
       http.post(`${BASE}/retrieval/search`, () =>
-        HttpResponse.json({ chunks: [{ n: 1, note_id: "doc_a",
-                                        chunk_id: "c", note_type: "DocumentRecord",
-                                        score: -8, snippet: "s", tags: [] }],
-                             index_last_updated_at: "now" }),
+        HttpResponse.json({
+          chunks: [
+            {
+              n: 1,
+              note_id: "doc_a",
+              chunk_id: "c",
+              note_type: "DocumentRecord",
+              score: -8,
+              snippet: "s",
+              tags: [],
+            },
+          ],
+          index_last_updated_at: "now",
+        }),
       ),
     );
     const r = await api.retrieval.search({ query: "x", k: 3 });

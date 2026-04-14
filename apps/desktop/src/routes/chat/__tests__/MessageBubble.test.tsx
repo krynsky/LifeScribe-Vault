@@ -11,8 +11,7 @@ describe("MessageBubble", () => {
         <MessageBubble
           role="assistant"
           content="According to [1], planning is a priority."
-          citations={[{ marker: 1, note_id: "doc_a", chunk_id: "cc",
-                         score: -8, resolved: true }]}
+          citations={[{ marker: 1, note_id: "doc_a", chunk_id: "cc", score: -8, resolved: true }]}
         />
       </MemoryRouter>,
     );

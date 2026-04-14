@@ -100,7 +100,7 @@ def run_job(
     registry: ExtractorRegistry,
     app_version: str,
     handle: JobHandle | None = None,
-    indexer: "Indexer | None" = None,
+    indexer: Indexer | None = None,
 ) -> IngestJobLog:
     started_at = datetime.now(UTC)
     job_id = handle.id if handle else new_job_id(started_at)
@@ -241,11 +241,7 @@ def run_job(
     # reindex newly-written notes so they are immediately searchable
     try:
         if indexer is not None:
-            new_note_ids = [
-                entry.source_id
-                for entry in log.files
-                if entry.source_id is not None
-            ]
+            new_note_ids = [entry.source_id for entry in log.files if entry.source_id is not None]
             if new_note_ids:
                 indexer.reindex_notes(new_note_ids)
     except Exception as exc:

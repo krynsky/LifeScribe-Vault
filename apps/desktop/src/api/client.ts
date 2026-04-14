@@ -306,6 +306,10 @@ export function __resetClientCacheForTests(): void {
 }
 
 /** @internal — expose cached backend for tests */
-export function __setClientCacheForTests(info: { host: string; port: number; token: string }): void {
+export function __setClientCacheForTests(info: {
+  host: string;
+  port: number;
+  token: string;
+}): void {
   cached = info;
 }

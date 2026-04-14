@@ -40,6 +40,4 @@ def test_chunk_order_is_preserved() -> None:
         _sr("doc_second", "DocumentRecord", "second", -5.0),
     ]
     out = build_system_prompt(chunks)
-    assert out.index("[1] (DocumentRecord doc_first") < out.index(
-        "[2] (DocumentRecord doc_second"
-    )
+    assert out.index("[1] (DocumentRecord doc_first") < out.index("[2] (DocumentRecord doc_second")

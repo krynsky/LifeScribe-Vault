@@ -21,7 +21,7 @@ class Chunk:
 
 
 def _chunk_id_for(note_id: str, start: int, end: int) -> str:
-    raw = f"{note_id}:{start}:{end}".encode("utf-8")
+    raw = f"{note_id}:{start}:{end}".encode()
     return hashlib.sha1(raw).hexdigest()[:12]
 
 

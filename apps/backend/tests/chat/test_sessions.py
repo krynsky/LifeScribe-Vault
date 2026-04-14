@@ -58,9 +58,7 @@ def test_append_turn_pair(store: SessionStore) -> None:
             content="a1 [1]",
             created_at=now,
             citations=[
-                ChatCitation(
-                    marker=1, note_id="doc_a", chunk_id="cc", score=-8.0, resolved=True
-                )
+                ChatCitation(marker=1, note_id="doc_a", chunk_id="cc", score=-8.0, resolved=True)
             ],
         ),
     )
@@ -80,11 +78,15 @@ def test_append_turn_pair(store: SessionStore) -> None:
 def test_list_sessions_newest_first(store: SessionStore) -> None:
     now = datetime.now(tz=UTC)
     a = store.create(
-        title="a", provider_id="p", model="m",
+        title="a",
+        provider_id="p",
+        model="m",
         first_turn=ChatTurn(role="user", content="a", created_at=now),
     )
     b = store.create(
-        title="b", provider_id="p", model="m",
+        title="b",
+        provider_id="p",
+        model="m",
         first_turn=ChatTurn(role="user", content="b", created_at=now),
     )
     ids = [s.id for s in store.list()]
@@ -95,7 +97,9 @@ def test_list_sessions_newest_first(store: SessionStore) -> None:
 def test_delete_removes_file(store: SessionStore, tmp_path: Path) -> None:
     now = datetime.now(tz=UTC)
     s = store.create(
-        title="t", provider_id="p", model="m",
+        title="t",
+        provider_id="p",
+        model="m",
         first_turn=ChatTurn(role="user", content="x", created_at=now),
     )
     assert (tmp_path / "70_chats" / f"{s.id}.md").exists()
