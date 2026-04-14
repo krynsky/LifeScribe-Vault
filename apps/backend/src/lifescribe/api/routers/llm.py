@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, ConfigDict
 
 from lifescribe.llm.base import (
     CredentialMissing,
@@ -14,7 +13,6 @@ from lifescribe.llm.base import (
     UpstreamTimeout,
 )
 from lifescribe.llm.secrets import SecretStore
-from lifescribe.llm.service import LLMService
 from lifescribe.vault.schemas import LLMProvider
 from lifescribe.vault.store import VaultStore
 
