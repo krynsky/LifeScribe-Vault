@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict
 
-from lifescribe.chat.orchestrator import ChatOrchestrator
+from lifescribe.chat.orchestrator import ChatOrchestrator, ChatSendRequest
 from lifescribe.chat.sessions import SessionStore
+from lifescribe.llm.base import LLMError
 from lifescribe.retrieval.index import FTSIndex
 from lifescribe.retrieval.indexer import Indexer
 
@@ -80,3 +85,45 @@ def delete_session(session_id: str) -> None:
             404, {"code": "session_not_found", "message": session_id}
         ) from err
     store.delete(session_id)
+
+
+def _require_orchestrator() -> ChatOrchestrator:
+    if _State.orchestrator is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "vault_not_open"})
+    return _State.orchestrator
+
+
+class _ChatSendBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str | None = None
+    message: str
+    provider_id: str
+    model: str
+
+
+async def _encode_events(gen: AsyncIterator) -> AsyncIterator[bytes]:
+    try:
+        async for ev in gen:
+            payload = json.dumps(ev.data, default=str, separators=(",", ":"))
+            yield f"event: {ev.event}\ndata: {payload}\n\n".encode("utf-8")
+    except LLMError as exc:
+        payload = json.dumps(
+            {"code": getattr(exc, "code", "llm_error"), "message": str(exc)},
+            default=str,
+            separators=(",", ":"),
+        )
+        yield f"event: error\ndata: {payload}\n\n".encode("utf-8")
+
+
+@router.post("/send")
+async def chat_send(body: _ChatSendBody) -> StreamingResponse:
+    orch = _require_orchestrator()
+    req = ChatSendRequest(
+        session_id=body.session_id,
+        message=body.message,
+        provider_id=body.provider_id,
+        model=body.model,
+    )
+    return StreamingResponse(
+        _encode_events(orch.send(req)), media_type="text/event-stream"
+    )
