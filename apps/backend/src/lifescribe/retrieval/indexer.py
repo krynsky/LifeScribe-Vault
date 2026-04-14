@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 from lifescribe.vault.schemas import (
     ChatSession,
@@ -78,7 +77,7 @@ class Indexer:
         except KeyError:
             self._index.delete_note(note_id)
             return True
-        if note.type not in _INDEXED_TYPES:
+        if not isinstance(note, DocumentRecord | SourceRecord | ChatSession):
             return False
         path = self._vault.path_for(note_id)
         mtime = path.stat().st_mtime if path and path.exists() else 0.0
@@ -95,7 +94,9 @@ class Indexer:
         )
         return True
 
-    def _build_chunks(self, note: Any, body: str) -> list[Chunk]:
+    def _build_chunks(
+        self, note: DocumentRecord | SourceRecord | ChatSession, body: str
+    ) -> list[Chunk]:
         if isinstance(note, DocumentRecord):
             return chunk_text(body, note_id=note.id)
         if isinstance(note, SourceRecord):

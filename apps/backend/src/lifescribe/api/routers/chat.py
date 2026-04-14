@@ -11,11 +11,12 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
-from lifescribe.chat.orchestrator import ChatOrchestrator, ChatSendRequest
+from lifescribe.chat.orchestrator import ChatEvent, ChatOrchestrator, ChatSendRequest
 from lifescribe.chat.sessions import SessionStore
 from lifescribe.llm.base import LLMError
 from lifescribe.retrieval.index import FTSIndex
 from lifescribe.retrieval.indexer import Indexer
+from lifescribe.vault.schemas import ChatSession
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -46,7 +47,7 @@ def _require_sessions() -> SessionStore:
     return _State.sessions
 
 
-def _envelope(session: Any) -> dict[str, Any]:
+def _envelope(session: ChatSession) -> dict[str, Any]:
     return {
         "id": session.id,
         "title": session.title,
@@ -98,7 +99,7 @@ class _ChatSendBody(BaseModel):
     model: str
 
 
-async def _encode_events(gen: AsyncIterator[Any]) -> AsyncIterator[bytes]:
+async def _encode_events(gen: AsyncIterator[ChatEvent]) -> AsyncIterator[bytes]:
     try:
         async for ev in gen:
             payload = json.dumps(ev.data, default=str, separators=(",", ":"))
