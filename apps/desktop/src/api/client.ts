@@ -126,6 +126,42 @@ export interface JobDTO {
   finished_at?: string | null;
 }
 
+export interface LLMProviderDTO {
+  id: string;
+  type: "LLMProvider";
+  display_name: string;
+  base_url: string;
+  local: boolean;
+  secret_ref: string | null;
+  default_model: string | null;
+  enabled: boolean;
+  has_credential: boolean;
+  schema_version: number;
+}
+
+export interface ModelInfoDTO {
+  id: string;
+  context_length?: number | null;
+}
+
+export interface ChatMessageDTO {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface ChatRequestDTO {
+  provider_id: string;
+  model: string;
+  messages: ChatMessageDTO[];
+  temperature?: number;
+  max_tokens?: number;
+}
+
+export interface ChatChunkDTO {
+  delta: string;
+  finish_reason?: string | null;
+}
+
 export const api = {
   status: () => request<VaultStatusDTO>("GET", "/vault/status"),
   init: (path: string) => request<VaultStatusDTO>("POST", "/vault/init", { path }),
@@ -147,6 +183,26 @@ export const api = {
     get: (id: string) => request<JobDTO>("GET", `/ingest/jobs/${encodeURIComponent(id)}`),
     cancel: (id: string) =>
       request<{ status: string }>("DELETE", `/ingest/jobs/${encodeURIComponent(id)}`),
+  },
+
+  llm: {
+    listProviders: () => request<LLMProviderDTO[]>("GET", "/llm/providers"),
+    getProvider: (id: string) =>
+      request<LLMProviderDTO>("GET", `/llm/providers/${encodeURIComponent(id)}`),
+    createProvider: (body: Partial<LLMProviderDTO>) =>
+      request<LLMProviderDTO>("POST", "/llm/providers", body),
+    updateProvider: (id: string, body: Partial<LLMProviderDTO>) =>
+      request<LLMProviderDTO>("PUT", `/llm/providers/${encodeURIComponent(id)}`, body),
+    deleteProvider: (id: string) =>
+      request<void>("DELETE", `/llm/providers/${encodeURIComponent(id)}`),
+    setCredential: (id: string, value: string) =>
+      request<void>("PUT", `/llm/providers/${encodeURIComponent(id)}/credential`, { value }),
+    deleteCredential: (id: string) =>
+      request<void>("DELETE", `/llm/providers/${encodeURIComponent(id)}/credential`),
+    listModels: (id: string) =>
+      request<ModelInfoDTO[]>("GET", `/llm/providers/${encodeURIComponent(id)}/models`),
+    chat: (req: ChatRequestDTO) =>
+      request<{ content: string; finish_reason: string | null }>("POST", "/llm/chat", req),
   },
 };
 
