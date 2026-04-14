@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import secrets as _secrets
 import time
@@ -7,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
 from lifescribe.llm.base import (
@@ -254,3 +256,45 @@ async def chat(req: ChatRequest) -> dict[str, Any]:
     except LLMError as exc:
         raise _error(exc) from exc
     return {"content": result.content, "finish_reason": result.finish_reason}
+
+
+async def _sse_frames(service: LLMService, req: ChatRequest):
+    first_chunk = True
+    try:
+        agen = service.stream_chat(req).__aiter__()
+        try:
+            chunk = await agen.__anext__()
+        except StopAsyncIteration:
+            yield f"event: done\ndata: {json.dumps({'finish_reason': None}, separators=(',', ':'))}\n\n"
+            return
+        first_chunk = False
+        yield f"event: chunk\ndata: {json.dumps(chunk.model_dump(), separators=(',', ':'))}\n\n"
+        async for chunk in agen:
+            yield f"event: chunk\ndata: {json.dumps(chunk.model_dump(), separators=(',', ':'))}\n\n"
+        yield f"event: done\ndata: {json.dumps({'finish_reason': chunk.finish_reason}, separators=(',', ':'))}\n\n"
+    except LLMError as exc:
+        if first_chunk:
+            raise
+        payload = json.dumps({"code": getattr(exc, 'code', 'llm_error'), "message": str(exc)}, separators=(',', ':'))
+        yield f"event: error\ndata: {payload}\n\n"
+
+
+@router.post("/chat/stream")
+async def chat_stream(req: ChatRequest) -> StreamingResponse:
+    store = _require_store()
+    svc = LLMService(store)
+    agen = _sse_frames(svc, req)
+    try:
+        first = await agen.__anext__()
+    except LLMError as exc:
+        raise _error(exc) from exc
+    except StopAsyncIteration:
+        first = ""
+
+    async def relay():
+        if first:
+            yield first.encode("utf-8")
+        async for piece in agen:
+            yield piece.encode("utf-8")
+
+    return StreamingResponse(relay(), media_type="text/event-stream")
