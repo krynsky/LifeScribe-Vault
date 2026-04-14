@@ -19,6 +19,7 @@ from lifescribe.vault.errors import (
 )
 from lifescribe.vault.gitwrap import GitRepo
 from lifescribe.vault.schemas import (
+    ChatSession,
     ConnectorRecord,
     DocumentRecord,
     IngestionLogEntry,
@@ -99,6 +100,8 @@ def _relative_path_for(note: Note, root: Path) -> Path:
         return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
     if isinstance(note, LLMProvider):
         return root / "system" / "providers" / f"{note.id}.md"
+    if isinstance(note, ChatSession):
+        return root / "70_chats" / f"{note.id}.md"
     if isinstance(note, VaultSettings):
         return root / "system" / f"{note.id}.md"
     if isinstance(note, VaultManifest):
