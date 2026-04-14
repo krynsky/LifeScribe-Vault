@@ -1,0 +1,81 @@
+import { useMutation, useQuery, useQueryClient, UseQueryOptions } from "@tanstack/react-query";
+
+import { api, JobDTO, NoteEnvelope, VaultSettingsDTO } from "./client";
+
+const TERMINAL: ReadonlyArray<JobDTO["status"]> = [
+  "completed",
+  "completed_with_failures",
+  "cancelled",
+  "failed",
+];
+
+export function useNotes(
+  type: string,
+  opts?: Omit<
+    UseQueryOptions<Array<Record<string, unknown> & { id: string; type: string }>>,
+    "queryKey" | "queryFn"
+  >,
+) {
+  return useQuery({
+    queryKey: ["notes", type],
+    queryFn: () => api.notes(type),
+    ...opts,
+  });
+}
+
+export function useNote(id: string | undefined) {
+  return useQuery<NoteEnvelope>({
+    queryKey: ["note", id],
+    queryFn: () => api.note(id as string),
+    enabled: !!id,
+  });
+}
+
+export function useJob(id: string | undefined) {
+  return useQuery<JobDTO>({
+    queryKey: ["job", id],
+    queryFn: () => api.ingest.get(id as string),
+    enabled: !!id,
+    refetchInterval: (q) => {
+      const data = q.state.data;
+      if (!data) return 500;
+      return TERMINAL.includes(data.status) ? false : 500;
+    },
+  });
+}
+
+export function useCreateJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (files: string[]) => api.ingest.create(files),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notes", "SourceRecord"] });
+      qc.invalidateQueries({ queryKey: ["notes", "IngestJobLog"] });
+    },
+  });
+}
+
+export function useCancelJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.ingest.cancel(id),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ["job", id] });
+    },
+  });
+}
+
+export function useSettings() {
+  return useQuery<VaultSettingsDTO>({
+    queryKey: ["settings"],
+    queryFn: () => api.settings(),
+  });
+}
+
+export function useSaveSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { privacy_mode: boolean }) => api.saveSettings(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["settings"] }),
+  });
+}

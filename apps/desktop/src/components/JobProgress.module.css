@@ -1,0 +1,67 @@
+.card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.jobId {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: #666;
+}
+.status {
+  text-transform: capitalize;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #eef;
+}
+.status[data-status="failed"],
+.status[data-status="completed_with_failures"] {
+  background: #fde;
+}
+.status[data-status="cancelled"] {
+  background: #eee;
+}
+.status[data-status="completed"] {
+  background: #dfd;
+}
+.counters {
+  display: flex;
+  gap: 12px;
+}
+.counter {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+.counter[data-tone="bad"] {
+  color: #b00;
+}
+.counter[data-tone="muted"] {
+  color: #888;
+}
+.counterLabel {
+  font-size: 12px;
+}
+.cancel {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #c66;
+  background: white;
+  color: #c66;
+  cursor: pointer;
+}
+.cancel:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

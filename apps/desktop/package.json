@@ -18,14 +18,21 @@
   },
   "dependencies": {
     "@lifescribe/shared-types": "*",
+    "@tanstack/react-query": "^5.51.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "react-markdown": "^9.0.1",
+    "react-router-dom": "^6.26.0",
+    "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@tauri-apps/cli": "^2.0.0",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
@@ -33,6 +40,8 @@
     "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^9.0.0",
     "eslint-plugin-react-hooks": "^5.0.0",
+    "jsdom": "^24.1.0",
+    "msw": "^2.3.0",
     "prettier": "^3.3.0",
     "typescript": "^5.5.0",
     "vite": "^5.4.0",

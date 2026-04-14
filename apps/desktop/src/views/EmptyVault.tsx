@@ -1,4 +1,4 @@
-import type { VaultManifestDTO } from "@lifescribe/shared-types";
+import type { VaultManifestDTO } from "../api/client";
 
 interface Props {
   manifest: VaultManifestDTO;
