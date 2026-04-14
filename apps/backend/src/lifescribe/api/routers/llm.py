@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import re
+import secrets as _secrets
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, ConfigDict
 
 from lifescribe.llm.base import (
     CredentialMissing,
@@ -72,3 +76,94 @@ def get_provider(provider_id: str) -> dict[str, Any]:
     if not isinstance(note, LLMProvider):
         raise HTTPException(404, {"code": "provider_not_found", "message": provider_id})
     return _envelope(note)
+
+
+class _ProviderBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: str
+    base_url: str
+    local: bool
+    adapter: str = "openai_compatible"
+    secret_ref: str | None = None
+    default_model: str | None = None
+    enabled: bool = True
+
+
+def _slug(s: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
+    return s or "provider"
+
+
+def _new_provider_id(display_name: str) -> str:
+    return f"llm_{_slug(display_name)}_{_secrets.token_hex(3)}"
+
+
+def _note_delete_path(store: VaultStore, note_id: str) -> None:
+    target = Path(store.root) / "system" / "providers" / f"{note_id}.md"
+    if target.exists():
+        target.unlink()
+    store._repo.add([str(target.relative_to(store.root).as_posix())])  # type: ignore[attr-defined]
+    store._repo.commit(  # type: ignore[attr-defined]
+        f"llm: delete provider {note_id}",
+        author_name="LifeScribe Vault",
+        author_email="noreply@lifescribe.local",
+    )
+
+
+@router.post("/providers", status_code=201)
+def create_provider(body: _ProviderBody) -> dict[str, Any]:
+    store = _require_store()
+    pid = _new_provider_id(body.display_name)
+    note = LLMProvider(
+        id=pid,
+        type="LLMProvider",
+        adapter="openai_compatible",
+        display_name=body.display_name,
+        base_url=body.base_url,
+        local=body.local,
+        secret_ref=body.secret_ref,
+        default_model=body.default_model,
+        enabled=body.enabled,
+    )
+    store.write_note(note, body="", commit_message=f"llm: add provider {pid}")
+    return _envelope(note)
+
+
+@router.put("/providers/{provider_id}")
+def update_provider(provider_id: str, body: _ProviderBody) -> dict[str, Any]:
+    store = _require_store()
+    try:
+        existing, _ = store.read_note(provider_id)
+    except KeyError as err:
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id}) from err
+    if not isinstance(existing, LLMProvider):
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id})
+    note = LLMProvider(
+        id=provider_id,
+        type="LLMProvider",
+        adapter="openai_compatible",
+        display_name=body.display_name,
+        base_url=body.base_url,
+        local=body.local,
+        secret_ref=body.secret_ref if body.secret_ref is not None else existing.secret_ref,
+        default_model=body.default_model,
+        enabled=body.enabled,
+    )
+    result = store.write_note(note, body="", commit_message=f"llm: update {provider_id}")
+    if result.conflict:
+        raise HTTPException(409, {"code": "conflict_file_written", "message": str(result.path)})
+    return _envelope(note)
+
+
+@router.delete("/providers/{provider_id}", status_code=204)
+def delete_provider(provider_id: str) -> None:
+    store = _require_store()
+    try:
+        existing, _ = store.read_note(provider_id)
+    except KeyError as err:
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id}) from err
+    if not isinstance(existing, LLMProvider):
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id})
+    if existing.secret_ref:
+        SecretStore().delete(existing.secret_ref)
+    _note_delete_path(store, provider_id)

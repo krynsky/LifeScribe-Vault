@@ -44,3 +44,55 @@ def test_list_and_get_provider(tmp_path) -> None:
     r = client.get("/llm/providers/llm_missing", headers=AUTH)
     assert r.status_code == 404
     assert r.json()["detail"]["code"] == "provider_not_found"
+
+
+def test_create_provider_assigns_id_and_writes_note(tmp_path) -> None:
+    store, client = _setup(tmp_path)
+    body = {
+        "display_name": "My LM Studio",
+        "base_url": "http://127.0.0.1:1234/v1",
+        "local": True,
+    }
+    r = client.post("/llm/providers", json=body, headers=AUTH)
+    assert r.status_code == 201
+    got = r.json()
+    assert got["id"].startswith("llm_")
+    assert got["display_name"] == "My LM Studio"
+    assert sum(1 for _ in store.list_notes(type_="LLMProvider")) == 1
+
+
+def test_update_provider_round_trips(tmp_path) -> None:
+    _, client = _setup(tmp_path)
+    r = client.post(
+        "/llm/providers",
+        json={"display_name": "A", "base_url": "http://127.0.0.1:1234/v1", "local": True},
+        headers=AUTH,
+    )
+    pid = r.json()["id"]
+    r = client.put(
+        f"/llm/providers/{pid}",
+        json={"display_name": "B", "base_url": "http://127.0.0.1:1234/v1", "local": True},
+        headers=AUTH,
+    )
+    assert r.status_code == 200
+    assert r.json()["display_name"] == "B"
+
+
+def test_delete_provider_removes_note_and_credential(tmp_path) -> None:
+    _, client = _setup(tmp_path)
+    r = client.post(
+        "/llm/providers",
+        json={
+            "display_name": "GH",
+            "base_url": "https://models.inference.ai.azure.com",
+            "local": False,
+        },
+        headers=AUTH,
+    )
+    pid = r.json()["id"]
+    client.put(f"/llm/providers/{pid}/credential", json={"value": "pat_x"}, headers=AUTH)
+    pid = pid  # no-op
+    r = client.delete(f"/llm/providers/{pid}", headers=AUTH)
+    assert r.status_code == 204
+    r = client.get(f"/llm/providers/{pid}", headers=AUTH)
+    assert r.status_code == 404
