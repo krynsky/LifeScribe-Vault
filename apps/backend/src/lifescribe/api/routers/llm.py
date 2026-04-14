@@ -167,3 +167,37 @@ def delete_provider(provider_id: str) -> None:
     if existing.secret_ref:
         SecretStore().delete(existing.secret_ref)
     _note_delete_path(store, provider_id)
+
+
+class _CredentialBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: str
+
+
+@router.put("/providers/{provider_id}/credential", status_code=204)
+def put_credential(provider_id: str, body: _CredentialBody) -> None:
+    store = _require_store()
+    try:
+        note, _ = store.read_note(provider_id)
+    except KeyError as err:
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id}) from err
+    if not isinstance(note, LLMProvider):
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id})
+    ref = note.secret_ref or f"llm.{provider_id}.token"
+    SecretStore().set(ref, body.value)
+    if not note.secret_ref:
+        updated = note.model_copy(update={"secret_ref": ref})
+        store.write_note(updated, body="", commit_message=f"llm: set secret_ref for {provider_id}")
+
+
+@router.delete("/providers/{provider_id}/credential", status_code=204)
+def delete_credential(provider_id: str) -> None:
+    store = _require_store()
+    try:
+        note, _ = store.read_note(provider_id)
+    except KeyError as err:
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id}) from err
+    if not isinstance(note, LLMProvider):
+        raise HTTPException(404, {"code": "provider_not_found", "message": provider_id})
+    if note.secret_ref:
+        SecretStore().delete(note.secret_ref)
