@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from lifescribe.llm.base import (
+    ChatRequest,
     CredentialMissing,
     LLMError,
     PrivacyViolation,
@@ -242,3 +243,14 @@ async def list_models(provider_id: str) -> list[dict[str, Any]]:
     payload = [m.model_dump(mode="json") for m in models]
     _MODEL_CACHE[provider_id] = (time.monotonic(), version, payload)
     return payload
+
+
+@router.post("/chat")
+async def chat(req: ChatRequest) -> dict[str, Any]:
+    store = _require_store()
+    svc = LLMService(store)
+    try:
+        result = await svc.chat(req)
+    except LLMError as exc:
+        raise _error(exc) from exc
+    return {"content": result.content, "finish_reason": result.finish_reason}
