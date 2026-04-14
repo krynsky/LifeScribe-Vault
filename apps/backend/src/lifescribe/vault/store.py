@@ -55,6 +55,7 @@ _ACTIVE_FOLDERS = [
 ]
 
 _GITIGNORE = """.obsidian/workspace*
+.lifescribe/
 """
 _GITATTRIBUTES = """* text=auto eol=lf
 *.png binary

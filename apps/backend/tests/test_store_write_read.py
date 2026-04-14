@@ -106,3 +106,13 @@ def test_chat_session_routes_to_70_chats(tmp_path):
     )
     store.write_note(session, body="", commit_message="chat: add session")
     assert (tmp_path / "70_chats" / "chat_greeting_ab12cd.md").exists()
+
+
+def test_init_adds_lifescribe_to_gitignore(tmp_path):
+    from lifescribe.vault.store import VaultStore
+
+    VaultStore.init(tmp_path, app_version="test")
+    ignore_file = tmp_path / ".gitignore"
+    assert ignore_file.exists()
+    content = ignore_file.read_text(encoding="utf-8")
+    assert ".lifescribe/" in content.splitlines()
