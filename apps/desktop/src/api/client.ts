@@ -162,6 +162,65 @@ export interface ChatChunkDTO {
   finish_reason?: string | null;
 }
 
+export interface ChatCitationDTO {
+  marker: number;
+  note_id: string;
+  chunk_id: string;
+  score: number;
+  resolved: boolean;
+}
+
+export interface ChatTurnDTO {
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  citations: ChatCitationDTO[];
+  empty_retrieval: boolean;
+}
+
+export interface ChatSessionDTO {
+  id: string;
+  type: "ChatSession";
+  title: string;
+  provider_id: string;
+  model: string;
+  turns: ChatTurnDTO[];
+}
+
+export interface ChatSessionSummary {
+  id: string;
+  title: string;
+  provider_id: string;
+  model: string;
+  turn_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface RetrievalChunkDTO {
+  n: number;
+  note_id: string;
+  chunk_id: string;
+  note_type: string;
+  score: number;
+  snippet: string;
+  tags: string[];
+}
+
+export interface IndexStatusDTO {
+  last_indexed_at: string;
+  note_count: number;
+  chunk_count: number;
+  db_size_bytes: number;
+  stale_notes: number;
+}
+
+export interface ReindexResultDTO {
+  indexed_notes: number;
+  elapsed_ms: number;
+  last_indexed_at: string;
+}
+
 export const api = {
   status: () => request<VaultStatusDTO>("GET", "/vault/status"),
   init: (path: string) => request<VaultStatusDTO>("POST", "/vault/init", { path }),
@@ -203,6 +262,25 @@ export const api = {
       request<ModelInfoDTO[]>("GET", `/llm/providers/${encodeURIComponent(id)}/models`),
     chat: (req: ChatRequestDTO) =>
       request<{ content: string; finish_reason: string | null }>("POST", "/llm/chat", req),
+  },
+
+  chat: {
+    listSessions: () => request<ChatSessionSummary[]>("GET", "/chat/sessions"),
+    getSession: (id: string) =>
+      request<ChatSessionDTO>("GET", `/chat/sessions/${encodeURIComponent(id)}`),
+    deleteSession: (id: string) =>
+      request<void>("DELETE", `/chat/sessions/${encodeURIComponent(id)}`),
+    reindex: () => request<ReindexResultDTO>("POST", "/chat/reindex"),
+    indexStatus: () => request<IndexStatusDTO>("GET", "/chat/index/status"),
+  },
+
+  retrieval: {
+    search: (body: { query: string; k?: number }) =>
+      request<{ chunks: RetrievalChunkDTO[]; index_last_updated_at: string }>(
+        "POST",
+        "/retrieval/search",
+        { k: 6, ...body },
+      ),
   },
 };
 
