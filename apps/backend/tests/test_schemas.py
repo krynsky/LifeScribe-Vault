@@ -246,6 +246,7 @@ def test_llm_provider_note_parses_and_enforces_id_prefix() -> None:
 
 def test_llm_provider_rejects_bad_id_prefix() -> None:
     import pytest
+
     from lifescribe.vault.schemas import LLMProvider
 
     with pytest.raises(ValueError, match="llm_"):

@@ -67,7 +67,9 @@ class OpenAICompatibleClient:
         if resp.status_code >= 400:
             raise UpstreamError(resp.status_code, f"HTTP {resp.status_code}", body=resp.text)
         data = resp.json().get("data", [])
-        return [ModelInfo(id=item["id"], context_length=item.get("context_length")) for item in data]
+        return [
+            ModelInfo(id=item["id"], context_length=item.get("context_length")) for item in data
+        ]
 
     async def chat(self, req: ChatRequest, *, privacy_mode: bool) -> ChatResult:
         check_url_allowed(self.base_url, privacy_mode=privacy_mode)

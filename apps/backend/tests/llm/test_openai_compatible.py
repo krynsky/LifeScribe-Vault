@@ -33,16 +33,12 @@ async def test_list_models_parses_response(httpx_mock: HTTPXMock, client) -> Non
 
 
 async def test_privacy_blocks_remote_base_url(httpx_mock: HTTPXMock) -> None:
-    client = OpenAICompatibleClient(
-        base_url="https://api.github.com/v1", token="t", local=False
-    )
+    client = OpenAICompatibleClient(base_url="https://api.github.com/v1", token="t", local=False)
     with pytest.raises(PrivacyViolation):
         await client.list_models(privacy_mode=True)
 
 
-async def test_non_streaming_chat_returns_full_content(
-    httpx_mock: HTTPXMock, client
-) -> None:
+async def test_non_streaming_chat_returns_full_content(httpx_mock: HTTPXMock, client) -> None:
     httpx_mock.add_response(
         url="http://127.0.0.1:1234/v1/chat/completions",
         json={
@@ -64,9 +60,7 @@ async def test_non_streaming_chat_returns_full_content(
     assert result.finish_reason == "stop"
 
 
-async def test_upstream_401_raises_upstream_error(
-    httpx_mock: HTTPXMock, client
-) -> None:
+async def test_upstream_401_raises_upstream_error(httpx_mock: HTTPXMock, client) -> None:
     httpx_mock.add_response(
         url="http://127.0.0.1:1234/v1/models", status_code=401, json={"error": "nope"}
     )
@@ -116,9 +110,7 @@ async def test_stream_chat_yields_chunks_and_terminates_on_done(
     assert chunks[-1].finish_reason == "stop"
 
 
-async def test_stream_chat_skips_malformed_sse_lines(
-    httpx_mock: HTTPXMock, client
-) -> None:
+async def test_stream_chat_skips_malformed_sse_lines(httpx_mock: HTTPXMock, client) -> None:
     body = (
         "garbage line\n\n"
         'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
@@ -139,9 +131,7 @@ async def test_stream_chat_skips_malformed_sse_lines(
     assert [c.delta for c in chunks] == ["ok"]
 
 
-async def test_stream_chat_upstream_error_before_first_chunk(
-    httpx_mock: HTTPXMock, client
-) -> None:
+async def test_stream_chat_upstream_error_before_first_chunk(httpx_mock: HTTPXMock, client) -> None:
     httpx_mock.add_response(
         url="http://127.0.0.1:1234/v1/chat/completions",
         status_code=502,

@@ -4,6 +4,7 @@ import json
 import re
 import secrets as _secrets
 import time
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
@@ -107,8 +108,8 @@ def _note_delete_path(store: VaultStore, note_id: str) -> None:
     target = Path(store.root) / "system" / "providers" / f"{note_id}.md"
     if target.exists():
         target.unlink()
-    store._repo.add([str(target.relative_to(store.root).as_posix())])  # type: ignore[attr-defined]
-    store._repo.commit(  # type: ignore[attr-defined]
+    store._repo.add([str(target.relative_to(store.root).as_posix())])
+    store._repo.commit(
         f"llm: delete provider {note_id}",
         author_name="LifeScribe Vault",
         author_email="noreply@lifescribe.local",
@@ -258,7 +259,7 @@ async def chat(req: ChatRequest) -> dict[str, Any]:
     return {"content": result.content, "finish_reason": result.finish_reason}
 
 
-async def _sse_frames(service: LLMService, req: ChatRequest):
+async def _sse_frames(service: LLMService, req: ChatRequest) -> AsyncIterator[str]:
     first_chunk = True
     try:
         agen = service.stream_chat(req).__aiter__()
@@ -275,7 +276,9 @@ async def _sse_frames(service: LLMService, req: ChatRequest):
     except LLMError as exc:
         if first_chunk:
             raise
-        payload = json.dumps({"code": getattr(exc, 'code', 'llm_error'), "message": str(exc)}, separators=(',', ':'))
+        payload = json.dumps(
+            {"code": getattr(exc, "code", "llm_error"), "message": str(exc)}, separators=(",", ":")
+        )
         yield f"event: error\ndata: {payload}\n\n"
 
 
@@ -291,7 +294,7 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     except StopAsyncIteration:
         first = ""
 
-    async def relay():
+    async def relay() -> AsyncIterator[bytes]:
         if first:
             yield first.encode("utf-8")
         async for piece in agen:

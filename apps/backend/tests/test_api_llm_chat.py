@@ -115,9 +115,7 @@ def test_stream_chat_sse_happy_path(tmp_path, httpx_mock: HTTPXMock) -> None:
     assert "event: done" in body
 
 
-def test_stream_chat_error_before_first_chunk_returns_json(
-    tmp_path, httpx_mock: HTTPXMock
-) -> None:
+def test_stream_chat_error_before_first_chunk_returns_json(tmp_path, httpx_mock: HTTPXMock) -> None:
     _, client = _setup(tmp_path)
     pid = _provider(client)
     httpx_mock.add_response(
@@ -138,9 +136,7 @@ def test_stream_chat_error_before_first_chunk_returns_json(
     assert r.json()["detail"]["code"] == "upstream_502"
 
 
-def test_stream_chat_error_mid_stream_emits_error_event(
-    tmp_path, httpx_mock: HTTPXMock
-) -> None:
+def test_stream_chat_error_mid_stream_emits_error_event(tmp_path, httpx_mock: HTTPXMock) -> None:
     _, client = _setup(tmp_path)
     pid = _provider(client)
 
