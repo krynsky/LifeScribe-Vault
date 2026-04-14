@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import secrets as _secrets
+import time
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from lifescribe.llm.base import (
     UpstreamTimeout,
 )
 from lifescribe.llm.secrets import SecretStore
+from lifescribe.llm.service import LLMService
 from lifescribe.vault.schemas import LLMProvider
 from lifescribe.vault.store import VaultStore
 
@@ -152,6 +154,7 @@ def update_provider(provider_id: str, body: _ProviderBody) -> dict[str, Any]:
     result = store.write_note(note, body="", commit_message=f"llm: update {provider_id}")
     if result.conflict:
         raise HTTPException(409, {"code": "conflict_file_written", "message": str(result.path)})
+    _bump_credential_version(provider_id)
     return _envelope(note)
 
 
@@ -167,6 +170,7 @@ def delete_provider(provider_id: str) -> None:
     if existing.secret_ref:
         SecretStore().delete(existing.secret_ref)
     _note_delete_path(store, provider_id)
+    _bump_credential_version(provider_id)
 
 
 class _CredentialBody(BaseModel):
@@ -188,6 +192,7 @@ def put_credential(provider_id: str, body: _CredentialBody) -> None:
     if not note.secret_ref:
         updated = note.model_copy(update={"secret_ref": ref})
         store.write_note(updated, body="", commit_message=f"llm: set secret_ref for {provider_id}")
+    _bump_credential_version(provider_id)
 
 
 @router.delete("/providers/{provider_id}/credential", status_code=204)
@@ -201,3 +206,39 @@ def delete_credential(provider_id: str) -> None:
         raise HTTPException(404, {"code": "provider_not_found", "message": provider_id})
     if note.secret_ref:
         SecretStore().delete(note.secret_ref)
+    _bump_credential_version(provider_id)
+
+
+_MODEL_CACHE: dict[str, tuple[float, int, list[dict[str, Any]]]] = {}
+_CREDENTIAL_VERSION: dict[str, int] = {}
+_TTL_SECONDS = 300.0
+
+
+def reset_model_cache() -> None:
+    _MODEL_CACHE.clear()
+    _CREDENTIAL_VERSION.clear()
+
+
+def _bump_credential_version(provider_id: str) -> None:
+    _CREDENTIAL_VERSION[provider_id] = _CREDENTIAL_VERSION.get(provider_id, 0) + 1
+    _MODEL_CACHE.pop(provider_id, None)
+
+
+@router.get("/providers/{provider_id}/models")
+async def list_models(provider_id: str) -> list[dict[str, Any]]:
+    store = _require_store()
+    version = _CREDENTIAL_VERSION.get(provider_id, 0)
+    entry = _MODEL_CACHE.get(provider_id)
+    if entry is not None:
+        cached_at, cached_version, cached_payload = entry
+        if cached_version == version and (time.monotonic() - cached_at) < _TTL_SECONDS:
+            return cached_payload
+
+    svc = LLMService(store)
+    try:
+        models = await svc.list_models(provider_id)
+    except LLMError as exc:
+        raise _error(exc) from exc
+    payload = [m.model_dump(mode="json") for m in models]
+    _MODEL_CACHE[provider_id] = (time.monotonic(), version, payload)
+    return payload
