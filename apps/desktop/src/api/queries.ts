@@ -2,10 +2,14 @@ import { useMutation, useQuery, useQueryClient, UseQueryOptions } from "@tanstac
 
 import {
   api,
+  ChatSessionDTO,
+  ChatSessionSummary,
+  IndexStatusDTO,
   JobDTO,
   LLMProviderDTO,
   ModelInfoDTO,
   NoteEnvelope,
+  ReindexResultDTO,
   VaultSettingsDTO,
 } from "./client";
 
@@ -157,5 +161,43 @@ export function useLLMModels(id: string | undefined) {
     queryKey: ["llm", "models", id],
     queryFn: () => api.llm.listModels(id as string),
     enabled: !!id,
+  });
+}
+
+export function useChatSessions() {
+  return useQuery<ChatSessionSummary[]>({
+    queryKey: ["chat", "sessions"],
+    queryFn: () => api.chat.listSessions(),
+  });
+}
+
+export function useChatSession(id: string | undefined) {
+  return useQuery<ChatSessionDTO>({
+    queryKey: ["chat", "session", id],
+    queryFn: () => api.chat.getSession(id as string),
+    enabled: !!id,
+  });
+}
+
+export function useDeleteChatSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.chat.deleteSession(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["chat", "sessions"] }),
+  });
+}
+
+export function useReindex() {
+  const qc = useQueryClient();
+  return useMutation<ReindexResultDTO, Error, void>({
+    mutationFn: () => api.chat.reindex(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["chat", "index-status"] }),
+  });
+}
+
+export function useIndexStatus() {
+  return useQuery<IndexStatusDTO>({
+    queryKey: ["chat", "index-status"],
+    queryFn: () => api.chat.indexStatus(),
   });
 }
