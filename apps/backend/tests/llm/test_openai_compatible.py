@@ -90,3 +90,69 @@ async def test_missing_token_raises_credential_missing() -> None:
     )
     with pytest.raises(CredentialMissing):
         await client.list_models(privacy_mode=False)
+
+
+async def test_stream_chat_yields_chunks_and_terminates_on_done(
+    httpx_mock: HTTPXMock, client
+) -> None:
+    body = (
+        'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n'
+        'data: {"choices":[{"delta":{"content":"lo."},"finish_reason":null}]}\n\n'
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+    httpx_mock.add_response(
+        url="http://127.0.0.1:1234/v1/chat/completions",
+        content=body.encode("utf-8"),
+        headers={"content-type": "text/event-stream"},
+    )
+    req = ChatRequest(
+        provider_id="x",
+        model="m",
+        messages=[ChatMessage(role="user", content="hi")],
+    )
+    chunks = [c async for c in client.stream_chat(req, privacy_mode=False)]
+    assert [c.delta for c in chunks] == ["Hel", "lo.", ""]
+    assert chunks[-1].finish_reason == "stop"
+
+
+async def test_stream_chat_skips_malformed_sse_lines(
+    httpx_mock: HTTPXMock, client
+) -> None:
+    body = (
+        "garbage line\n\n"
+        'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
+        "data: {not json}\n\n"
+        "data: [DONE]\n\n"
+    )
+    httpx_mock.add_response(
+        url="http://127.0.0.1:1234/v1/chat/completions",
+        content=body.encode("utf-8"),
+        headers={"content-type": "text/event-stream"},
+    )
+    req = ChatRequest(
+        provider_id="x",
+        model="m",
+        messages=[ChatMessage(role="user", content="hi")],
+    )
+    chunks = [c async for c in client.stream_chat(req, privacy_mode=False)]
+    assert [c.delta for c in chunks] == ["ok"]
+
+
+async def test_stream_chat_upstream_error_before_first_chunk(
+    httpx_mock: HTTPXMock, client
+) -> None:
+    httpx_mock.add_response(
+        url="http://127.0.0.1:1234/v1/chat/completions",
+        status_code=502,
+        text="bad gw",
+    )
+    req = ChatRequest(
+        provider_id="x",
+        model="m",
+        messages=[ChatMessage(role="user", content="hi")],
+    )
+    with pytest.raises(UpstreamError) as exc:
+        async for _ in client.stream_chat(req, privacy_mode=False):
+            pass
+    assert exc.value.status == 502

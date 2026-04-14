@@ -91,7 +91,27 @@ class OpenAICompatibleClient:
     async def stream_chat(
         self, req: ChatRequest, *, privacy_mode: bool
     ) -> AsyncIterator[ChatChunk]:
-        raise NotImplementedError  # filled in Task 8
+        check_url_allowed(self.base_url, privacy_mode=privacy_mode)
+        self._check_credential()
+        payload = _build_payload(req, stream=True)
+        url = f"{self.base_url}/chat/completions"
+        headers = {**self._headers(), "Accept": "text/event-stream"}
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            try:
+                async with client.stream("POST", url, headers=headers, json=payload) as resp:
+                    if resp.status_code >= 400:
+                        body_bytes = await resp.aread()
+                        raise UpstreamError(
+                            resp.status_code,
+                            f"HTTP {resp.status_code}",
+                            body=body_bytes.decode("utf-8", "replace"),
+                        )
+                    async for chunk in _iter_sse_chunks(resp):
+                        yield chunk
+            except httpx.TimeoutException as exc:
+                raise UpstreamTimeout() from exc
+            except httpx.HTTPError as exc:
+                raise UpstreamError(0, f"network error: {exc}") from exc
 
 
 def _build_payload(req: ChatRequest, *, stream: bool) -> dict[str, object]:
@@ -105,3 +125,27 @@ def _build_payload(req: ChatRequest, *, stream: bool) -> dict[str, object]:
     if req.max_tokens is not None:
         payload["max_tokens"] = req.max_tokens
     return payload
+
+
+async def _iter_sse_chunks(resp: httpx.Response) -> AsyncIterator[ChatChunk]:
+    import json
+    import logging
+
+    log = logging.getLogger(__name__)
+    async for line in resp.aiter_lines():
+        if not line or not line.startswith("data:"):
+            continue
+        payload = line[5:].strip()
+        if payload == "[DONE]":
+            return
+        try:
+            obj = json.loads(payload)
+        except json.JSONDecodeError:
+            log.warning("skipping malformed SSE line")
+            continue
+        choices = obj.get("choices") or []
+        if not choices:
+            continue
+        delta = (choices[0].get("delta") or {}).get("content", "")
+        finish_reason = choices[0].get("finish_reason")
+        yield ChatChunk(delta=delta, finish_reason=finish_reason)
