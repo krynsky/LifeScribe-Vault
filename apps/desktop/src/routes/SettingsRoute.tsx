@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import {
+  useCreateLLMProvider,
+  useDeleteLLMProvider,
   useIndexStatus,
   useLLMModels,
   useLLMProviders,
@@ -57,6 +59,83 @@ function DefaultChatModel() {
       >
         Save
       </button>
+    </fieldset>
+  );
+}
+
+function LLMProvidersSection() {
+  const { data: providers } = useLLMProviders();
+  const create = useCreateLLMProvider();
+  const del = useDeleteLLMProvider();
+  const [displayName, setDisplayName] = useState("");
+  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:1234/v1");
+  const [local, setLocal] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function onAdd() {
+    setErr(null);
+    try {
+      await create.mutateAsync({ display_name: displayName, base_url: baseUrl, local });
+      setDisplayName("");
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
+  return (
+    <fieldset>
+      <legend>LLM Providers</legend>
+      {providers && providers.length === 0 && (
+        <div style={{ color: "#888", marginBottom: 8 }}>No providers yet.</div>
+      )}
+      <ul style={{ listStyle: "none", padding: 0, margin: "0 0 12px" }}>
+        {providers?.map((p) => (
+          <li key={p.id} style={{ marginBottom: 4 }}>
+            <strong>{p.display_name}</strong>{" "}
+            <span style={{ color: "#666" }}>
+              ({p.local ? "local" : "remote"}) — {p.base_url}
+            </span>{" "}
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(`Delete provider "${p.display_name}"?`)) del.mutate(p.id);
+              }}
+              disabled={del.isPending}
+            >
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          placeholder="Display name (e.g. LM Studio)"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+        />
+        <input
+          placeholder="Base URL"
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          style={{ width: 260 }}
+        />
+        <label>
+          <input type="checkbox" checked={local} onChange={(e) => setLocal(e.target.checked)} />{" "}
+          Local
+        </label>
+        <button
+          type="button"
+          disabled={!displayName || !baseUrl || create.isPending}
+          onClick={onAdd}
+        >
+          {create.isPending ? "Adding…" : "Add provider"}
+        </button>
+      </div>
+      {err && (
+        <div role="alert" style={{ color: "#b00", marginTop: 8 }}>
+          {err}
+        </div>
+      )}
     </fieldset>
   );
 }
@@ -122,6 +201,10 @@ export default function SettingsRoute() {
           </button>
           {savedAt && <span style={{ marginLeft: 12, color: "#080" }}>Saved at {savedAt}</span>}
         </div>
+      </section>
+      <section style={{ marginBottom: 24 }}>
+        <h2>LLM Providers</h2>
+        <LLMProvidersSection />
       </section>
       <section style={{ marginBottom: 24 }}>
         <h2>Chat</h2>
