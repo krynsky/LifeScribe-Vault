@@ -4,7 +4,14 @@ $root = Resolve-Path (Join-Path $here "..")
 Push-Location (Join-Path $root "apps/backend")
 try {
     uv run pyinstaller --name lifescribe-backend --onefile --clean --noconfirm --console src/lifescribe/api/main.py
-    Write-Host "Binary at: $root/apps/backend/dist/lifescribe-backend.exe"
+    $distDir = Join-Path $root "apps/backend/dist"
+    $distConnectors = Join-Path $distDir "connectors"
+    if (Test-Path $distConnectors) { Remove-Item -Recurse -Force $distConnectors }
+    Copy-Item -Recurse -Force (Join-Path $root "connectors") $distConnectors
+    Get-ChildItem -Path $distConnectors -Recurse -Directory -Filter "__pycache__" |
+        ForEach-Object { Remove-Item -Recurse -Force $_.FullName }
+    Write-Host "Binary at: $distDir/lifescribe-backend.exe"
+    Write-Host "Connectors at: $distConnectors"
 } finally {
     Pop-Location
 }

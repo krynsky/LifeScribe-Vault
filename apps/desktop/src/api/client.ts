@@ -223,6 +223,28 @@ export interface ReindexResultDTO {
   last_indexed_at: string;
 }
 
+export interface ConnectorCatalogEntry {
+  service: string;
+  display_name: string;
+  description: string;
+  category: string;
+  auth_mode: string;
+  tier: string;
+  connector_type: string;
+  entry_point: string;
+  supported_formats: string[];
+  privacy_posture: "local_only" | "requires_network";
+  export_instructions: string;
+  sample_file_urls: string[];
+  manifest_schema_version: number;
+  blocked: boolean;
+}
+
+export interface ConnectorCatalog {
+  entries: ConnectorCatalogEntry[];
+  warnings: string[];
+}
+
 export const api = {
   status: () => request<VaultStatusDTO>("GET", "/vault/status"),
   init: (path: string) => request<VaultStatusDTO>("POST", "/vault/init", { path }),
@@ -286,6 +308,14 @@ export const api = {
         "/retrieval/search",
         { k: 6, ...body },
       ),
+  },
+
+  connectors: {
+    list: () => request<ConnectorCatalog>("GET", "/connectors"),
+    sampleUrl: async (service: string, filename: string): Promise<string> => {
+      const base = await backendUrl();
+      return `${base}/connectors/${encodeURIComponent(service)}/samples/${encodeURIComponent(filename)}`;
+    },
   },
 };
 

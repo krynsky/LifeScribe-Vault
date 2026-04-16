@@ -10,6 +10,7 @@ import {
   useSaveSettings,
   useSettings,
 } from "../api/queries";
+import ConnectorsBrowser from "../components/ConnectorsBrowser";
 
 function DefaultChatModel() {
   const { data: providers } = useLLMProviders();
@@ -213,6 +214,10 @@ export default function SettingsRoute() {
       <section style={{ marginBottom: 24 }}>
         <h2>Index</h2>
         <ChatIndex />
+      </section>
+      <section style={{ marginBottom: 24 }}>
+        <h2>Connectors</h2>
+        <ConnectorsBrowser />
       </section>
     </div>
   );

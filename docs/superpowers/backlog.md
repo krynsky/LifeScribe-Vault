@@ -17,3 +17,18 @@ Branch `feat/chat-with-vault` shipped with manual acceptance partially completed
 - [ ] **Reasoning-model support.** `openai_compatible.py:151` only reads `delta.content`. Reasoning models (qwen3, glm-4.5-air with thinking enabled) emit tokens into `delta.reasoning_content` until they commit to an answer; if they hit a token limit during the thinking phase, `content` stays empty and the user sees a blank assistant bubble. Options: (a) surface `reasoning_content` as a collapsible "thinking" section in `MessageBubble`, (b) filter it out and only stream `content` (current behavior — but document the limitation), (c) add a provider-level toggle.
 - [ ] **Chat error swallowing.** `Conversation.tsx` catches stream errors silently (`// error is surfaced via MessageBubble render of the partial assistant content`). If the LLM fails after retrieval succeeds, the user sees an empty bubble with no indication of failure. Render `ChatStreamError.code` and `message` inline.
 - [ ] **Sidecar zombie cleanup on dev reload.** Closing the Tauri window sometimes leaves `lifescribe-backend.exe` processes running, which then lock the binary and break the next `tauri dev` rebuild. Add a kill on Tauri `on_window_event(Destroyed)` or a pre-dev-launch task that clears lingering sidecars.
+
+## §3.6 Connector Framework — deferred manual acceptance
+
+Branch `feat/connector-framework` shipped with automated gauntlet green (backend 259/259, frontend 59/59, mypy + ruff + eslint + tsc all clean) but the six hands-on acceptance steps from §8.5 of [2026-04-16-connector-framework-design.md](specs/2026-04-16-connector-framework-design.md) require a dev build to walk through:
+
+- [ ] **Step 1 — ingest a PDF.** Drop a PDF into the inbox. Expect it to appear as a SourceRecord note; `git log` in the vault should show both an `import: file_drop (1)` commit and a separate `ingest: <job_id>` commit (these currently land together via `VaultImporter.extra_notes`; confirm the single-commit bundling still holds).
+- [ ] **Step 2 — dedupe.** Drop the same PDF a second time. The ingest log should report `skipped_count == 1`. No new `import:` commit expected. (A new `ingest:` log commit may still appear — that is current behavior and fine.)
+- [ ] **Step 3 — catalog rendering.** Settings → Connectors shows the `file_drop` card with its description, supported formats, and an expandable export-instructions panel that renders the manifest markdown via `react-markdown`.
+- [ ] **Step 4 — privacy-mode pass-through.** Toggle Privacy Mode on. `file_drop` remains fully usable because its manifest declares `privacy_posture = "local_only"`.
+- [ ] **Step 5 — blocked badge + 409.** Create a stub manifest at `connectors/test_remote/manifest.toml` with `privacy_posture = "requires_network"`. With Privacy Mode on, the catalog card should render greyed out with the "blocked by privacy mode" badge; a POST that attempts to run that connector should return HTTP 409.
+- [ ] **Step 6 — missing manifest resilience.** Delete `connectors/file_drop/manifest.toml`, restart the backend. Startup should succeed; `GET /connectors` should return an empty `entries` array with `warnings` listing the skipped directory.
+
+Packaging follow-ups (unblock Step 1 on packaged builds):
+
+- [ ] **Rebuild sidecar + smoke-test packaged app.** `scripts/build-backend.sh` + `scripts/build-backend.ps1` now copy `connectors/` alongside `lifescribe-backend[.exe]`, and `connectors_dir()` already falls back to `<executable_dir>/connectors`. Confirm end-to-end: run the build script, launch the packaged Tauri app, and verify Settings → Connectors lists `file_drop`.
