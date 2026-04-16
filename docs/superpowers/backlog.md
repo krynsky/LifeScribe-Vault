@@ -32,3 +32,21 @@ Branch `feat/connector-framework` shipped with automated gauntlet green (backend
 Packaging follow-ups (unblock Step 1 on packaged builds):
 
 - [ ] **Rebuild sidecar + smoke-test packaged app.** `scripts/build-backend.sh` + `scripts/build-backend.ps1` now copy `connectors/` alongside `lifescribe-backend[.exe]`, and `connectors_dir()` already falls back to `<executable_dir>/connectors`. Confirm end-to-end: run the build script, launch the packaged Tauri app, and verify Settings → Connectors lists `file_drop`.
+
+## §3.7 Publishing Framework — deferred to v2
+
+**Decision (2026-04-16):** §3.7 is deferred entirely. v1.0 ships with §3.1–§3.6. Rationale: the primary destination (lifescribe.us) does not yet have a receiving API, so the publisher framework would have no real integration target. Building a framework against a hypothetical API risks misalignment when the real API lands.
+
+**Blocked on:**
+- [ ] lifescribe.us API for receiving published content (external dependency)
+
+**When unblocked, scope includes:**
+- Publisher ABC (configure → dry-run → publish → receipt lifecycle)
+- Privacy-label enforcement gate (`PUBLISHABLE` notes only, or user-confirmed override)
+- Publish receipts stored in `60_publish/` (reserved folder already exists in vault layout)
+- Idempotent retries with receipt-based dedupe
+- Mapping UI for selecting/curating notes before publish
+- LifeScribe destination (first real publisher)
+- Optional MCP bridge (expose curated vault content to external AI tools)
+
+**Reference:** [umbrella spec §3.7](specs/2026-04-12-lifescribe-vault-overview.md), cross-cutting invariants #7 (privacy switch), #8 (per-source privacy labels), #9 (publisher extension point).
