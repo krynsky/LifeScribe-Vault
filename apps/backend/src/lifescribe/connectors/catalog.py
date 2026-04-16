@@ -67,7 +67,7 @@ def load_catalog(connectors_dir: Path) -> Catalog:
         return Catalog(entries=entries, warnings=warnings)
 
     for child in sorted(connectors_dir.iterdir()):
-        if not child.is_dir() or child.name.startswith("."):
+        if not child.is_dir() or child.name.startswith(".") or child.name == "__pycache__":
             continue
         manifest_path = child / "manifest.toml"
         if not manifest_path.exists():

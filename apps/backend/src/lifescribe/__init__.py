@@ -16,7 +16,7 @@ def connectors_dir() -> Path:
     sys.path so that `import connectors.<service>.connector` works at runtime.
     """
     here = Path(__file__).resolve()
-    candidate = here.parents[3] / "connectors"
+    candidate = here.parents[4] / "connectors"
     if not candidate.exists():
         candidate = Path(sys.executable).parent / "connectors"
     if candidate.exists():
