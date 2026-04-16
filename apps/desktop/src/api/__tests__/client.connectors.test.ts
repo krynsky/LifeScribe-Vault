@@ -1,10 +1,10 @@
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
-import { api } from "../client";
+import { api, type ConnectorCatalogEntry } from "../client";
 import { BASE, server } from "../../test/mswServer";
 
-const _sampleEntry = {
+const _sampleEntry: ConnectorCatalogEntry = {
   service: "file_drop",
   display_name: "File Drop",
   description: "",
@@ -12,8 +12,9 @@ const _sampleEntry = {
   auth_mode: "none",
   tier: "free",
   connector_type: "file",
+  entry_point: "connectors.file_drop.connector:FileDropConnector",
   supported_formats: ["txt"],
-  privacy_posture: "local_only" as const,
+  privacy_posture: "local_only",
   export_instructions: "",
   sample_file_urls: [],
   manifest_schema_version: 1,
