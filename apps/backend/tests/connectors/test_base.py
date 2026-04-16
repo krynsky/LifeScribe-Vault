@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import dataclasses
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
@@ -55,7 +56,7 @@ def test_imported_doc_is_frozen() -> None:
         assets=[Path("/tmp/a")],
         content_hash="a" * 64,
     )
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         doc.title = "changed"  # type: ignore[misc]
 
 

@@ -63,7 +63,7 @@ def run_job(
     registry: ExtractorRegistry,
     app_version: str,
     handle: JobHandle | None = None,
-    indexer: "Indexer | None" = None,
+    indexer: Indexer | None = None,
 ) -> IngestJobLog:
     started_at = datetime.now(UTC)
     job_id = handle.id if handle else new_job_id(started_at)
@@ -79,9 +79,9 @@ def run_job(
             "the reference connector must ship with the app"
         )
 
-    from connectors.file_drop.connector import FileDropConnector  # noqa: PLC0415
+    from connectors.file_drop.connector import FileDropConnector  # type: ignore[import-not-found]
 
-    class _Configured(FileDropConnector):
+    class _Configured(FileDropConnector):  # type: ignore[misc]
         def __init__(self) -> None:
             super().__init__(registry=registry)
 
@@ -145,12 +145,11 @@ def run_job(
         slug = sanitize_slug(doc.title or "untitled")
         note_id = compose_id(type_prefix="src", slug=slug, short_hash=short)
         if store.exists(note_id):
-            status = PerFileStatus.SKIPPED_IDENTICAL
             extractor_str = str(doc.source_meta.get("extractor") or "")
             yielded_entries[src_path] = PerFileEntry(
                 index=1,  # will be rewritten below
                 path=src_path,
-                status=status,
+                status=PerFileStatus.SKIPPED_IDENTICAL,
                 source_id=note_id,
                 extractor=extractor_str or None,
             )
@@ -222,16 +221,16 @@ def run_job(
 
     finished_at = datetime.now(UTC)
     if cancelled > 0:
-        status = JobStatus.CANCELLED
+        job_status = JobStatus.CANCELLED
     elif failed > 0:
-        status = JobStatus.COMPLETED_WITH_FAILURES
+        job_status = JobStatus.COMPLETED_WITH_FAILURES
     else:
-        status = JobStatus.COMPLETED
+        job_status = JobStatus.COMPLETED
 
     log = IngestJobLog(
         id=job_id,
         type="IngestJobLog",
-        status=status,
+        status=job_status,
         started_at=started_at,
         finished_at=finished_at,
         total=len(files),

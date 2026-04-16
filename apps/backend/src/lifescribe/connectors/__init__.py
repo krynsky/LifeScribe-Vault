@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from .base import (
     Connector,
@@ -22,10 +23,10 @@ __all__ = [
     "Connector",
     "ConnectorConfig",
     "ConnectorConfigError",
-    "ImportedDoc",
     "ImportItemEntry",
     "ImportRequest",
     "ImportResult",
+    "ImportedDoc",
     "PrivacyBlockedError",
     "VaultImporterProtocol",
     "load_catalog",
@@ -52,8 +53,8 @@ class VaultImporterProtocol(Protocol):
     def ingest(
         self,
         connector: str,
-        docs,
-        **kwargs,
+        docs: Iterator[ImportedDoc] | Iterable[ImportedDoc],
+        **kwargs: Any,
     ) -> ImportResult: ...
 
 

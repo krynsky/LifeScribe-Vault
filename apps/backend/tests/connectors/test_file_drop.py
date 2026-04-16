@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from connectors.file_drop.connector import FileDropConnector  # type: ignore[import-not-found]
+
 from lifescribe.connectors.base import (
     ConnectorConfig,
     ImportedDoc,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 HEADERS = {"Authorization": "Bearer test-token"}
 
 

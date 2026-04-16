@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, Iterator
+from typing import TYPE_CHECKING
 
 from lifescribe.connectors.base import ImportedDoc, ImportItemEntry, ImportResult
 from lifescribe.vault.ids import compose_id, content_short_hash, sanitize_slug
@@ -41,6 +42,30 @@ def _parse_dt(value: object) -> datetime:
     return datetime.now(UTC)
 
 
+def _coerce_float(value: object, *, default: float) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _coerce_int(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
+
+
 @dataclass
 class VaultImporter:
     """Consumes ImportedDoc streams and writes them into a VaultStore.
@@ -52,7 +77,7 @@ class VaultImporter:
     """
 
     store: VaultStore
-    indexer: "Indexer | None" = None
+    indexer: Indexer | None = None
 
     def ingest(
         self,
@@ -98,6 +123,8 @@ class VaultImporter:
                         _copy_asset_if_needed(self.store, asset, doc.content_hash)
                     )
 
+                page_count_raw = doc.source_meta.get("page_count")
+                page_count = page_count_raw if isinstance(page_count_raw, int) else None
                 record = SourceRecord(
                     id=note_id,
                     type="SourceRecord",
@@ -107,19 +134,15 @@ class VaultImporter:
                     imported_at=now,
                     imported_by_job=job_stamp,
                     extractor=str(doc.source_meta.get("extractor") or f"{connector}@unknown"),
-                    extractor_confidence=float(
-                        doc.source_meta.get("extractor_confidence", 1.0)
+                    extractor_confidence=_coerce_float(
+                        doc.source_meta.get("extractor_confidence"), default=1.0
                     ),
                     mime_type=str(doc.source_meta.get("mime_type") or "application/octet-stream"),
                     original_filename=str(
                         doc.source_meta.get("original_filename") or doc.title
                     ),
-                    size_bytes=int(doc.source_meta.get("size_bytes") or 0),
-                    page_count=(
-                        doc.source_meta.get("page_count")
-                        if isinstance(doc.source_meta.get("page_count"), int)
-                        else None
-                    ),
+                    size_bytes=_coerce_int(doc.source_meta.get("size_bytes"), default=0),
+                    page_count=page_count,
                     tags=list(doc.tags),
                 )
                 to_write.append((record, doc.body_markdown))
