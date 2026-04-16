@@ -36,9 +36,7 @@ describe("api.connectors", () => {
   });
 
   it("throws ApiError on non-200", async () => {
-    server.use(
-      http.get(`${BASE}/connectors`, () => new HttpResponse("boom", { status: 500 })),
-    );
+    server.use(http.get(`${BASE}/connectors`, () => new HttpResponse("boom", { status: 500 })));
     await expect(api.connectors.list()).rejects.toThrow();
   });
 

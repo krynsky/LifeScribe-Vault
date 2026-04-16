@@ -98,9 +98,7 @@ def load_catalog(connectors_dir: Path) -> Catalog:
         seen_services.add(service)
 
         sample_files = [
-            (child / s).resolve()
-            for s in raw.get("sample_files", [])
-            if isinstance(s, str)
+            (child / s).resolve() for s in raw.get("sample_files", []) if isinstance(s, str)
         ]
 
         entries.append(
@@ -128,23 +126,15 @@ def load_catalog(connectors_dir: Path) -> Catalog:
 def resolve_entry_point(entry_point: str) -> type[Connector]:
     """Resolve ``"pkg.mod:ClassName"`` to a Connector subclass."""
     if ":" not in entry_point:
-        raise EntryPointResolutionError(
-            f"entry_point must be 'module:Class', got {entry_point!r}"
-        )
+        raise EntryPointResolutionError(f"entry_point must be 'module:Class', got {entry_point!r}")
     module_name, _, attr = entry_point.partition(":")
     try:
         module = importlib.import_module(module_name)
     except ImportError as exc:
-        raise EntryPointResolutionError(
-            f"cannot import module {module_name!r}: {exc}"
-        ) from exc
+        raise EntryPointResolutionError(f"cannot import module {module_name!r}: {exc}") from exc
     cls: Any = getattr(module, attr, None)
     if cls is None:
-        raise EntryPointResolutionError(
-            f"module {module_name!r} has no attribute {attr!r}"
-        )
+        raise EntryPointResolutionError(f"module {module_name!r} has no attribute {attr!r}")
     if not (isinstance(cls, type) and issubclass(cls, Connector)):
-        raise EntryPointResolutionError(
-            f"{entry_point!r} does not resolve to a Connector subclass"
-        )
+        raise EntryPointResolutionError(f"{entry_point!r} does not resolve to a Connector subclass")
     return cls

@@ -59,9 +59,7 @@ def test_skips_malformed_toml(connectors_dir: Path, write_manifest) -> None:
 def test_skips_missing_required_field(connectors_dir: Path) -> None:
     bad = connectors_dir / "bad"
     bad.mkdir()
-    (bad / "manifest.toml").write_text(
-        'manifest_schema_version = 1\nservice = "bad"\n'
-    )
+    (bad / "manifest.toml").write_text('manifest_schema_version = 1\nservice = "bad"\n')
     cat = load_catalog(connectors_dir)
     assert cat.entries == []
     assert any("missing" in w.lower() for w in cat.warnings)
@@ -72,9 +70,7 @@ def test_duplicate_service_keeps_first(connectors_dir: Path, write_manifest) -> 
     # second dir with same service value but different folder name
     dup = connectors_dir / "alpha_copy"
     dup.mkdir()
-    (dup / "manifest.toml").write_text(
-        (connectors_dir / "alpha" / "manifest.toml").read_text()
-    )
+    (dup / "manifest.toml").write_text((connectors_dir / "alpha" / "manifest.toml").read_text())
     cat = load_catalog(connectors_dir)
     assert len(cat.entries) == 1
     assert any("duplicate" in w.lower() for w in cat.warnings)

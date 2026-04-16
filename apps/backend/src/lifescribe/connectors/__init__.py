@@ -79,9 +79,7 @@ def run_connector(
 
     try:
         try:
-            connector.configure(
-                ConnectorConfig(vault_path=vault_path, privacy_mode=privacy_mode)
-            )
+            connector.configure(ConnectorConfig(vault_path=vault_path, privacy_mode=privacy_mode))
         except Exception as exc:
             raise ConnectorConfigError(str(exc)) from exc
 
@@ -90,6 +88,4 @@ def run_connector(
         try:
             connector.teardown()
         except Exception as exc:
-            logger.warning(
-                "connector %s: teardown raised: %s", entry.service, exc
-            )
+            logger.warning("connector %s: teardown raised: %s", entry.service, exc)

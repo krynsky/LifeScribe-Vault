@@ -97,6 +97,7 @@ def test_ingest_empty_iter_is_noop(store: VaultStore) -> None:
 
 def test_ingest_extra_notes_batched_in_same_commit(store: VaultStore) -> None:
     from lifescribe.vault.schemas import IngestJobLog, JobStatus
+
     importer = VaultImporter(store=store)
     doc = _doc("alpha", "d" * 64)
     log = IngestJobLog(

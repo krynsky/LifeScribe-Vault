@@ -108,9 +108,7 @@ class VaultImporter:
                     items.append(
                         ImportItemEntry(
                             status="skipped_identical",
-                            identifier=str(
-                                doc.source_meta.get("source_path") or doc.title
-                            ),
+                            identifier=str(doc.source_meta.get("source_path") or doc.title),
                             note_id=note_id,
                         )
                     )
@@ -119,9 +117,7 @@ class VaultImporter:
                 for asset in doc.assets:
                     if not asset.exists():
                         raise FileNotFoundError(f"asset {asset} does not exist")
-                    asset_rels.append(
-                        _copy_asset_if_needed(self.store, asset, doc.content_hash)
-                    )
+                    asset_rels.append(_copy_asset_if_needed(self.store, asset, doc.content_hash))
 
                 page_count_raw = doc.source_meta.get("page_count")
                 page_count = page_count_raw if isinstance(page_count_raw, int) else None
@@ -138,9 +134,7 @@ class VaultImporter:
                         doc.source_meta.get("extractor_confidence"), default=1.0
                     ),
                     mime_type=str(doc.source_meta.get("mime_type") or "application/octet-stream"),
-                    original_filename=str(
-                        doc.source_meta.get("original_filename") or doc.title
-                    ),
+                    original_filename=str(doc.source_meta.get("original_filename") or doc.title),
                     size_bytes=_coerce_int(doc.source_meta.get("size_bytes"), default=0),
                     page_count=page_count,
                     tags=list(doc.tags),
@@ -150,9 +144,7 @@ class VaultImporter:
                 items.append(
                     ImportItemEntry(
                         status="imported",
-                        identifier=str(
-                            doc.source_meta.get("source_path") or doc.title
-                        ),
+                        identifier=str(doc.source_meta.get("source_path") or doc.title),
                         note_id=note_id,
                         meta={
                             "extractor": record.extractor,
@@ -165,9 +157,7 @@ class VaultImporter:
                 items.append(
                     ImportItemEntry(
                         status="failed",
-                        identifier=str(
-                            doc.source_meta.get("source_path") or doc.title
-                        ),
+                        identifier=str(doc.source_meta.get("source_path") or doc.title),
                         error=f"{type(exc).__name__}: {exc}",
                     )
                 )
@@ -177,9 +167,7 @@ class VaultImporter:
             batch.extend(extra_notes)
 
         if batch:
-            message = commit_message_override or (
-                f"import: {connector} ({imported_count})"
-            )
+            message = commit_message_override or (f"import: {connector} ({imported_count})")
             self.store.write_batch(
                 batch,
                 commit_message=message,
@@ -187,9 +175,7 @@ class VaultImporter:
             )
             if self.indexer is not None and imported_count > 0:
                 try:
-                    self.indexer.reindex_notes(
-                        [r.id for r, _ in to_write]
-                    )
+                    self.indexer.reindex_notes([r.id for r, _ in to_write])
                 except Exception as exc:
                     logger.warning("post-import reindex failed: %s", exc)
 

@@ -75,8 +75,7 @@ def run_job(
     entry = catalog.find("file_drop")
     if entry is None:
         raise RuntimeError(
-            "file_drop connector manifest missing — "
-            "the reference connector must ship with the app"
+            "file_drop connector manifest missing — the reference connector must ship with the app"
         )
 
     from connectors.file_drop.connector import FileDropConnector  # type: ignore[import-not-found]
@@ -214,8 +213,7 @@ def run_job(
     failed = sum(1 for e in per_file if e.status == PerFileStatus.FAILED)
     succeeded = sum(1 for e in per_file if e.status == PerFileStatus.SUCCEEDED)
     skipped = sum(
-        1 for e in per_file
-        if e.status in (PerFileStatus.SKIPPED, PerFileStatus.SKIPPED_IDENTICAL)
+        1 for e in per_file if e.status in (PerFileStatus.SKIPPED, PerFileStatus.SKIPPED_IDENTICAL)
     )
     cancelled = sum(1 for e in per_file if e.status == PerFileStatus.CANCELLED)
 

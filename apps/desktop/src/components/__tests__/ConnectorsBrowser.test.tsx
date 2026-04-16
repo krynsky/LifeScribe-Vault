@@ -45,9 +45,7 @@ const ENTRIES = [
 describe("ConnectorsBrowser", () => {
   test("renders catalog entries", async () => {
     server.use(
-      http.get(`${BASE}/connectors`, () =>
-        HttpResponse.json({ entries: ENTRIES, warnings: [] }),
-      ),
+      http.get(`${BASE}/connectors`, () => HttpResponse.json({ entries: ENTRIES, warnings: [] })),
     );
     renderWithProviders(<ConnectorsBrowser />);
     expect(await screen.findByText("File Drop")).toBeInTheDocument();
@@ -56,9 +54,7 @@ describe("ConnectorsBrowser", () => {
 
   test("shows blocked badge on requires_network when privacy on", async () => {
     server.use(
-      http.get(`${BASE}/connectors`, () =>
-        HttpResponse.json({ entries: ENTRIES, warnings: [] }),
-      ),
+      http.get(`${BASE}/connectors`, () => HttpResponse.json({ entries: ENTRIES, warnings: [] })),
     );
     renderWithProviders(<ConnectorsBrowser />);
     // Wait for data to load
@@ -68,9 +64,7 @@ describe("ConnectorsBrowser", () => {
 
   test("expands an entry to reveal markdown-rendered export instructions", async () => {
     server.use(
-      http.get(`${BASE}/connectors`, () =>
-        HttpResponse.json({ entries: ENTRIES, warnings: [] }),
-      ),
+      http.get(`${BASE}/connectors`, () => HttpResponse.json({ entries: ENTRIES, warnings: [] })),
     );
     const user = userEvent.setup();
     renderWithProviders(<ConnectorsBrowser />);

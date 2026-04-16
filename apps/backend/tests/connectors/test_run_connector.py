@@ -24,9 +24,7 @@ class _FakeImporter:
     def __init__(self) -> None:
         self.seen: list[ImportedDoc] = []
 
-    def ingest(
-        self, connector: str, docs: Iterator[ImportedDoc], **_: object
-    ) -> ImportResult:
+    def ingest(self, connector: str, docs: Iterator[ImportedDoc], **_: object) -> ImportResult:
         materialized = list(docs)
         self.seen.extend(materialized)
         return ImportResult(
@@ -102,9 +100,7 @@ def _req() -> ImportRequest:
 
 def test_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     connector = _OkConnector()
-    monkeypatch.setattr(
-        "lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector
-    )
+    monkeypatch.setattr("lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector)
     importer = _FakeImporter()
     result = run_connector(
         _FAKE_ENTRY,
@@ -119,9 +115,7 @@ def test_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_privacy_blocks_requires_network(tmp_path: Path) -> None:
-    entry = CatalogEntry(
-        **{**_FAKE_ENTRY.__dict__, "privacy_posture": "requires_network"}
-    )
+    entry = CatalogEntry(**{**_FAKE_ENTRY.__dict__, "privacy_posture": "requires_network"})
     with pytest.raises(PrivacyBlockedError):
         run_connector(
             entry,
@@ -132,13 +126,9 @@ def test_privacy_blocks_requires_network(tmp_path: Path) -> None:
         )
 
 
-def test_privacy_allows_local_only_when_on(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_privacy_allows_local_only_when_on(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     connector = _OkConnector()
-    monkeypatch.setattr(
-        "lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector
-    )
+    monkeypatch.setattr("lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector)
     result = run_connector(
         _FAKE_ENTRY,
         _req(),
@@ -153,9 +143,7 @@ def test_configure_raise_wraps_as_config_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     connector = _ConfigFailsConnector()
-    monkeypatch.setattr(
-        "lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector
-    )
+    monkeypatch.setattr("lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector)
     with pytest.raises(ConnectorConfigError):
         run_connector(
             _FAKE_ENTRY,
@@ -168,13 +156,9 @@ def test_configure_raise_wraps_as_config_error(
     assert "teardown" in connector.events
 
 
-def test_collect_raise_calls_teardown(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_collect_raise_calls_teardown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     connector = _CollectRaisesConnector()
-    monkeypatch.setattr(
-        "lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector
-    )
+    monkeypatch.setattr("lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector)
     with pytest.raises(RuntimeError, match="mid-collect boom"):
         run_connector(
             _FAKE_ENTRY,
@@ -190,9 +174,7 @@ def test_teardown_error_logged_not_raised(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     connector = _TeardownRaisesConnector()
-    monkeypatch.setattr(
-        "lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector
-    )
+    monkeypatch.setattr("lifescribe.connectors.resolve_entry_point", lambda _ep: lambda: connector)
     with caplog.at_level("WARNING"):
         result = run_connector(
             _FAKE_ENTRY,
