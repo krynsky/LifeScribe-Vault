@@ -231,6 +231,7 @@ export interface ConnectorCatalogEntry {
   auth_mode: string;
   tier: string;
   connector_type: string;
+  entry_point: string;
   supported_formats: string[];
   privacy_posture: "local_only" | "requires_network";
   export_instructions: string;
