@@ -22,6 +22,13 @@ export default [
         TextEncoder: "readonly",
         TextDecoder: "readonly",
         AbortSignal: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        confirm: "readonly",
+        HTMLDivElement: "readonly",
+        HTMLTextAreaElement: "readonly",
+        HTMLDetailsElement: "readonly",
+        HTMLSelectElement: "readonly",
       },
     },
     plugins: {
@@ -31,7 +38,10 @@ export default [
     rules: {
       ...tseslint.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
 ];

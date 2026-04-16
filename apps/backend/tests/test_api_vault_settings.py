@@ -56,3 +56,50 @@ def test_put_settings_rejects_unknown_fields(client: TestClient) -> None:
         json={"privacy_mode": True, "bogus": 1},
     )
     assert r.status_code == 422
+
+
+def test_settings_default_chat_model_roundtrip(client: TestClient) -> None:
+    r = client.put(
+        "/vault/settings",
+        headers=HEADERS,
+        json={
+            "privacy_mode": False,
+            "default_chat_provider_id": "github_models",
+            "default_chat_model": "gpt-4o",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["default_chat_provider_id"] == "github_models"
+    assert body["default_chat_model"] == "gpt-4o"
+
+    r2 = client.get("/vault/settings", headers=HEADERS)
+    body2 = r2.json()
+    assert body2["default_chat_provider_id"] == "github_models"
+    assert body2["default_chat_model"] == "gpt-4o"
+
+
+def test_settings_default_chat_model_nullable(client: TestClient) -> None:
+    # Set then clear default_chat_model fields
+    client.put(
+        "/vault/settings",
+        headers=HEADERS,
+        json={
+            "privacy_mode": False,
+            "default_chat_provider_id": "github_models",
+            "default_chat_model": "gpt-4o",
+        },
+    )
+    r = client.put(
+        "/vault/settings",
+        headers=HEADERS,
+        json={
+            "privacy_mode": False,
+            "default_chat_provider_id": None,
+            "default_chat_model": None,
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["default_chat_provider_id"] is None
+    assert body["default_chat_model"] is None

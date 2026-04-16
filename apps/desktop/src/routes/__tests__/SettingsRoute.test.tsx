@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
@@ -22,7 +22,9 @@ describe("SettingsRoute", () => {
     const toggle = await screen.findByRole("checkbox", { name: /privacy/i });
     expect(toggle).not.toBeChecked();
     await userEvent.click(toggle);
-    await userEvent.click(screen.getByRole("button", { name: /save/i }));
+    // Use the Privacy section's Save button specifically (multiple Save buttons exist)
+    const privacySection = screen.getByRole("heading", { name: /privacy/i }).closest("section")!;
+    await userEvent.click(within(privacySection).getByRole("button", { name: /save/i }));
     await waitFor(() => expect(screen.getByText(/saved/i)).toBeInTheDocument());
   });
 });

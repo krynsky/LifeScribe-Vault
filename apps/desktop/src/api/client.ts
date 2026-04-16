@@ -110,6 +110,8 @@ export interface VaultSettingsDTO {
   type: "VaultSettings";
   schema_version?: number;
   privacy_mode: boolean;
+  default_chat_provider_id?: string | null;
+  default_chat_model?: string | null;
   [k: string]: unknown;
 }
 
@@ -162,6 +164,65 @@ export interface ChatChunkDTO {
   finish_reason?: string | null;
 }
 
+export interface ChatCitationDTO {
+  marker: number;
+  note_id: string;
+  chunk_id: string;
+  score: number;
+  resolved: boolean;
+}
+
+export interface ChatTurnDTO {
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  citations: ChatCitationDTO[];
+  empty_retrieval: boolean;
+}
+
+export interface ChatSessionDTO {
+  id: string;
+  type: "ChatSession";
+  title: string;
+  provider_id: string;
+  model: string;
+  turns: ChatTurnDTO[];
+}
+
+export interface ChatSessionSummary {
+  id: string;
+  title: string;
+  provider_id: string;
+  model: string;
+  turn_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface RetrievalChunkDTO {
+  n: number;
+  note_id: string;
+  chunk_id: string;
+  note_type: string;
+  score: number;
+  snippet: string;
+  tags: string[];
+}
+
+export interface IndexStatusDTO {
+  last_indexed_at: string;
+  note_count: number;
+  chunk_count: number;
+  db_size_bytes: number;
+  stale_notes: number;
+}
+
+export interface ReindexResultDTO {
+  indexed_notes: number;
+  elapsed_ms: number;
+  last_indexed_at: string;
+}
+
 export const api = {
   status: () => request<VaultStatusDTO>("GET", "/vault/status"),
   init: (path: string) => request<VaultStatusDTO>("POST", "/vault/init", { path }),
@@ -175,8 +236,11 @@ export const api = {
   note: (id: string) => request<NoteEnvelope>("GET", `/vault/notes/${encodeURIComponent(id)}`),
 
   settings: () => request<VaultSettingsDTO>("GET", "/vault/settings"),
-  saveSettings: (payload: { privacy_mode: boolean }) =>
-    request<VaultSettingsDTO>("PUT", "/vault/settings", payload),
+  saveSettings: (payload: {
+    privacy_mode: boolean;
+    default_chat_provider_id?: string | null;
+    default_chat_model?: string | null;
+  }) => request<VaultSettingsDTO>("PUT", "/vault/settings", payload),
 
   ingest: {
     create: (files: string[]) => request<JobDTO>("POST", "/ingest/jobs", { files }),
@@ -204,8 +268,48 @@ export const api = {
     chat: (req: ChatRequestDTO) =>
       request<{ content: string; finish_reason: string | null }>("POST", "/llm/chat", req),
   },
+
+  chat: {
+    listSessions: () => request<ChatSessionSummary[]>("GET", "/chat/sessions"),
+    getSession: (id: string) =>
+      request<ChatSessionDTO>("GET", `/chat/sessions/${encodeURIComponent(id)}`),
+    deleteSession: (id: string) =>
+      request<void>("DELETE", `/chat/sessions/${encodeURIComponent(id)}`),
+    reindex: () => request<ReindexResultDTO>("POST", "/chat/reindex"),
+    indexStatus: () => request<IndexStatusDTO>("GET", "/chat/index/status"),
+  },
+
+  retrieval: {
+    search: (body: { query: string; k?: number }) =>
+      request<{ chunks: RetrievalChunkDTO[]; index_last_updated_at: string }>(
+        "POST",
+        "/retrieval/search",
+        { k: 6, ...body },
+      ),
+  },
 };
+
+/** Resolves to the backend base URL, waiting for the sidecar to start if needed. */
+export async function backendUrl(): Promise<string> {
+  const b = await getBackend();
+  return `http://${b.host}:${b.port}`;
+}
+
+/** Resolves to the bearer token, waiting for the sidecar to start if needed. */
+export async function backendToken(): Promise<string> {
+  const b = await getBackend();
+  return b.token;
+}
 
 export function __resetClientCacheForTests(): void {
   cached = null;
+}
+
+/** @internal — expose cached backend for tests */
+export function __setClientCacheForTests(info: {
+  host: string;
+  port: number;
+  token: string;
+}): void {
+  cached = info;
 }

@@ -6,6 +6,7 @@ import ImportRoute from "./routes/ImportRoute";
 import LogsRoute from "./routes/LogsRoute";
 import NoteViewerRoute from "./routes/NoteViewerRoute";
 import SettingsRoute from "./routes/SettingsRoute";
+import { ChatRoute } from "./routes/ChatRoute";
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +17,8 @@ export const router = createBrowserRouter([
       { path: "browse", element: <BrowseRoute /> },
       { path: "browse/:id", element: <NoteViewerRoute /> },
       { path: "import", element: <ImportRoute /> },
+      { path: "chat", element: <ChatRoute /> },
+      { path: "chat/:sessionId", element: <ChatRoute /> },
       { path: "logs", element: <LogsRoute /> },
       { path: "logs/:id", element: <NoteViewerRoute /> },
       { path: "settings", element: <SettingsRoute /> },

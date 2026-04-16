@@ -19,6 +19,7 @@ from lifescribe.vault.errors import (
 )
 from lifescribe.vault.gitwrap import GitRepo
 from lifescribe.vault.schemas import (
+    ChatSession,
     ConnectorRecord,
     DocumentRecord,
     IngestionLogEntry,
@@ -54,6 +55,7 @@ _ACTIVE_FOLDERS = [
 ]
 
 _GITIGNORE = """.obsidian/workspace*
+.lifescribe/
 """
 _GITATTRIBUTES = """* text=auto eol=lf
 *.png binary
@@ -99,6 +101,8 @@ def _relative_path_for(note: Note, root: Path) -> Path:
         return root / "system" / "logs" / "ingestion" / year_month / f"{note.id}.md"
     if isinstance(note, LLMProvider):
         return root / "system" / "providers" / f"{note.id}.md"
+    if isinstance(note, ChatSession):
+        return root / "70_chats" / f"{note.id}.md"
     if isinstance(note, VaultSettings):
         return root / "system" / f"{note.id}.md"
     if isinstance(note, VaultManifest):
@@ -270,6 +274,32 @@ class VaultStore:
                 continue
             if type_ is None or note.type == type_:
                 yield note
+
+    def path_for(self, note_id: str) -> Path | None:
+        """Return the absolute filesystem path for the note with the given id.
+
+        Returns None if the note cannot be found in the vault.
+        """
+        try:
+            note, _ = self.read_note(note_id)
+        except KeyError:
+            return None
+        return _relative_path_for(note, self.root)
+
+    def delete_note(self, note_id: str, *, commit_message: str) -> None:
+        """Delete a note file and commit the deletion."""
+        target = self.path_for(note_id)
+        if target is None:
+            raise KeyError(note_id)
+        if target.exists():
+            target.unlink()
+        rel = target.relative_to(self.root).as_posix()
+        self._repo.add([rel])
+        self._repo.commit(
+            commit_message,
+            author_name=APP_GIT_AUTHOR_NAME,
+            author_email=APP_GIT_AUTHOR_EMAIL,
+        )
 
     def migrate(self, target_version: int) -> MigrationReport:
         from lifescribe.migrations.framework import apply_migrations

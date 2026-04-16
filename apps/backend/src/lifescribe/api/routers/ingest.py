@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -12,8 +13,11 @@ from lifescribe.api.routers.vault import _State as _VaultState
 from lifescribe.ingest.jobs import JobRequest, new_job_id
 from lifescribe.ingest.pipeline import JobHandle, run_job
 from lifescribe.ingest.registry_default import default_registry
+from lifescribe.retrieval.indexer import Indexer
 from lifescribe.vault.schemas import IngestJobLog, JobStatus
 from lifescribe.vault.serialization import load_note
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -22,7 +26,13 @@ _REGISTRY = default_registry()
 
 class _IngestState:
     active: JobHandle | None = None
+    indexer: Indexer | None = None
     _tasks: ClassVar[set[asyncio.Task[None]]] = set()
+
+
+def set_indexer(indexer: Indexer | None) -> None:
+    """Inject the retrieval Indexer so ingest jobs trigger re-indexing."""
+    _IngestState.indexer = indexer
 
 
 def _require_store() -> Any:
@@ -61,6 +71,7 @@ async def post_job(req: JobRequest) -> dict[str, Any]:
                 registry=_REGISTRY,
                 app_version=__version__,
                 handle=handle,
+                indexer=_IngestState.indexer,
             )
         finally:
             _IngestState.active = None

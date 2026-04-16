@@ -88,3 +88,32 @@ def test_write_llm_provider_goes_to_system_providers(tmp_path) -> None:
     loaded, _body = store.read_note("llm_lmstudio_default")
     assert isinstance(loaded, LLMProvider)
     assert loaded.display_name == "LM Studio"
+
+
+def test_chat_session_routes_to_70_chats(tmp_path):
+    from datetime import UTC, datetime
+
+    from lifescribe.vault.schemas import ChatSession, ChatTurn
+    from lifescribe.vault.store import VaultStore
+
+    store = VaultStore.init(tmp_path, app_version="test")
+    session = ChatSession(
+        id="chat_greeting_ab12cd",
+        type="ChatSession",
+        title="greeting",
+        provider_id="llm_lm_studio_abc",
+        model="qwen3-14b",
+        turns=[ChatTurn(role="user", content="hi", created_at=datetime.now(tz=UTC))],
+    )
+    store.write_note(session, body="", commit_message="chat: add session")
+    assert (tmp_path / "70_chats" / "chat_greeting_ab12cd.md").exists()
+
+
+def test_init_adds_lifescribe_to_gitignore(tmp_path):
+    from lifescribe.vault.store import VaultStore
+
+    VaultStore.init(tmp_path, app_version="test")
+    ignore_file = tmp_path / ".gitignore"
+    assert ignore_file.exists()
+    content = ignore_file.read_text(encoding="utf-8")
+    assert ".lifescribe/" in content.splitlines()

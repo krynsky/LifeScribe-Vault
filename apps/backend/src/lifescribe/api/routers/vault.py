@@ -7,7 +7,14 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from lifescribe import __version__
+from lifescribe.api.routers.chat import set_wiring as _chat_set_wiring
 from lifescribe.api.routers.llm import set_vault_store as _llm_set_store
+from lifescribe.api.routers.retrieval import set_index as _retrieval_set_index
+from lifescribe.chat.orchestrator import ChatOrchestrator
+from lifescribe.chat.sessions import SessionStore
+from lifescribe.llm.service import LLMService
+from lifescribe.retrieval.index import FTSIndex
+from lifescribe.retrieval.indexer import Indexer
 from lifescribe.vault.errors import (
     SchemaTooNewError,
     VaultAlreadyInitializedError,
@@ -31,6 +38,34 @@ class _OpenRequest(BaseModel):
     path: str
 
 
+def _wire_chat_stack(store: VaultStore) -> None:
+    """Build and register the retrieval/chat stack for an opened vault."""
+    index = FTSIndex.open(
+        store.root / ".lifescribe" / "fts.db",
+        vault_id=store.manifest.id,
+    )
+    indexer = Indexer(vault=store, index=index)
+    indexer.reindex_stale()
+    sessions = SessionStore(vault=store)
+    orchestrator = ChatOrchestrator(
+        sessions=sessions,
+        index=index,
+        indexer=indexer,
+        llm=LLMService(store=store),
+    )
+    _retrieval_set_index(index)
+    # Lazy import to avoid circular dependency (ingest imports vault._State at module level).
+    from lifescribe.api.routers.ingest import set_indexer as _ingest_set_indexer
+
+    _ingest_set_indexer(indexer)
+    _chat_set_wiring(
+        sessions=sessions,
+        orchestrator=orchestrator,
+        index=index,
+        indexer=indexer,
+    )
+
+
 def _manifest_dict(store: VaultStore) -> dict[str, Any]:
     return store.manifest.model_dump(mode="json")
 
@@ -50,6 +85,7 @@ def init_endpoint(req: _InitRequest) -> dict[str, Any]:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
     _State.store = store
     _llm_set_store(store)
+    _wire_chat_stack(store)
     return {"open": True, "manifest": _manifest_dict(store)}
 
 
@@ -63,6 +99,7 @@ def open_endpoint(req: _OpenRequest) -> dict[str, Any]:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
     _State.store = store
     _llm_set_store(store)
+    _wire_chat_stack(store)
     return {"open": True, "manifest": _manifest_dict(store)}
 
 
@@ -107,6 +144,8 @@ _SETTINGS_ID = "settings_default"
 class _SettingsUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     privacy_mode: bool
+    default_chat_provider_id: str | None = None
+    default_chat_model: str | None = None
 
 
 @router.get("/settings")
@@ -127,6 +166,8 @@ def put_settings(req: _SettingsUpdate) -> dict[str, Any]:
         id=_SETTINGS_ID,
         type="VaultSettings",
         privacy_mode=req.privacy_mode,
+        default_chat_provider_id=req.default_chat_provider_id,
+        default_chat_model=req.default_chat_model,
     )
     store.write_note(note, body="", commit_message="settings: update")
     return note.model_dump(mode="json")
