@@ -1,0 +1,21 @@
+manifest_schema_version = 1
+
+service = "file_drop"
+display_name = "File Drop"
+description = "Import any supported file by dropping it into the app window or using the Import button. Works with PDFs, plain text, markdown, and common image formats."
+category = "files"
+auth_mode = "none"
+tier = "free"
+
+connector_type = "file"
+entry_point = "connectors.file_drop.connector:FileDropConnector"
+supported_formats = ["pdf", "txt", "md", "png", "jpg", "jpeg"]
+privacy_posture = "local_only"
+
+sample_files = ["samples/example.md", "samples/example.txt"]
+
+export_instructions = """
+No export required. Drag-and-drop files into the app window, or use
+**Import → File** from the dashboard. Duplicate imports (same content hash)
+are skipped automatically.
+"""
