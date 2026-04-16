@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from lifescribe import __version__
 from lifescribe.api.auth import make_auth_dependency
 from lifescribe.api.routers.chat import router as chat_router
+from lifescribe.api.routers.connectors import router as connectors_router
 from lifescribe.api.routers.ingest import router as ingest_router
 from lifescribe.api.routers.llm import router as llm_router
 from lifescribe.api.routers.retrieval import router as retrieval_router
@@ -30,6 +31,7 @@ def create_app(*, auth_token: str) -> FastAPI:
     app.include_router(llm_router)
     app.include_router(retrieval_router)
     app.include_router(chat_router)
+    app.include_router(connectors_router)
 
     @app.get("/health")
     def health() -> dict[str, str]:
