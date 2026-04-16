@@ -24,6 +24,7 @@ export default [
         AbortSignal: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
+        confirm: "readonly",
         HTMLDivElement: "readonly",
         HTMLTextAreaElement: "readonly",
         HTMLDetailsElement: "readonly",
