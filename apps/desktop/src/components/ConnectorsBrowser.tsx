@@ -6,6 +6,7 @@ import { useConnectors } from "../api/queries";
 
 function EntryCard({ entry }: { entry: ConnectorCatalogEntry }) {
   const [open, setOpen] = useState(false);
+  const panelId = `connector-panel-${entry.service}`;
   return (
     <li
       style={{
@@ -19,6 +20,8 @@ function EntryCard({ entry }: { entry: ConnectorCatalogEntry }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls={panelId}
         style={{
           background: "none",
           border: "none",
@@ -50,7 +53,7 @@ function EntryCard({ entry }: { entry: ConnectorCatalogEntry }) {
       )}
       <div style={{ color: "#555", marginTop: 4 }}>{entry.description}</div>
       {open && (
-        <div style={{ marginTop: 12 }}>
+        <div id={panelId} style={{ marginTop: 12 }}>
           {entry.export_instructions && (
             <div style={{ marginBottom: 12 }}>
               <ReactMarkdown>{entry.export_instructions}</ReactMarkdown>
@@ -62,7 +65,7 @@ function EntryCard({ entry }: { entry: ConnectorCatalogEntry }) {
               <ul>
                 {entry.sample_file_urls.map((url) => (
                   <li key={url}>
-                    <a href={url} target="_blank" rel="noreferrer">
+                    <a href={url} target="_blank" rel="noopener noreferrer">
                       {url.split("/").pop()}
                     </a>
                   </li>
