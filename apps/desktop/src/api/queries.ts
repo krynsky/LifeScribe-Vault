@@ -4,6 +4,7 @@ import {
   api,
   ChatSessionDTO,
   ChatSessionSummary,
+  ConnectorCatalog,
   IndexStatusDTO,
   JobDTO,
   LLMProviderDTO,
@@ -203,5 +204,12 @@ export function useIndexStatus() {
   return useQuery<IndexStatusDTO>({
     queryKey: ["chat", "index-status"],
     queryFn: () => api.chat.indexStatus(),
+  });
+}
+
+export function useConnectors() {
+  return useQuery<ConnectorCatalog>({
+    queryKey: ["connectors"],
+    queryFn: () => api.connectors.list(),
   });
 }
