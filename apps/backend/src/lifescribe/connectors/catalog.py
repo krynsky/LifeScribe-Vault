@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import importlib
-import logging
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .base import Connector
-
-logger = logging.getLogger(__name__)
 
 SUPPORTED_SCHEMA_VERSIONS = {1}
 REQUIRED_FIELDS = (
@@ -78,7 +75,7 @@ def load_catalog(connectors_dir: Path) -> Catalog:
             continue
         try:
             raw = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception as exc:
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError, OSError) as exc:
             warnings.append(f"{manifest_path}: failed to parse TOML: {exc}")
             continue
 
