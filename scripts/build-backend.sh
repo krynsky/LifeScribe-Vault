@@ -14,4 +14,10 @@ uv run pyinstaller \
   --console \
   src/lifescribe/api/main.py
 
-echo "Binary at: $ROOT/apps/backend/dist/$OUT_NAME"
+DIST_DIR="$ROOT/apps/backend/dist"
+rm -rf "$DIST_DIR/connectors"
+cp -r "$ROOT/connectors" "$DIST_DIR/connectors"
+find "$DIST_DIR/connectors" -type d -name "__pycache__" -exec rm -rf {} +
+
+echo "Binary at: $DIST_DIR/$OUT_NAME"
+echo "Connectors at: $DIST_DIR/connectors"
