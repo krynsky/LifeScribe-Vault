@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lifescribe import connectors_dir
-from lifescribe.connectors import load_catalog, run_connector  # noqa: F401
+from lifescribe.connectors import load_catalog
 from lifescribe.connectors.base import ConnectorConfig, ImportRequest
 from lifescribe.ingest.extractors.registry import ExtractorRegistry
 from lifescribe.ingest.jobs import new_job_id
@@ -27,6 +27,17 @@ if TYPE_CHECKING:
     from lifescribe.retrieval.indexer import Indexer
 
 logger = logging.getLogger(__name__)
+
+# NOTE: This pipeline talks to FileDropConnector directly rather than via
+# `run_connector`. Reason: we bundle the IngestJobLog into the same git commit
+# as the imported SourceRecords (via VaultImporter's `extra_notes`), which
+# requires knowing succeeded/failed/skipped counts BEFORE ingest() is called.
+# Going through `run_connector` would force a second commit for the log.
+#
+# `file_drop` is `privacy_posture="local_only"`, so the privacy gate that
+# `run_connector` enforces is moot here. Teardown is preserved via the local
+# try/finally around collect(). Any future connector wired into this pipeline
+# must be local_only or re-architect the log-bundling.
 
 
 @dataclass
