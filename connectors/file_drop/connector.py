@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from pathlib import Path
 from typing import Iterator
 
@@ -17,8 +16,6 @@ from lifescribe.connectors.base import (
 from lifescribe.ingest.extractors.registry import ExtractorRegistry
 from lifescribe.ingest.mime import detect_mime
 from lifescribe.ingest.registry_default import default_registry  # CORRECTED
-
-logger = logging.getLogger(__name__)
 
 
 def _sha256(path: Path) -> str:
