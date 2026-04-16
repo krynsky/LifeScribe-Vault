@@ -120,3 +120,33 @@ def test_ingest_extra_notes_batched_in_same_commit(store: VaultStore) -> None:
     )
     assert result.imported_count == 1
     assert store.exists(log.id)
+
+
+def test_ingest_records_failed_doc_and_continues(store: VaultStore, tmp_path: Path) -> None:
+    """A bad doc (missing asset) is captured in errors and does not block others."""
+    good = _doc("alpha", "a" * 64)
+    missing_asset = tmp_path / "does_not_exist.bin"
+    bad = ImportedDoc(
+        title="bravo",
+        body_markdown="hi",
+        tags=[],
+        source_meta={
+            "mime_type": "application/octet-stream",
+            "original_filename": "does_not_exist.bin",
+            "size_bytes": 0,
+            "source_path": str(missing_asset),
+            "source_mtime": datetime.now(UTC).isoformat(),
+            "extractor": "raw@0",
+            "extractor_confidence": 1.0,
+        },
+        assets=[missing_asset],
+        content_hash="e" * 64,
+    )
+    importer = VaultImporter(store=store)
+    result = importer.ingest("file_drop", iter([bad, good]))
+    assert result.imported_count == 1  # the good one
+    assert len(result.errors) == 1
+    assert any("does_not_exist" in e for e in result.errors)
+    failed_items = [i for i in result.items if i.status == "failed"]
+    assert len(failed_items) == 1
+    assert failed_items[0].identifier.endswith("does_not_exist.bin")
