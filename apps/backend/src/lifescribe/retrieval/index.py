@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -10,6 +11,22 @@ from typing import Any
 from .chunker import Chunk
 
 _SCHEMA_VERSION = "1"
+_TERM_RE = re.compile(r"[A-Za-z0-9]+")
+# FTS5 reserved keywords would raise syntax errors if passed bare.
+_FTS5_RESERVED = {"AND", "OR", "NOT", "NEAR"}
+
+
+def _build_match_query(query: str) -> str | None:
+    """Turn a natural-language query into a safe FTS5 MATCH expression.
+
+    Extracts alphanumeric terms, quotes each (to neutralize reserved words and
+    stray punctuation), and joins them with OR for recall. Returns None when
+    the query contains no usable terms.
+    """
+    terms = [t for t in _TERM_RE.findall(query) if t.upper() not in _FTS5_RESERVED]
+    if not terms:
+        return None
+    return " OR ".join(f'"{t}"' for t in terms)
 
 
 @dataclass(frozen=True)
@@ -143,17 +160,16 @@ class FTSIndex:
         return None if row is None else float(row["note_mtime"])
 
     def search(self, query: str, *, k: int) -> list[SearchResult]:
-        if not query.strip():
+        match_expr = _build_match_query(query)
+        if match_expr is None:
             return []
-        # FTS5 MATCH syntax: escape double quotes; wrap phrase-ish queries
-        safe = query.replace('"', '""')
         sql = (
             "SELECT note_id, chunk_id, note_type, tags, imported_at, content,"
             "       bm25(chunks) AS score,"
             "       snippet(chunks, 5, '<b>', '</b>', '...', 12) AS snippet"
             " FROM chunks WHERE chunks MATCH ? ORDER BY score LIMIT ?"
         )
-        rows = self._conn.execute(sql, (f'"{safe}"', k)).fetchall()
+        rows = self._conn.execute(sql, (match_expr, k)).fetchall()
         return [
             SearchResult(
                 note_id=r["note_id"],

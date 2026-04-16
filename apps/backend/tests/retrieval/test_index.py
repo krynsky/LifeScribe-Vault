@@ -111,6 +111,33 @@ def test_vault_id_mismatch_raises(tmp_path: Path) -> None:
         FTSIndex.open(db_path, vault_id="vault_two")
 
 
+def test_natural_language_query_matches_individual_terms(idx: FTSIndex) -> None:
+    idx.upsert_note(
+        note_id="doc_a",
+        note_type="DocumentRecord",
+        tags=[],
+        imported_at="",
+        chunks=[_chunk("doc_a", "Chris Messina spoke at South by Southwest on March 13, 2010.")],
+    )
+    # Natural language with punctuation and stray words must still match by terms.
+    results = idx.search("What's the date of the talk Chris Messina gave at SXSW?", k=5)
+    assert len(results) == 1
+    assert results[0].note_id == "doc_a"
+
+
+def test_empty_or_punctuation_only_query_returns_no_results(idx: FTSIndex) -> None:
+    idx.upsert_note(
+        note_id="doc_a",
+        note_type="DocumentRecord",
+        tags=[],
+        imported_at="",
+        chunks=[_chunk("doc_a", "anything")],
+    )
+    assert idx.search("", k=5) == []
+    assert idx.search("   ", k=5) == []
+    assert idx.search("?!.,;", k=5) == []
+
+
 def test_status_reports_counts_and_size(idx: FTSIndex) -> None:
     idx.upsert_note(
         note_id="doc_a",
