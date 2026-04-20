@@ -30,7 +30,8 @@ type UIState =
       chunks: RetrievalChunkDTO[];
       citations: ChatCitationDTO[];
     }
-  | { kind: "no_context" };
+  | { kind: "no_context" }
+  | { kind: "error"; message: string };
 
 export function Conversation({ sessionId, session, onSessionCreated }: Props) {
   const qc = useQueryClient();
@@ -60,11 +61,12 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
       }
       qc.invalidateQueries({ queryKey: ["chat", "sessions"] });
       if (sessionId) qc.invalidateQueries({ queryKey: ["chat", "session", sessionId] });
-    } catch {
-      // error is surfaced via MessageBubble render of the partial assistant content
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "An unexpected error occurred while streaming.";
+      setState({ kind: "error", message: msg });
     } finally {
       setPendingUser(null);
-      setState({ kind: "idle" });
     }
   }
 
@@ -104,6 +106,19 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
         {state.kind === "no_context" && (
           <div style={{ color: "#888", padding: 16 }}>
             No relevant notes found in your vault. <a href="/settings">Rebuild index</a>
+          </div>
+        )}
+        {state.kind === "error" && (
+          <div
+            style={{
+              color: "#c00",
+              background: "#fff0f0",
+              padding: 12,
+              margin: "8px 0",
+              borderRadius: 6,
+            }}
+          >
+            <strong>Error:</strong> {state.message}
           </div>
         )}
       </div>

@@ -14,9 +14,9 @@ Branch `feat/chat-with-vault` shipped with manual acceptance partially completed
 
 ## §3.5 follow-ups discovered during acceptance
 
-- [ ] **Reasoning-model support.** `openai_compatible.py:151` only reads `delta.content`. Reasoning models (qwen3, glm-4.5-air with thinking enabled) emit tokens into `delta.reasoning_content` until they commit to an answer; if they hit a token limit during the thinking phase, `content` stays empty and the user sees a blank assistant bubble. Options: (a) surface `reasoning_content` as a collapsible "thinking" section in `MessageBubble`, (b) filter it out and only stream `content` (current behavior — but document the limitation), (c) add a provider-level toggle.
-- [ ] **Chat error swallowing.** `Conversation.tsx` catches stream errors silently (`// error is surfaced via MessageBubble render of the partial assistant content`). If the LLM fails after retrieval succeeds, the user sees an empty bubble with no indication of failure. Render `ChatStreamError.code` and `message` inline.
-- [ ] **Sidecar zombie cleanup on dev reload.** Closing the Tauri window sometimes leaves `lifescribe-backend.exe` processes running, which then lock the binary and break the next `tauri dev` rebuild. Add a kill on Tauri `on_window_event(Destroyed)` or a pre-dev-launch task that clears lingering sidecars.
+- [ ] **Reasoning-model support (deferred to v2).** `openai_compatible.py:151` only reads `delta.content`. Reasoning models (qwen3, glm-4.5-air with thinking enabled) emit tokens into `delta.reasoning_content` until they commit to an answer; if they hit a token limit during the thinking phase, `content` stays empty and the user sees a blank assistant bubble. v1 limitation: reasoning models may produce blank responses if they exhaust tokens during the thinking phase. v2 options: (a) surface `reasoning_content` as a collapsible "thinking" section in `MessageBubble`, (b) add a provider-level toggle.
+- [x] **Chat error swallowing.** Fixed: added `error` state to `UIState` in `Conversation.tsx`. Stream errors now render inline with red error banner showing the error message instead of a blank bubble.
+- [x] **Sidecar zombie cleanup on dev reload.** Fixed: added `on_window_event(Destroyed)` handler in `main.rs` that kills the sidecar `CommandChild` when the window closes.
 
 ## §3.6 Connector Framework — deferred manual acceptance
 
