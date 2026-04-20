@@ -4,9 +4,10 @@ interface Props {
   activeId: string | undefined;
   onSelect: (id: string) => void;
   onNewChat: () => void;
+  onDelete: (id: string) => void;
 }
 
-export function SessionsList({ activeId, onSelect, onNewChat }: Props) {
+export function SessionsList({ activeId, onSelect, onNewChat, onDelete }: Props) {
   const { data, isLoading } = useChatSessions();
   return (
     <div style={{ padding: 8 }}>
@@ -15,22 +16,46 @@ export function SessionsList({ activeId, onSelect, onNewChat }: Props) {
       </button>
       {isLoading && <div>Loading…</div>}
       {data?.map((s) => (
-        <button
+        <div
           key={s.id}
-          onClick={() => onSelect(s.id)}
           style={{
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            padding: 8,
+            display: "flex",
+            alignItems: "center",
             background: s.id === activeId ? "#eee" : "transparent",
-            border: "none",
-            cursor: "pointer",
           }}
         >
-          <div>{s.title || "(untitled)"}</div>
-          <small>{s.turn_count} turns</small>
-        </button>
+          <button
+            onClick={() => onSelect(s.id)}
+            style={{
+              flex: 1,
+              textAlign: "left",
+              padding: 8,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <div>{s.title || "(untitled)"}</div>
+            <small>{s.turn_count} turns</small>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(s.id);
+            }}
+            title="Delete session"
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px 8px",
+              color: "#999",
+              fontSize: 16,
+            }}
+          >
+            ×
+          </button>
+        </div>
       ))}
     </div>
   );
