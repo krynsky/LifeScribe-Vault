@@ -26,6 +26,8 @@ _REGISTRY = default_registry()
 
 class _IngestState:
     active: JobHandle | None = None
+    last_error: str | None = None
+    last_error_job_id: str | None = None
     indexer: Indexer | None = None
     _tasks: ClassVar[set[asyncio.Task[None]]] = set()
 
@@ -73,6 +75,10 @@ async def post_job(req: JobRequest) -> dict[str, Any]:
                 handle=handle,
                 indexer=_IngestState.indexer,
             )
+        except Exception:
+            logger.exception("ingest job %s failed", job_id)
+            _IngestState.last_error = f"job {job_id} failed unexpectedly"
+            _IngestState.last_error_job_id = job_id
         finally:
             _IngestState.active = None
 
@@ -100,6 +106,20 @@ def get_job(job_id: str) -> dict[str, Any]:
         }
     log = _read_log(store, job_id)
     if log is None:
+        if _IngestState.last_error_job_id == job_id:
+            return {
+                "job_id": job_id,
+                "status": "failed",
+                "started_at": None,
+                "finished_at": None,
+                "total": 0,
+                "succeeded": 0,
+                "failed": 0,
+                "skipped": 0,
+                "cancelled": 0,
+                "files": [],
+                "error": _IngestState.last_error,
+            }
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"no such job {job_id}")
     return log.model_dump(mode="json")
 

@@ -12,6 +12,9 @@ uv run pyinstaller \
   --clean \
   --noconfirm \
   --console \
+  --hidden-import lifescribe.ingest.mime \
+  --hidden-import lifescribe.ingest.extractors.registry \
+  --hidden-import lifescribe.ingest.registry_default \
   src/lifescribe/api/main.py
 
 DIST_DIR="$ROOT/apps/backend/dist"
