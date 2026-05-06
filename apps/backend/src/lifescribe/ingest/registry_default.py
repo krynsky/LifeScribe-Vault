@@ -20,8 +20,6 @@ PDF_MIMES = ("application/pdf",)
 DOCX_MIMES = ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",)
 XLSX_MIMES = ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",)
 HTML_MIMES = ("text/html",)
-PPTX_MIMES = ("application/vnd.openxmlformats-officedocument.presentationml.presentation",)
-EPUB_MIMES = ("application/epub+zip",)
 IMAGE_MIMES = (
     "image/png",
     "image/jpeg",
@@ -56,7 +54,5 @@ def default_registry() -> ExtractorRegistry:
     reg.register(cast(Extractor, _routed(DOCX_MIMES, include_native=DocxExtractor())))
     reg.register(cast(Extractor, _routed(XLSX_MIMES, include_native=XlsxExtractor())))
     reg.register(cast(Extractor, _routed(HTML_MIMES, include_native=HtmlExtractor())))
-    reg.register(cast(Extractor, _routed(PPTX_MIMES)))
-    reg.register(cast(Extractor, _routed(EPUB_MIMES)))
     reg.register(cast(Extractor, _routed(IMAGE_MIMES, include_native=ImageExtractor())))
     return reg
