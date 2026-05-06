@@ -5,8 +5,8 @@ LifeScribe Vault turns local documents into canonical notes under
 
 ## How to import
 
-In the desktop app, open an existing vault, then use the import dialog
-(future Dashboard Shell) or call the backend API directly:
+In the desktop app, open an existing vault, then open the Import view or
+call the backend API directly:
 
 ```bash
 curl -s -X POST http://127.0.0.1:$PORT/ingest/jobs \
