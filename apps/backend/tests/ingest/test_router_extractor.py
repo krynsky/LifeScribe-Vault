@@ -11,8 +11,8 @@ from lifescribe.ingest.extractors.router import ExtractionChainError, RoutedExtr
 
 class _GoodExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
-    NAME = "good"
-    VERSION = "1.0.0"
+    NAME: ClassVar[str] = "good"
+    VERSION: ClassVar[str] = "1.0.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         return ExtractionResult(
@@ -24,8 +24,8 @@ class _GoodExtractor:
 
 class _BoomExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
-    NAME = "boom"
-    VERSION = "1.0.0"
+    NAME: ClassVar[str] = "boom"
+    VERSION: ClassVar[str] = "1.0.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         raise RuntimeError("conversion failed")
@@ -33,8 +33,8 @@ class _BoomExtractor:
 
 class _FallbackExtractor:
     mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
-    NAME = "fallback"
-    VERSION = "1.0.0"
+    NAME: ClassVar[str] = "fallback"
+    VERSION: ClassVar[str] = "1.0.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         return ExtractionResult(
