@@ -7,7 +7,7 @@ embeddings, sidecar state — is rebuildable.
 
 ## Features
 
-- **Ingest** local documents (PDF, DOCX, XLS/CSV, TXT, MD, HTML, JSON, images, ZIP exports) and write canonical Markdown notes with full provenance.
+- **Ingest** local documents (PDF, DOCX, XLS/XLSX, PPTX, EPUB, TXT, MD, HTML, JSON, CSV, images, ZIP exports) using a Docling-first conversion router, then write canonical Markdown notes with full provenance.
 - **Connect** to third-party services via a pluggable connector framework. v1 ships with File Drop; the framework supports file, manual-export, API-sync, watch-folder, and bridge connector types.
 - **Chat** with your vault using local (Ollama, LM Studio) or remote (GitHub Models, OpenAI, Anthropic) LLM providers through a unified, OpenAI-compatible interface. Retrieval uses SQLite FTS with citation back to exact notes.
 - **Browse** your vault through a desktop dashboard with import center, ingestion logs, note viewer, and settings.

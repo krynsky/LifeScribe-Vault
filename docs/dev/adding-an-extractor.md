@@ -11,8 +11,8 @@
 
    class MyExtractor:
        mimes: ClassVar[tuple[str, ...]] = ("application/x-my",)
-       NAME = "my"
-       VERSION = "0.1.0"
+       NAME: ClassVar[str] = "my"
+       VERSION: ClassVar[str] = "0.1.0"
 
        def extract(self, path: Path) -> ExtractionResult:
            ...
@@ -36,3 +36,15 @@
 5. If the MIME is not already in `mime.py`'s extension map, add it.
 
 6. Run `cd apps/backend && uv run pytest tests/ingest -v`.
+
+## Routed extractors
+
+Rich document formats are registered through `RoutedExtractor` in
+`lifescribe.ingest.registry_default`. A routed extractor still satisfies
+the existing `Extractor` protocol: it exposes `mimes`, `NAME`,
+`VERSION`, and `extract(path)`.
+
+When adding a new conversion engine, wrap it as a normal extractor and
+add it to a route rather than changing `FileDropConnector`. This keeps
+connector collection, dedupe, vault writes, and ingestion logs
+unchanged.

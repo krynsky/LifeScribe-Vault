@@ -18,11 +18,21 @@ curl -s -X POST http://127.0.0.1:$PORT/ingest/jobs \
 Poll `GET /ingest/jobs/<job_id>` until `status` reaches a terminal
 state (`completed`, `completed_with_failures`, `cancelled`, `failed`).
 
-## Supported formats (v1)
+## Supported formats
 
-TXT, MD, JSON, CSV, HTML, PDF, DOCX, XLSX, and images (PNG/JPG/GIF/WebP/BMP/TIFF).
-Images are stored as assets with EXIF metadata; their body is empty
-until OCR arrives in a later release.
+TXT, MD, JSON, CSV, HTML, PDF, DOCX, XLSX, PPTX, EPUB, and images
+(PNG/JPG/GIF/WebP/BMP/TIFF).
+
+## Conversion engines
+
+LifeScribe uses a Docling-first conversion router for rich document
+formats such as PDF, DOCX, XLSX, PPTX, EPUB, HTML, and images. If
+Docling cannot convert a format that has an existing native extractor,
+LifeScribe falls back to the next configured engine for that format.
+
+Each imported source note records the selected engine, attempted
+engines, and conversion warnings in its frontmatter so import behavior
+is inspectable later.
 
 ## Re-importing the same file
 
