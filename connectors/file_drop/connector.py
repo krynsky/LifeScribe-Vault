@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from lifescribe.connectors.base import (
     Connector,
@@ -90,6 +90,7 @@ class FileDropConnector(Connector):
                     "extractor": result.extractor,
                     "extractor_confidence": result.confidence,
                     "page_count": result.extra_frontmatter.get("page_count"),
+                    **result.extra_frontmatter,
                 },
                 assets=[src],
                 content_hash=_sha256(src),

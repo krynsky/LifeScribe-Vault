@@ -66,6 +66,12 @@ def _coerce_int(value: object, *, default: int) -> int:
     return default
 
 
+def _coerce_str_list(value: object) -> list[str]:
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value]
+    return []
+
+
 @dataclass
 class VaultImporter:
     """Consumes ImportedDoc streams and writes them into a VaultStore.
@@ -137,6 +143,18 @@ class VaultImporter:
                     original_filename=str(doc.source_meta.get("original_filename") or doc.title),
                     size_bytes=_coerce_int(doc.source_meta.get("size_bytes"), default=0),
                     page_count=page_count,
+                    engine_router=(
+                        str(doc.source_meta["engine_router"])
+                        if doc.source_meta.get("engine_router") is not None
+                        else None
+                    ),
+                    engine_selected=(
+                        str(doc.source_meta["engine_selected"])
+                        if doc.source_meta.get("engine_selected") is not None
+                        else None
+                    ),
+                    engine_attempts=_coerce_str_list(doc.source_meta.get("engine_attempts")),
+                    engine_warnings=_coerce_str_list(doc.source_meta.get("engine_warnings")),
                     tags=list(doc.tags),
                 )
                 to_write.append((record, doc.body_markdown))

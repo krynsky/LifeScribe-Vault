@@ -45,6 +45,10 @@ class SourceRecord(_NoteBase, _ProvenanceMixin):
     original_filename: str
     size_bytes: int = Field(ge=0)
     page_count: int | None = None
+    engine_router: str | None = None
+    engine_selected: str | None = None
+    engine_attempts: list[str] = Field(default_factory=list)
+    engine_warnings: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_id_prefix(self) -> SourceRecord:

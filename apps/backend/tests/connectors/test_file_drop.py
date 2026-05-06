@@ -89,6 +89,47 @@ class _BoomExtractor:
         raise RuntimeError("boom")
 
 
+class _EngineMetadataExtractor:
+    NAME: ClassVar[str] = "engine-meta"
+    VERSION: ClassVar[str] = "1.0.0"
+    mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
+
+    def extract(self, path: Path) -> ExtractionResult:
+        return ExtractionResult(
+            body_markdown=path.read_text(),
+            title="engine metadata",
+            extra_frontmatter={
+                "engine_router": "router@1",
+                "engine_selected": "docling",
+                "engine_attempts": ["docling", "markitdown"],
+                "engine_warnings": ["fallback used"],
+            },
+            extractor="engine-meta@1.0.0",
+            confidence=0.9,
+        )
+
+
+def test_collect_preserves_engine_metadata(tmp_path: Path) -> None:
+    src = tmp_path / "engine.txt"
+    src.write_text("engine metadata")
+
+    registry = ExtractorRegistry()
+    registry.register(_EngineMetadataExtractor())
+
+    c = FileDropConnector(registry=registry)
+    c.configure(_config(tmp_path))
+    try:
+        docs = list(c.collect(ImportRequest(inputs=[src])))
+    finally:
+        c.teardown()
+
+    assert len(docs) == 1
+    assert docs[0].source_meta["engine_router"] == "router@1"
+    assert docs[0].source_meta["engine_selected"] == "docling"
+    assert docs[0].source_meta["engine_attempts"] == ["docling", "markitdown"]
+    assert docs[0].source_meta["engine_warnings"] == ["fallback used"]
+
+
 def test_collect_handles_extractor_exception(tmp_path: Path) -> None:
     """Test that extractor exceptions are caught and logged as failed items."""
     src = tmp_path / "boom.txt"
@@ -96,7 +137,7 @@ def test_collect_handles_extractor_exception(tmp_path: Path) -> None:
 
     # Build a minimal registry with only the boom extractor
     registry = ExtractorRegistry()
-    registry.register(_BoomExtractor())  # type: ignore[arg-type]
+    registry.register(_BoomExtractor())
 
     c = FileDropConnector(registry=registry)
     c.configure(_config(tmp_path))

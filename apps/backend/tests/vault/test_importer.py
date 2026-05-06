@@ -7,6 +7,7 @@ import pytest
 
 from lifescribe.connectors.base import ImportedDoc
 from lifescribe.vault.importer import VaultImporter
+from lifescribe.vault.schemas import SourceRecord
 from lifescribe.vault.store import VaultStore
 
 
@@ -48,6 +49,7 @@ def test_ingest_writes_source_record_and_commits(store: VaultStore) -> None:
     assert result.skipped_count == 0
     found = list(store.list_notes(type_="SourceRecord"))
     assert len(found) == 1
+    assert isinstance(found[0], SourceRecord)
     assert found[0].original_filename == "alpha.txt"
 
 
@@ -121,6 +123,30 @@ def test_ingest_extra_notes_batched_in_same_commit(store: VaultStore) -> None:
     )
     assert result.imported_count == 1
     assert store.exists(log.id)
+
+
+def test_importer_persists_engine_metadata(store: VaultStore) -> None:
+    importer = VaultImporter(store=store)
+    doc = _doc("engine", "f" * 64)
+    doc.source_meta.update(
+        {
+            "engine_router": "router@1",
+            "engine_selected": "docling",
+            "engine_attempts": ["docling", "markitdown"],
+            "engine_warnings": ["fallback used"],
+        }
+    )
+
+    result = importer.ingest("file_drop", iter([doc]))
+
+    assert result.imported_count == 1
+    assert result.items[0].note_id is not None
+    note, _body = store.read_note(result.items[0].note_id)
+    assert isinstance(note, SourceRecord)
+    assert note.engine_router == "router@1"
+    assert note.engine_selected == "docling"
+    assert note.engine_attempts == ["docling", "markitdown"]
+    assert note.engine_warnings == ["fallback used"]
 
 
 def test_ingest_records_failed_doc_and_continues(store: VaultStore, tmp_path: Path) -> None:
