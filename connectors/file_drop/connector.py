@@ -17,6 +17,13 @@ from lifescribe.ingest.extractors.registry import ExtractorRegistry
 from lifescribe.ingest.mime import detect_mime
 from lifescribe.ingest.registry_default import default_registry  # CORRECTED
 
+_ENGINE_META_KEYS = (
+    "engine_router",
+    "engine_selected",
+    "engine_attempts",
+    "engine_warnings",
+)
+
 
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -77,21 +84,24 @@ class FileDropConnector(Connector):
                 continue
 
             stat = src.stat()
+            source_meta = {
+                "mime_type": mime,
+                "original_filename": src.name,
+                "size_bytes": stat.st_size,
+                "source_path": str(src),
+                "source_mtime": stat.st_mtime,
+                "extractor": result.extractor,
+                "extractor_confidence": result.confidence,
+            }
+            for key in _ENGINE_META_KEYS:
+                if key in result.extra_frontmatter:
+                    source_meta[key] = result.extra_frontmatter[key]
+
             yield ImportedDoc(
                 title=result.title or src.stem,
                 body_markdown=result.body_markdown,
                 tags=[],
-                source_meta={
-                    "mime_type": mime,
-                    "original_filename": src.name,
-                    "size_bytes": stat.st_size,
-                    "source_path": str(src),
-                    "source_mtime": stat.st_mtime,
-                    "extractor": result.extractor,
-                    "extractor_confidence": result.confidence,
-                    "page_count": result.extra_frontmatter.get("page_count"),
-                    **result.extra_frontmatter,
-                },
+                source_meta=source_meta,
                 assets=[src],
                 content_hash=_sha256(src),
             )
