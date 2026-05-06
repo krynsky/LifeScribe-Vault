@@ -22,6 +22,9 @@ class RoutedExtractor:
         self.mimes = mimes
         self._extractors = extractors
 
+    def extractors_for_tests(self) -> tuple[Extractor, ...]:
+        return tuple(self._extractors)
+
     def extract(self, path: Path) -> ExtractionResult:
         attempts: list[str] = []
         warnings: list[str] = []
