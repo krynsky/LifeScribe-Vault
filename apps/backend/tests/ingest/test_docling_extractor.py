@@ -7,6 +7,7 @@ from typing import Any, ClassVar, cast
 import pytest
 
 from lifescribe.ingest.extractors.docling_ import DoclingExtractor
+from tests.ingest.conftest import _write_minimal_pdf
 
 
 class _FakeDocument:
@@ -51,7 +52,7 @@ def test_docling_extractor_converts_markdown(
     tmp_path: Path,
 ) -> None:
     src = tmp_path / "input.pdf"
-    src.write_bytes(b"%PDF-1.7")
+    _write_minimal_pdf(src)
     _install_fake_docling(monkeypatch, "# Converted by Docling\n\nBody text")
 
     result = DoclingExtractor(mimes=("application/pdf",)).extract(src)
@@ -61,6 +62,19 @@ def test_docling_extractor_converts_markdown(
     assert result.extractor == "docling@0.1.0"
     assert result.confidence == 0.85
     assert result.extra_frontmatter["docling_source"] == str(src)
+
+
+def test_docling_extractor_preserves_pdf_page_count(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    src = tmp_path / "input.pdf"
+    _write_minimal_pdf(src)
+    _install_fake_docling(monkeypatch, "# Converted by Docling\n\nBody text")
+
+    result = DoclingExtractor(mimes=("application/pdf",)).extract(src)
+
+    assert result.extra_frontmatter["page_count"] == 1
 
 
 def test_docling_extractor_rejects_empty_markdown(

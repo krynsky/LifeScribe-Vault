@@ -7,6 +7,11 @@ try {
         --hidden-import lifescribe.ingest.mime `
         --hidden-import lifescribe.ingest.extractors.registry `
         --hidden-import lifescribe.ingest.registry_default `
+        --collect-all docling `
+        --collect-all docling_core `
+        --collect-all docling_parse `
+        --collect-all docling_ibm_models `
+        --copy-metadata docling-slim `
         src/lifescribe/api/main.py
     $distDir = Join-Path $root "apps/backend/dist"
     $distConnectors = Join-Path $distDir "connectors"
