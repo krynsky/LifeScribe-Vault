@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, cast
 
-from lifescribe.ingest.extractors.base import ExtractionResult
+from lifescribe.ingest.extractors.base import ExtractionResult, Extractor
 from lifescribe.ingest.extractors.registry import ExtractorRegistry
+from lifescribe.ingest.extractors.router import RoutedExtractor
 from lifescribe.ingest.pipeline import run_job
-from lifescribe.vault.schemas import JobStatus, PerFileStatus
+from lifescribe.vault.schemas import JobStatus, PerFileStatus, SourceRecord
 from lifescribe.vault.store import VaultStore
 
 
 class _FakeText:
     mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
-    NAME = "fake"
-    VERSION = "0.1.0"
+    NAME: ClassVar[str] = "fake"
+    VERSION: ClassVar[str] = "0.1.0"
 
     def extract(self, path: Path) -> ExtractionResult:
         return ExtractionResult(
@@ -59,6 +60,54 @@ def test_single_file_happy_path(tmp_path: Path) -> None:
     assert len(log_files) == 1
 
 
+def test_pipeline_records_routed_fallback_metadata(tmp_path: Path) -> None:
+    class _PrimaryBoom:
+        mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
+        NAME: ClassVar[str] = "primary"
+        VERSION: ClassVar[str] = "0.1.0"
+
+        def extract(self, path: Path) -> ExtractionResult:
+            raise RuntimeError("primary failed")
+
+    class _FallbackOk:
+        mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
+        NAME: ClassVar[str] = "fallback"
+        VERSION: ClassVar[str] = "0.1.0"
+
+        def extract(self, path: Path) -> ExtractionResult:
+            return ExtractionResult(
+                body_markdown="fallback body\n",
+                extractor="fallback@0.1.0",
+                confidence=0.8,
+            )
+
+    store = VaultStore.init(tmp_path / "v", app_version="0.2.0")
+    src = tmp_path / "a.txt"
+    src.write_text("hello", encoding="utf-8")
+    registry = ExtractorRegistry()
+    registry.register(
+        cast(
+            Extractor,
+            RoutedExtractor(
+                mimes=("text/plain",),
+                extractors=[_PrimaryBoom(), _FallbackOk()],
+            ),
+        )
+    )
+
+    log = run_job(store, files=[src], registry=registry, app_version="0.2.0")
+
+    assert log.status == JobStatus.COMPLETED
+    assert log.files[0].extractor == "fallback@0.1.0"
+    source_id = log.files[0].source_id
+    assert source_id is not None
+    note, _body = store.read_note(source_id)
+    assert isinstance(note, SourceRecord)
+    assert note.engine_selected == "fallback@0.1.0"
+    assert note.engine_attempts == ["primary@0.1.0", "fallback@0.1.0"]
+    assert note.engine_warnings == ["primary@0.1.0 failed: RuntimeError: primary failed"]
+
+
 def test_reimport_identical_is_skipped(tmp_path: Path) -> None:
     store = VaultStore.init(tmp_path / "v", app_version="0.2.0")
     src = tmp_path / "a.txt"
@@ -93,8 +142,8 @@ def test_unknown_mime_is_skipped_not_failed(tmp_path: Path) -> None:
 def test_extractor_exception_marks_file_failed(tmp_path: Path) -> None:
     class _Boom:
         mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
-        NAME = "boom"
-        VERSION = "0.1.0"
+        NAME: ClassVar[str] = "boom"
+        VERSION: ClassVar[str] = "0.1.0"
 
         def extract(self, path: Path) -> ExtractionResult:
             raise RuntimeError("nope")
