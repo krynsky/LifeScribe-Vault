@@ -56,11 +56,15 @@ def test_default_registry_routes_pdf_through_docling_first_chain() -> None:
     assert "pdf@0.1.0" in child_ids
 
 
-def test_default_registry_does_not_register_formats_without_native_fallback() -> None:
+def test_default_registry_routes_no_native_formats_through_docling_only() -> None:
     reg = default_registry()
 
-    assert (
-        reg.find("application/vnd.openxmlformats-officedocument.presentationml.presentation")
-        is None
-    )
-    assert reg.find("application/epub+zip") is None
+    pptx = reg.find("application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    epub = reg.find("application/epub+zip")
+
+    assert isinstance(pptx, RoutedExtractor)
+    assert isinstance(epub, RoutedExtractor)
+
+    for extractor in (pptx, epub):
+        child_ids = [f"{child.NAME}@{child.VERSION}" for child in extractor.extractors_for_tests()]
+        assert child_ids == ["docling@0.1.0"]

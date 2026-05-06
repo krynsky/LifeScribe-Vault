@@ -2,7 +2,7 @@ manifest_schema_version = 1
 
 service = "file_drop"
 display_name = "File Drop"
-description = "Import any supported file by dropping it into the app window or using the Import button. Works with documents, plain text, structured text, and common image formats."
+description = "Import any supported file by dropping it into the app window or using the Import button. Works with documents, ebooks, plain text, structured text, and common image formats."
 category = "files"
 auth_mode = "none"
 tier = "free"
@@ -13,6 +13,8 @@ supported_formats = [
   "pdf",
   "docx",
   "xlsx",
+  "pptx",
+  "epub",
   "html",
   "txt",
   "md",

@@ -14,7 +14,7 @@ class DoclingExtractor:
         self.mimes = mimes
 
     def extract(self, path: Path) -> ExtractionResult:
-        from docling.document_converter import DocumentConverter  # type: ignore[import-not-found]
+        from docling.document_converter import DocumentConverter
 
         result = DocumentConverter().convert(path)
         markdown = result.document.export_to_markdown().strip()

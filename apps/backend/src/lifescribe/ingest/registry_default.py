@@ -19,6 +19,8 @@ from lifescribe.ingest.extractors.xlsx import XlsxExtractor
 PDF_MIMES = ("application/pdf",)
 DOCX_MIMES = ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",)
 XLSX_MIMES = ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",)
+PPTX_MIMES = ("application/vnd.openxmlformats-officedocument.presentationml.presentation",)
+EPUB_MIMES = ("application/epub+zip",)
 HTML_MIMES = ("text/html",)
 IMAGE_MIMES = (
     "image/png",
@@ -44,6 +46,13 @@ def _routed(
     return RoutedExtractor(mimes=mimes, extractors=extractors)
 
 
+def _docling_only(mimes: tuple[str, ...]) -> RoutedExtractor:
+    return RoutedExtractor(
+        mimes=mimes,
+        extractors=[cast(Extractor, DoclingExtractor(mimes=mimes))],
+    )
+
+
 def default_registry() -> ExtractorRegistry:
     reg = ExtractorRegistry()
     reg.register(TextExtractor())
@@ -53,6 +62,8 @@ def default_registry() -> ExtractorRegistry:
     reg.register(cast(Extractor, _routed(PDF_MIMES, include_native=PdfExtractor())))
     reg.register(cast(Extractor, _routed(DOCX_MIMES, include_native=DocxExtractor())))
     reg.register(cast(Extractor, _routed(XLSX_MIMES, include_native=XlsxExtractor())))
+    reg.register(cast(Extractor, _docling_only(PPTX_MIMES)))
+    reg.register(cast(Extractor, _docling_only(EPUB_MIMES)))
     reg.register(cast(Extractor, _routed(HTML_MIMES, include_native=HtmlExtractor())))
     reg.register(cast(Extractor, _routed(IMAGE_MIMES, include_native=ImageExtractor())))
     return reg
