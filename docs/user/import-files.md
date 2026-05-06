@@ -30,9 +30,9 @@ formats such as PDF, DOCX, XLSX, PPTX, EPUB, HTML, and images. If
 Docling cannot convert a format that has an existing native extractor,
 LifeScribe falls back to the next configured engine for that format.
 
-Each imported source note records the selected engine, attempted
-engines, and conversion warnings in its frontmatter so import behavior
-is inspectable later.
+For routed rich-document imports, each source note records the selected
+engine, attempted engines, and conversion warnings in its frontmatter so
+import behavior is inspectable later.
 
 ## Re-importing the same file
 
