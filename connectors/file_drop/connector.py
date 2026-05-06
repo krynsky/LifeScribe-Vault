@@ -96,6 +96,9 @@ class FileDropConnector(Connector):
             for key in _ENGINE_META_KEYS:
                 if key in result.extra_frontmatter:
                     source_meta[key] = result.extra_frontmatter[key]
+            page_count = result.extra_frontmatter.get("page_count")
+            if isinstance(page_count, int):
+                source_meta["page_count"] = page_count
 
             yield ImportedDoc(
                 title=result.title or src.stem,

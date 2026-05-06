@@ -135,6 +135,21 @@ class _CollidingEngineMetadataExtractor:
         )
 
 
+class _PageCountExtractor:
+    NAME: ClassVar[str] = "page-count"
+    VERSION: ClassVar[str] = "1.0.0"
+    mimes: ClassVar[tuple[str, ...]] = ("text/plain",)
+
+    def extract(self, path: Path) -> ExtractionResult:
+        return ExtractionResult(
+            body_markdown=path.read_text(),
+            title="page count metadata",
+            extra_frontmatter={"page_count": 3},
+            extractor="page-count@1.0.0",
+            confidence=0.95,
+        )
+
+
 def test_collect_preserves_engine_metadata(tmp_path: Path) -> None:
     src = tmp_path / "engine.txt"
     src.write_text("engine metadata")
@@ -154,6 +169,24 @@ def test_collect_preserves_engine_metadata(tmp_path: Path) -> None:
     assert docs[0].source_meta["engine_selected"] == "docling"
     assert docs[0].source_meta["engine_attempts"] == ["docling", "markitdown"]
     assert docs[0].source_meta["engine_warnings"] == ["fallback used"]
+
+
+def test_collect_preserves_page_count_metadata(tmp_path: Path) -> None:
+    src = tmp_path / "page-count.txt"
+    src.write_text("page count metadata")
+
+    registry = ExtractorRegistry()
+    registry.register(_PageCountExtractor())
+
+    c = FileDropConnector(registry=registry)
+    c.configure(_config(tmp_path))
+    try:
+        docs = list(c.collect(ImportRequest(inputs=[src])))
+    finally:
+        c.teardown()
+
+    assert len(docs) == 1
+    assert docs[0].source_meta["page_count"] == 3
 
 
 def test_collect_ignores_extra_frontmatter_collisions(tmp_path: Path) -> None:
