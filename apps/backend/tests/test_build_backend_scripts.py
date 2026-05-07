@@ -12,6 +12,8 @@ def test_backend_build_scripts_collect_docling_runtime_metadata() -> None:
         "--collect-all docling_parse",
         "--collect-all docling_ibm_models",
         "--copy-metadata docling-slim",
+        "--add-data",
+        "connectors",
     )
 
     for relative_path in (

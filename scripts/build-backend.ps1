@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $PSCommandPath
 $root = Resolve-Path (Join-Path $here "..")
+$connectorsData = "$(Join-Path $root "connectors");connectors"
 Push-Location (Join-Path $root "apps/backend")
 try {
     uv run pyinstaller --name lifescribe-backend --onefile --clean --noconfirm --console `
@@ -12,6 +13,7 @@ try {
         --collect-all docling_parse `
         --collect-all docling_ibm_models `
         --copy-metadata docling-slim `
+        --add-data $connectorsData `
         src/lifescribe/api/main.py
     $distDir = Join-Path $root "apps/backend/dist"
     $distConnectors = Join-Path $distDir "connectors"

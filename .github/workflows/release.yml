@@ -35,6 +35,7 @@ jobs:
       - name: Build sidecar with PyInstaller
         shell: bash
         run: |
+          DATA_SEP="$(uv run python -c 'import os; print(os.pathsep)')"
           uv run pyinstaller \
             --name lifescribe-backend \
             --onefile \
@@ -49,6 +50,7 @@ jobs:
             --collect-all docling_parse \
             --collect-all docling_ibm_models \
             --copy-metadata docling-slim \
+            --add-data "../../connectors${DATA_SEP}connectors" \
             src/lifescribe/api/main.py
       - name: Copy connectors alongside sidecar
         shell: bash

@@ -6,6 +6,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT/apps/backend"
 
 OUT_NAME="lifescribe-backend"
+DATA_SEP="$(uv run python -c 'import os; print(os.pathsep)')"
 uv run pyinstaller \
   --name "$OUT_NAME" \
   --onefile \
@@ -20,6 +21,7 @@ uv run pyinstaller \
   --collect-all docling_parse \
   --collect-all docling_ibm_models \
   --copy-metadata docling-slim \
+  --add-data "../../connectors${DATA_SEP}connectors" \
   src/lifescribe/api/main.py
 
 DIST_DIR="$ROOT/apps/backend/dist"

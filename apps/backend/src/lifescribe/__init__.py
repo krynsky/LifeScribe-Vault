@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from typing import cast
 
 __version__ = "0.1.0"
 
@@ -16,9 +17,14 @@ def connectors_dir() -> Path:
     sys.path so that `import connectors.<service>.connector` works at runtime.
     """
     here = Path(__file__).resolve()
-    candidate = here.parents[4] / "connectors"
-    if not candidate.exists():
-        candidate = Path(sys.executable).parent / "connectors"
+    candidates: list[Path] = []
+    pyinstaller_root = cast(str | None, getattr(sys, "_MEIPASS", None))
+    if pyinstaller_root:
+        candidates.append(Path(pyinstaller_root) / "connectors")
+    candidates.append(here.parents[4] / "connectors")
+    candidates.append(Path(sys.executable).parent / "connectors")
+
+    candidate = next((path for path in candidates if path.exists()), candidates[-1])
     if candidate.exists():
         parent = str(candidate.parent)
         if parent not in sys.path:
