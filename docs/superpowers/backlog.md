@@ -14,7 +14,7 @@ Branch `feat/chat-with-vault` shipped with manual acceptance partially completed
 
 ## §3.5 follow-ups discovered during acceptance
 
-- [ ] **Reasoning-model support (deferred to v2).** `openai_compatible.py:151` only reads `delta.content`. Reasoning models (qwen3, glm-4.5-air with thinking enabled) emit tokens into `delta.reasoning_content` until they commit to an answer; if they hit a token limit during the thinking phase, `content` stays empty and the user sees a blank assistant bubble. v1 limitation: reasoning models may produce blank responses if they exhaust tokens during the thinking phase. v2 options: (a) surface `reasoning_content` as a collapsible "thinking" section in `MessageBubble`, (b) add a provider-level toggle.
+- [x] **Reasoning-model support.** Fixed: OpenAI-compatible streams now preserve `delta.reasoning_content` / `delta.reasoning`, chat sends it as `reasoning` SSE events, assistant turns persist `reasoning_content`, and the desktop chat UI renders it in a collapsible "Thinking" section.
 - [x] **Chat error swallowing.** Fixed: added `error` state to `UIState` in `Conversation.tsx`. Stream errors now render inline with red error banner showing the error message instead of a blank bubble.
 - [x] **Sidecar zombie cleanup on dev reload.** Fixed: added `on_window_event(Destroyed)` handler in `main.rs` that kills the sidecar `CommandChild` when the window closes.
 
@@ -26,12 +26,12 @@ Branch `feat/connector-framework` shipped with automated gauntlet green (backend
 - [x] **Step 2 — dedupe.** Pass: re-import skipped with `skipped_count == 1`.
 - [x] **Step 3 — catalog rendering.** Pass: File Drop card shown with description, metadata, export instructions, and sample file links.
 - [x] **Step 4 — privacy-mode pass-through.** Pass: `local_only` connector unblocked under privacy mode.
-- [ ] **Step 5 — blocked badge + 409.** Skipped: no `requires_network` connector in catalog; logic is unit-tested.
+- [x] **Step 5 — blocked badge + 409.** Pass: catalog blocking is covered with a temporary `requires_network` connector, and the generic `POST /imports` route now returns HTTP 409 before instantiating network connectors when Privacy Mode is on.
 - [x] **Step 6 — missing manifest resilience.** Pass: empty manifest reported missing fields, File Drop still loaded.
 
 Packaging follow-ups (unblock Step 1 on packaged builds):
 
-- [ ] **Rebuild sidecar + smoke-test packaged app.** `scripts/build-backend.sh` + `scripts/build-backend.ps1` now copy `connectors/` alongside `lifescribe-backend[.exe]`, and `connectors_dir()` already falls back to `<executable_dir>/connectors`. Confirm end-to-end: run the build script, launch the packaged Tauri app, and verify Settings → Connectors lists `file_drop`.
+- [x] **Rebuild sidecar + smoke-test packaged app.** Pass: rebuilt the backend sidecar and Tauri installer, reinstalled the app, removed the external installed `connectors/` folder, and verified the packaged backend can still load embedded connectors and import test files.
 
 ## §3.7 Publishing Framework — deferred to v2
 
@@ -49,4 +49,4 @@ Packaging follow-ups (unblock Step 1 on packaged builds):
 - LifeScribe destination (first real publisher)
 - Optional MCP bridge (expose curated vault content to external AI tools)
 
-**Reference:** [umbrella spec §3.7](specs/2026-04-12-lifescribe-vault-overview.md), cross-cutting invariants #7 (privacy switch), #8 (per-source privacy labels), #9 (publisher extension point).
+**Reference:** [umbrella spec §3.7](specs/2026-04-12-lifescribe-archive-overview.md), cross-cutting invariants #7 (privacy switch), #8 (per-source privacy labels), #9 (publisher extension point).

@@ -1,7 +1,7 @@
 # Chat with Vault — Design Spec
 
-> Sub-project §3.5 of the LifeScribe Vault umbrella spec
-> (`2026-04-12-lifescribe-vault-overview.md`). Consumes §3.1 (Vault
+> Sub-project §3.5 of the LifeScribe Archive umbrella spec
+> (`2026-04-12-lifescribe-archive-overview.md`). Consumes §3.1 (Vault
 > Foundation), §3.2 (Ingestion Pipeline), §3.4 (LLM Provider Framework).
 
 ## 1. Purpose
@@ -136,7 +136,7 @@ Client                    Backend /chat/send
 ### 4.5 Prompt template
 
 ```
-You are LifeScribe Vault's research assistant. Answer the user's
+You are LifeScribe Archive's research assistant. Answer the user's
 question using ONLY the numbered sources below. Cite every factual
 claim inline as [N] where N matches a source number. If the sources
 do not contain the answer, say so — do not draw on outside knowledge.

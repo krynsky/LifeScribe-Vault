@@ -20,7 +20,7 @@ def _pick_free_port(host: str) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="lifescribe-backend")
+    parser = argparse.ArgumentParser(prog="lifescribe-archive-backend")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--auth-token", default=None)

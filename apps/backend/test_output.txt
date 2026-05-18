@@ -1,5 +1,5 @@
 ============================= test session starts =============================
-platform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0 -- D:\My Data\My Apps\LifeScribe Vault\apps\backend\.venv\Scripts\python.exe
+platform win32 -- Python 3.12.10, pytest-9.0.3, pluggy-1.6.0 -- D:\My Data\My Apps\LifeScribe Archive\apps\backend\.venv\Scripts\python.exe
 cachedir: .pytest_cache
 rootdir: D:\My Data\My Apps\lifescribe vault\apps\backend
 configfile: pyproject.toml

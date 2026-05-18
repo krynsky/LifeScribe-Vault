@@ -8,7 +8,7 @@ $here = Split-Path -Parent $PSCommandPath
 $root = Resolve-Path (Join-Path $here "..")
 
 if ($ExePath -eq "") {
-    $ExePath = Join-Path $root "apps/backend/dist/lifescribe-backend.exe"
+    $ExePath = Join-Path $root "apps/backend/dist/lifescribe-archive-backend.exe"
 }
 if (-not (Test-Path $ExePath)) {
     throw "Packaged backend not found at $ExePath. Run scripts/build-backend.ps1 first."

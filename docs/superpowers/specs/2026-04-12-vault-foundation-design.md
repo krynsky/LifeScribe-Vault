@@ -3,11 +3,11 @@
 **Date:** 2026-04-12
 **Status:** Approved for implementation planning
 **Sub-project:** 3.1 Vault Foundation
-**Parent doc:** [`2026-04-12-lifescribe-vault-overview.md`](./2026-04-12-lifescribe-vault-overview.md)
+**Parent doc:** [`2026-04-12-lifescribe-archive-overview.md`](./2026-04-12-lifescribe-archive-overview.md)
 
 ## 1. Purpose
 
-Define the durable data contract and foundational code for LifeScribe Vault:
+Define the durable data contract and foundational code for LifeScribe Archive:
 the on-disk layout, note types, frontmatter schema, canonical ID scheme,
 git semantics, vault init/open flow, the read/write primitives every other
 sub-project calls, and the project scaffolding (monorepo, CI, license).
@@ -294,7 +294,7 @@ Format: `<type>_<slug>_<short-hash>`
 
 **First run (no last-opened vault in app settings):**
 Dashboard shows a setup wizard with two choices:
-1. **Create new vault** — user picks an empty directory (default suggestion: `~/Documents/LifeScribe Vault/`).
+1. **Create new vault** — user picks an empty directory (default suggestion: `~/Documents/LifeScribe Archive/`).
 2. **Open existing LifeScribe vault** — user picks a directory containing `/system/vault.md`.
 
 **Create flow:**
@@ -390,7 +390,7 @@ At the end of this sub-project:
 - No entity/event/relationship notes.
 
 ## 16. References
-- Parent umbrella: `2026-04-12-lifescribe-vault-overview.md`
+- Parent umbrella: `2026-04-12-lifescribe-archive-overview.md`
 - Codex plan (input research, not authoritative): `../../../codex_plan.md`
 - Requirements: `../../../requirements.md`
 - Tauri v2 sidecar docs: https://v2.tauri.app/develop/sidecar/

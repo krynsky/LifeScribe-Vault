@@ -13,7 +13,7 @@ def test_connectors_dir_prefers_pyinstaller_bundle(
     bundled = tmp_path / "bundle" / "connectors"
     bundled.mkdir(parents=True)
     monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "bundle"), raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "app" / "lifescribe-backend.exe"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "app" / "lifescribe-archive-backend.exe"))
 
     result = lifescribe.connectors_dir()
 

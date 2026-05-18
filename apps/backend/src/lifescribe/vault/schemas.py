@@ -232,6 +232,7 @@ class ChatTurn(BaseModel):
     role: Literal["user", "assistant"]
     content: str
     created_at: datetime
+    reasoning_content: str = ""
     citations: list[ChatCitation] = Field(default_factory=list)
     empty_retrieval: bool = False
 

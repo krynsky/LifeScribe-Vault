@@ -1,6 +1,6 @@
-# Install LifeScribe Vault
+# Install LifeScribe Archive
 
-LifeScribe Vault ships as a signed desktop installer for Windows, macOS, and Linux.
+LifeScribe Archive ships as a signed desktop installer for Windows, macOS, and Linux.
 Release installers will be attached to GitHub releases once the first release
 workflow lands (sub-project 3.2).
 

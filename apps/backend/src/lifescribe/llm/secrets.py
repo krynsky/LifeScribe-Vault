@@ -3,7 +3,7 @@ from __future__ import annotations
 import keyring
 import keyring.errors
 
-_SERVICE = "lifescribe-vault"
+_SERVICE = "lifescribe-archive"
 
 
 class SecretStore:

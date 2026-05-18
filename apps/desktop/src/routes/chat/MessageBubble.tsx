@@ -6,12 +6,14 @@ import type { ChatCitationDTO } from "../../api/client";
 interface Props {
   role: "user" | "assistant";
   content: string;
+  reasoningContent?: string;
   citations: ChatCitationDTO[];
 }
 
-export function MessageBubble({ role, content, citations }: Props) {
+export function MessageBubble({ role, content, reasoningContent = "", citations }: Props) {
   const byMarker = new Map(citations.map((c) => [c.marker, c]));
   const rendered = renderWithChips(content, byMarker);
+  const showReasoning = role === "assistant" && reasoningContent.trim().length > 0;
   return (
     <div
       style={{
@@ -22,6 +24,25 @@ export function MessageBubble({ role, content, citations }: Props) {
       }}
     >
       <strong>{role === "user" ? "You" : "Assistant"}</strong>
+      {showReasoning && (
+        <details
+          open
+          role="group"
+          aria-label="Thinking"
+          style={{
+            marginTop: 8,
+            marginBottom: 8,
+            padding: 8,
+            border: "1px solid #ddd",
+            borderRadius: 6,
+            background: "#fafafa",
+            color: "#555",
+          }}
+        >
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>Thinking</summary>
+          <div style={{ whiteSpace: "pre-wrap", marginTop: 6 }}>{reasoningContent}</div>
+        </details>
+      )}
       <div>{rendered}</div>
     </div>
   );

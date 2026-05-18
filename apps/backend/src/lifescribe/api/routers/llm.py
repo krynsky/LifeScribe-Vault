@@ -111,7 +111,7 @@ def _note_delete_path(store: VaultStore, note_id: str) -> None:
     store._repo.add([str(target.relative_to(store.root).as_posix())])
     store._repo.commit(
         f"llm: delete provider {note_id}",
-        author_name="LifeScribe Vault",
+        author_name="LifeScribe Archive",
         author_email="noreply@lifescribe.local",
     )
 

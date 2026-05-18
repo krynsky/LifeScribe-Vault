@@ -5,7 +5,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT/apps/backend"
 
-OUT_NAME="lifescribe-backend"
+OUT_NAME="lifescribe-archive-backend"
 DATA_SEP="$(uv run python -c 'import os; print(os.pathsep)')"
 uv run pyinstaller \
   --name "$OUT_NAME" \

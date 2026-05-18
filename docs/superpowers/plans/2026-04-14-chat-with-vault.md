@@ -1212,7 +1212,7 @@ from __future__ import annotations
 from lifescribe.retrieval.index import SearchResult
 
 _PREAMBLE = (
-    "You are LifeScribe Vault's research assistant. Answer the user's "
+    "You are LifeScribe Archive's research assistant. Answer the user's "
     "question using ONLY the numbered sources below. Cite every factual "
     "claim inline as [N] where N matches a source number. If the sources "
     "do not contain the answer, say so — do not draw on outside knowledge.\n\n"
@@ -1467,7 +1467,7 @@ class SessionStore:
         self._vault._repo.add([str(target.relative_to(self._vault.root).as_posix())])
         self._vault._repo.commit(
             f"chat: delete session {session_id}",
-            author_name="LifeScribe Vault",
+            author_name="LifeScribe Archive",
             author_email="noreply@lifescribe.local",
         )
 ```
@@ -3344,7 +3344,7 @@ git commit -m "chat: react-query hooks for chat + index"
 
 - [ ] **Step 1: Run generator**
 
-With the backend running (`cd apps/backend && uv run lifescribe-backend --port 8765 &`), run:
+With the backend running (`cd apps/backend && uv run lifescribe-archive-backend --port 8765 &`), run:
 
 ```bash
 bash scripts/gen-types.sh
@@ -4345,7 +4345,7 @@ git commit -m "chat: browse — highlight on chunk query param"
 ```markdown
 # Chat with Vault
 
-LifeScribe Vault can answer questions using your own notes. Every
+LifeScribe Archive can answer questions using your own notes. Every
 answer cites exactly which notes it came from.
 
 ## First-time setup

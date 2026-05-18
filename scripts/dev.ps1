@@ -11,7 +11,7 @@ switch ($mode) {
     }
     "backend-only" {
         Push-Location (Join-Path $root "apps/backend")
-        uv run lifescribe-backend --host 127.0.0.1 --port 0 --auth-token devtoken
+        uv run lifescribe-archive-backend --host 127.0.0.1 --port 0 --auth-token devtoken
         Pop-Location
     }
     "frontend-only" {

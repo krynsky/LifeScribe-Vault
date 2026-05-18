@@ -4,6 +4,7 @@ export type ChatSendEventName =
   | "session"
   | "retrieval"
   | "chunk"
+  | "reasoning"
   | "citations"
   | "no_context"
   | "done"

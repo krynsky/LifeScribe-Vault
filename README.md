@@ -1,4 +1,4 @@
-# LifeScribe Vault
+# LifeScribe Archive
 
 A local-first, open-source desktop app that aggregates personal data from local
 documents and third-party services into an Obsidian-compatible Markdown vault.
@@ -27,7 +27,7 @@ embeddings, sidecar state — is rebuildable.
 ## Project structure
 
 ```
-LifeScribe Vault/
+LifeScribe Archive/
 ├── apps/
 │   ├── backend/         # FastAPI backend (Python)
 │   └── desktop/         # Tauri desktop app (React + Rust)
@@ -140,7 +140,7 @@ See [connectors/README.md](connectors/README.md) for the full manifest schema.
 
 ## Architecture
 
-LifeScribe Vault is built as seven sub-projects:
+LifeScribe Archive is built as seven sub-projects:
 
 | # | Sub-project | Status |
 |---|-------------|--------|
@@ -152,7 +152,7 @@ LifeScribe Vault is built as seven sub-projects:
 | 3.6 | Connector Framework + Catalog | Shipped |
 | 3.7 | Publishing Framework | Deferred to v2 |
 
-See the [umbrella spec](docs/superpowers/specs/2026-04-12-lifescribe-vault-overview.md) for the full architecture overview.
+See the [umbrella spec](docs/superpowers/specs/2026-04-12-lifescribe-archive-overview.md) for the full architecture overview.
 
 ## License
 

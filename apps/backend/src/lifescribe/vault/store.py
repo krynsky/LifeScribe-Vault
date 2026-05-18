@@ -33,7 +33,7 @@ from lifescribe.vault.schemas import (
 from lifescribe.vault.serialization import dump_note, load_note
 
 SCHEMA_VERSION = 1
-APP_GIT_AUTHOR_NAME = "LifeScribe Vault"
+APP_GIT_AUTHOR_NAME = "LifeScribe Archive"
 APP_GIT_AUTHOR_EMAIL = "noreply@lifescribe.local"
 
 _RESERVED_FOLDERS = [

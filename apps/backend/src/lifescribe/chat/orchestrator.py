@@ -132,8 +132,15 @@ class ChatOrchestrator:
         chat_req = ChatRequest(provider_id=req.provider_id, model=req.model, messages=messages)
 
         accumulated = ""
+        reasoning_accumulated = ""
         finish_reason = None
         async for chunk in self._llm.stream_chat(chat_req):
+            if chunk.reasoning_delta:
+                reasoning_accumulated += chunk.reasoning_delta
+                yield ChatEvent(
+                    "reasoning",
+                    {"delta": chunk.reasoning_delta, "finish_reason": chunk.finish_reason},
+                )
             if chunk.delta:
                 accumulated += chunk.delta
                 yield ChatEvent(
@@ -149,6 +156,7 @@ class ChatOrchestrator:
             role="assistant",
             content=accumulated,
             created_at=datetime.now(tz=UTC),
+            reasoning_content=reasoning_accumulated,
             citations=citations,
         )
         if created_new:

@@ -1,4 +1,4 @@
-# LifeScribe Vault — Overview Spec
+# LifeScribe Archive — Overview Spec
 
 **Date:** 2026-04-12
 **Status:** Approved
@@ -6,7 +6,7 @@
 
 ## 1. Purpose & scope of this document
 
-This document is the **umbrella spec** for LifeScribe Vault. It is not an
+This document is the **umbrella spec** for LifeScribe Archive. It is not an
 implementation spec and is not sufficient by itself to write code from.
 
 Its job is to:
@@ -24,7 +24,7 @@ sub-spec drift.
 
 ## 2. Product vision
 
-LifeScribe Vault is a local-first, open-source desktop app that aggregates a
+LifeScribe Archive is a local-first, open-source desktop app that aggregates a
 person's data — from local files and from third-party services — into an
 Obsidian-compatible Markdown vault. The vault is the **human-readable
 system of record**; all other state (SQLite, search indexes, embeddings,
@@ -39,7 +39,7 @@ The app supports four primary verbs over the vault:
 
 ## 3. Sub-project decomposition
 
-LifeScribe Vault is delivered as seven sub-projects, each with its own
+LifeScribe Archive is delivered as seven sub-projects, each with its own
 spec → plan → implementation cycle.
 
 ### 3.1 Vault Foundation

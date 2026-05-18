@@ -148,6 +148,13 @@ async def _iter_sse_chunks(resp: httpx.Response) -> AsyncIterator[ChatChunk]:
         choices = obj.get("choices") or []
         if not choices:
             continue
-        delta = (choices[0].get("delta") or {}).get("content", "")
+        choice = choices[0]
+        delta_obj = choice.get("delta") or {}
+        delta = delta_obj.get("content") or ""
+        reasoning_delta = delta_obj.get("reasoning_content") or delta_obj.get("reasoning") or ""
         finish_reason = choices[0].get("finish_reason")
-        yield ChatChunk(delta=delta, finish_reason=finish_reason)
+        yield ChatChunk(
+            delta=delta,
+            reasoning_delta=reasoning_delta,
+            finish_reason=finish_reason,
+        )

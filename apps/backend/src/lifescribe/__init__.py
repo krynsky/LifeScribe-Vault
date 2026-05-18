@@ -1,4 +1,4 @@
-"""LifeScribe Vault backend."""
+"""LifeScribe Archive backend."""
 
 import sys
 from pathlib import Path

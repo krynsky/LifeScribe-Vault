@@ -1,6 +1,6 @@
 # Importing files
 
-LifeScribe Vault turns local documents into canonical notes under
+LifeScribe Archive turns local documents into canonical notes under
 `10_sources/` and keeps the originals under `assets/<hash>/`.
 
 ## How to import

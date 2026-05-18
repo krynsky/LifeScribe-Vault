@@ -95,6 +95,50 @@ async def test_happy_path_streams_and_persists(orch, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_reasoning_chunks_stream_and_persist_with_assistant_turn(orch):
+    o, idx, llm, _vault, sessions = orch
+    idx.upsert_note(
+        note_id="doc_a",
+        note_type="DocumentRecord",
+        tags=[],
+        imported_at="",
+        chunks=[
+            Chunk(
+                note_id="doc_a",
+                chunk_id="cc",
+                content="reasoning models",
+                start_offset=0,
+                end_offset=16,
+            )
+        ],
+    )
+
+    async def fake_stream(req) -> AsyncIterator[ChatChunk]:
+        yield ChatChunk(delta="", reasoning_delta="thinking ", finish_reason=None)
+        yield ChatChunk(delta="", reasoning_delta="through it", finish_reason=None)
+        yield ChatChunk(delta="Final answer.", finish_reason="stop")
+
+    llm.stream_chat = fake_stream
+    events = await _collect(
+        o.send(
+            ChatSendRequest(
+                session_id=None,
+                message="reasoning models",
+                provider_id="p",
+                model="m",
+            )
+        )
+    )
+
+    reasoning_events = [e for e in events if e[0] == "reasoning"]
+    assert [e[1]["delta"] for e in reasoning_events] == ["thinking ", "through it"]
+    sid = events[0][1]["session_id"]
+    persisted = sessions.read(sid)
+    assert persisted.turns[1].content == "Final answer."
+    assert persisted.turns[1].reasoning_content == "thinking through it"
+
+
+@pytest.mark.asyncio
 async def test_unresolved_citation_flagged(orch):
     o, idx, llm, _, _ = orch
     idx.upsert_note(

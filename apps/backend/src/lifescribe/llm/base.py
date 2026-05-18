@@ -20,6 +20,7 @@ class ChatRequest(BaseModel):
 
 class ChatChunk(BaseModel):
     delta: str
+    reasoning_delta: str = ""
     finish_reason: str | None = None
 
 

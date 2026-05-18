@@ -27,6 +27,7 @@ type UIState =
   | {
       kind: "streaming";
       assistant: string;
+      reasoning: string;
       chunks: RetrievalChunkDTO[];
       citations: ChatCitationDTO[];
     }
@@ -47,7 +48,7 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
   async function send(message: string) {
     if (!provider) return;
     setPendingUser(message);
-    setState({ kind: "streaming", assistant: "", chunks: [], citations: [] });
+    setState({ kind: "streaming", assistant: "", reasoning: "", chunks: [], citations: [] });
     try {
       const [url, token] = await Promise.all([backendUrl(), backendToken()]);
       const gen = await chatSend(`${url}/chat/send`, token, {
@@ -80,6 +81,9 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
     } else if (ev.event === "chunk") {
       const delta = (ev.data as { delta: string }).delta;
       setState((s) => (s.kind === "streaming" ? { ...s, assistant: s.assistant + delta } : s));
+    } else if (ev.event === "reasoning") {
+      const delta = (ev.data as { delta: string }).delta;
+      setState((s) => (s.kind === "streaming" ? { ...s, reasoning: s.reasoning + delta } : s));
     } else if (ev.event === "citations") {
       const citations = (ev.data as { citations: ChatCitationDTO[] }).citations;
       setState((s) => (s.kind === "streaming" ? { ...s, citations } : s));
@@ -93,12 +97,23 @@ export function Conversation({ sessionId, session, onSessionCreated }: Props) {
       <ModelPill selected={provider} onChange={setProvider} />
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
         {history.map((t, i) => (
-          <MessageBubble key={i} role={t.role} content={t.content} citations={t.citations} />
+          <MessageBubble
+            key={i}
+            role={t.role}
+            content={t.content}
+            reasoningContent={t.reasoning_content}
+            citations={t.citations}
+          />
         ))}
         {pendingUser && <MessageBubble role="user" content={pendingUser} citations={[]} />}
         {state.kind === "streaming" && (
           <>
-            <MessageBubble role="assistant" content={state.assistant} citations={state.citations} />
+            <MessageBubble
+              role="assistant"
+              content={state.assistant}
+              reasoningContent={state.reasoning}
+              citations={state.citations}
+            />
             <CitationChips citations={state.citations} />
             <RetrievedPanel chunks={state.chunks} />
           </>

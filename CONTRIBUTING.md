@@ -1,6 +1,6 @@
-# Contributing to LifeScribe Vault
+# Contributing to LifeScribe Archive
 
-Thanks for your interest. LifeScribe Vault is MIT-licensed and welcomes
+Thanks for your interest. LifeScribe Archive is MIT-licensed and welcomes
 contributions.
 
 ## Project layout

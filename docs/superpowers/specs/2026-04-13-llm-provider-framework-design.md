@@ -1,13 +1,13 @@
 # LLM Provider Framework — Design
 
 **Status:** Draft — 2026-04-13
-**Parent umbrella:** `docs/superpowers/specs/2026-04-12-lifescribe-vault-overview.md` §3.4
+**Parent umbrella:** `docs/superpowers/specs/2026-04-12-lifescribe-archive-overview.md` §3.4
 **Depends on:** Vault Foundation, Ingestion Pipeline, Dashboard Shell (all merged in M1).
 **Unblocks:** §3.5 Chat with Vault.
 
 ## 1. Purpose
 
-Deliver a provider-agnostic LLM abstraction that LifeScribe Vault can use for
+Deliver a provider-agnostic LLM abstraction that LifeScribe Archive can use for
 chat, and eventually for agent and retrieval features. Ships with two built-in
 providers — **LM Studio** (local) and **GitHub Models** (remote, via a GitHub
 Copilot Pro PAT) — exercising one local and one remote adapter so the privacy
@@ -90,7 +90,7 @@ apps/backend/src/lifescribe/
   cross-write cache) and builds the concrete provider object. Credential
   resolution happens here.
 - `secrets.py` — facade: `get(ref) -> str | None`, `set(ref, value)`,
-  `delete(ref)`. Backed by `keyring.get_password("lifescribe-vault", ref)`.
+  `delete(ref)`. Backed by `keyring.get_password("lifescribe-archive", ref)`.
   Tests inject an in-memory backend.
 - `service.py` — the only thing the router calls. Orchestrates registry +
   privacy. Never lets the router touch providers directly.

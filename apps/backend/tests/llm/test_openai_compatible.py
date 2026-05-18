@@ -119,6 +119,29 @@ async def test_stream_chat_yields_chunks_and_terminates_on_done(
     assert chunks[-1].finish_reason == "stop"
 
 
+async def test_stream_chat_yields_reasoning_content(httpx_mock: HTTPXMock, client) -> None:
+    body = (
+        'data: {"choices":[{"delta":{"reasoning_content":"thinking "}}]}\n\n'
+        'data: {"choices":[{"delta":{"reasoning":"through it"}}]}\n\n'
+        'data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+    httpx_mock.add_response(
+        url="http://127.0.0.1:1234/v1/chat/completions",
+        content=body.encode("utf-8"),
+        headers={"content-type": "text/event-stream"},
+    )
+    req = ChatRequest(
+        provider_id="x",
+        model="m",
+        messages=[ChatMessage(role="user", content="hi")],
+    )
+    chunks = [c async for c in client.stream_chat(req, privacy_mode=False)]
+    assert [c.reasoning_delta for c in chunks] == ["thinking ", "through it", ""]
+    assert [c.delta for c in chunks] == ["", "", "answer"]
+    assert chunks[-1].finish_reason == "stop"
+
+
 async def test_stream_chat_skips_malformed_sse_lines(httpx_mock: HTTPXMock, client) -> None:
     body = (
         "garbage line\n\n"

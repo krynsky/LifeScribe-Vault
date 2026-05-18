@@ -34,7 +34,7 @@ Then copy the output into Tauri's sidecar directory:
 
 ```bash
 mkdir -p apps/desktop/src-tauri/binaries
-cp apps/backend/dist/lifescribe-backend apps/desktop/src-tauri/binaries/lifescribe-backend-$(rustc -vV | awk '/host/{print $2}')
+cp apps/backend/dist/lifescribe-archive-backend apps/desktop/src-tauri/binaries/lifescribe-archive-backend-$(rustc -vV | awk '/host/{print $2}')
 ```
 
 On Windows, append `.exe` to the copy target.

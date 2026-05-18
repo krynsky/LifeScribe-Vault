@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the foundational data contract and project scaffolding for LifeScribe Vault — a cross-platform desktop app whose vault is the system of record. At the end of this plan, the app launches on Windows/macOS/Linux, shows a first-run wizard, creates or opens an Obsidian-compatible Markdown vault, and exposes a typed `VaultStore` API with idempotent writes, hand-edit safety, and git-backed history.
+**Goal:** Build the foundational data contract and project scaffolding for LifeScribe Archive — a cross-platform desktop app whose vault is the system of record. At the end of this plan, the app launches on Windows/macOS/Linux, shows a first-run wizard, creates or opens an Obsidian-compatible Markdown vault, and exposes a typed `VaultStore` API with idempotent writes, hand-edit safety, and git-backed history.
 
 **Architecture:** Tauri v2 desktop shell spawns a Python FastAPI backend as a sidecar binary. The React/TypeScript frontend calls the backend over `127.0.0.1`-only HTTP with a per-launch auth token. The backend's `vault/` module owns all on-disk writes; no other code touches vault files directly. Runtime state (future: jobs, indexes) lives in SQLite; durable facts live in the vault as Markdown + assets. Git is the source of truth for "was this hand-edited."
 
@@ -12,7 +12,7 @@
 
 ## Spec References
 
-- Parent umbrella: [`../specs/2026-04-12-lifescribe-vault-overview.md`](../specs/2026-04-12-lifescribe-vault-overview.md)
+- Parent umbrella: [`../specs/2026-04-12-lifescribe-archive-overview.md`](../specs/2026-04-12-lifescribe-archive-overview.md)
 - This sub-project spec: [`../specs/2026-04-12-vault-foundation-design.md`](../specs/2026-04-12-vault-foundation-design.md)
 
 ## File Structure Map
@@ -150,9 +150,9 @@ Files this plan creates (listed under the task that first creates them):
 - [ ] **Step 2: Create `CONTRIBUTING.md`**
 
 ```markdown
-# Contributing to LifeScribe Vault
+# Contributing to LifeScribe Archive
 
-Thanks for your interest. LifeScribe Vault is MIT-licensed and welcomes
+Thanks for your interest. LifeScribe Archive is MIT-licensed and welcomes
 contributions.
 
 ## Project layout
@@ -367,7 +367,7 @@ Note: CI will fail until subsequent tasks land the backend and frontend packages
 [project]
 name = "lifescribe"
 version = "0.1.0"
-description = "LifeScribe Vault backend"
+description = "LifeScribe Archive backend"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [
@@ -430,7 +430,7 @@ ignore_missing_imports = True
 
 `apps/backend/src/lifescribe/__init__.py`:
 ```python
-"""LifeScribe Vault backend."""
+"""LifeScribe Archive backend."""
 __version__ = "0.1.0"
 ```
 
@@ -1456,7 +1456,7 @@ from lifescribe.vault.schemas import VaultManifest
 from lifescribe.vault.serialization import dump_note, load_note
 
 SCHEMA_VERSION = 1
-APP_GIT_AUTHOR_NAME = "LifeScribe Vault"
+APP_GIT_AUTHOR_NAME = "LifeScribe Archive"
 APP_GIT_AUTHOR_EMAIL = "noreply@lifescribe.local"
 
 _RESERVED_FOLDERS = [
@@ -2272,7 +2272,7 @@ from lifescribe.api.auth import make_auth_dependency
 def create_app(*, auth_token: str) -> FastAPI:
     require_auth = make_auth_dependency(auth_token)
     app = FastAPI(
-        title="LifeScribe Vault API",
+        title="LifeScribe Archive API",
         version=__version__,
         dependencies=[Depends(require_auth)],
     )
@@ -2299,7 +2299,7 @@ from lifescribe.api.app import create_app
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="lifescribe-backend")
+    parser = argparse.ArgumentParser(prog="lifescribe-archive-backend")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)  # 0 = random free port
     parser.add_argument("--auth-token", default=None)
@@ -2340,7 +2340,7 @@ Add `[project.scripts]` entry to `pyproject.toml`:
 
 ```toml
 [project.scripts]
-lifescribe-backend = "lifescribe.api.main:main"
+lifescribe-archive-backend = "lifescribe.api.main:main"
 ```
 
 Then: `cd apps/backend && uv sync --extra dev`
@@ -2352,7 +2352,7 @@ Expected: all pass.
 
 - [ ] **Step 5: Manual smoke test**
 
-Run (one line): `cd apps/backend && uv run lifescribe-backend --port 0 --auth-token smoke &`
+Run (one line): `cd apps/backend && uv run lifescribe-archive-backend --port 0 --auth-token smoke &`
 Expected: prints a JSON line with `host`, `port`, `token`. Then: `curl -sS -H "Authorization: Bearer smoke" http://127.0.0.1:<port>/health`. Kill the process afterwards.
 
 - [ ] **Step 6: Commit**
@@ -2509,7 +2509,7 @@ from lifescribe.api.routers.vault import router as vault_router
 def create_app(*, auth_token: str) -> FastAPI:
     require_auth = make_auth_dependency(auth_token)
     app = FastAPI(
-        title="LifeScribe Vault API",
+        title="LifeScribe Archive API",
         version=__version__,
         dependencies=[Depends(require_auth)],
     )
@@ -2572,7 +2572,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT/apps/backend"
 
-OUT_NAME="lifescribe-backend"
+OUT_NAME="lifescribe-archive-backend"
 uv run pyinstaller \
   --name "$OUT_NAME" \
   --onefile \
@@ -2594,8 +2594,8 @@ $here = Split-Path -Parent $PSCommandPath
 $root = Resolve-Path (Join-Path $here "..")
 Push-Location (Join-Path $root "apps/backend")
 try {
-    uv run pyinstaller --name lifescribe-backend --onefile --clean --noconfirm --console src/lifescribe/api/main.py
-    Write-Host "Binary at: $root/apps/backend/dist/lifescribe-backend.exe"
+    uv run pyinstaller --name lifescribe-archive-backend --onefile --clean --noconfirm --console src/lifescribe/api/main.py
+    Write-Host "Binary at: $root/apps/backend/dist/lifescribe-archive-backend.exe"
 } finally {
     Pop-Location
 }
@@ -2605,8 +2605,8 @@ try {
 
 On Unix: `bash scripts/build-backend.sh`
 On Windows: `powershell -File scripts/build-backend.ps1`
-Expected: a `dist/lifescribe-backend` (or `.exe`) binary is produced. Run it:
-`./apps/backend/dist/lifescribe-backend --port 0 --auth-token smoke`
+Expected: a `dist/lifescribe-archive-backend` (or `.exe`) binary is produced. Run it:
+`./apps/backend/dist/lifescribe-archive-backend --port 0 --auth-token smoke`
 Expected: prints JSON with `port` and `token`; kill it.
 
 - [ ] **Step 5: Add `apps/backend/build/`, `apps/backend/dist/`, and `*.spec` to `.gitignore` if not already**
@@ -2651,7 +2651,7 @@ git commit -m "build(backend): PyInstaller single-binary build scripts"
 
 ```json
 {
-  "name": "lifescribe-desktop",
+  "name": "lifescribe-archive-desktop",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -2739,7 +2739,7 @@ export default defineConfig({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LifeScribe Vault</title>
+    <title>LifeScribe Archive</title>
   </head>
   <body>
     <div id="root"></div>
@@ -2771,7 +2771,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 export default function App() {
   return (
     <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <h1>LifeScribe Vault</h1>
+      <h1>LifeScribe Archive</h1>
       <p>Scaffold up. First-run wizard lands in Task 19.</p>
     </div>
   );
@@ -2799,7 +2799,7 @@ body {
 
 ```toml
 [package]
-name = "lifescribe-desktop"
+name = "lifescribe-archive-desktop"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
@@ -2830,9 +2830,9 @@ fn main() {
 ```json
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LifeScribe Vault",
+  "productName": "LifeScribe Archive",
   "version": "0.1.0",
-  "identifier": "us.lifescribe.vault",
+  "identifier": "us.lifescribe.archive",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -2842,7 +2842,7 @@ fn main() {
   "app": {
     "windows": [
       {
-        "title": "LifeScribe Vault",
+        "title": "LifeScribe Archive",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
@@ -2872,7 +2872,7 @@ Add a placeholder icon `apps/desktop/src-tauri/icons/icon.png` (any 512×512 PNG
 fn main() {
     tauri::Builder::default()
         .run(tauri::generate_context!())
-        .expect("error while running LifeScribe Vault");
+        .expect("error while running LifeScribe Archive");
 }
 ```
 
@@ -2957,11 +2957,11 @@ Update `apps/desktop/src-tauri/tauri.conf.json` — add the sidecar binary:
     "active": true,
     "targets": "all",
     "icon": ["icons/icon.png"],
-    "externalBin": ["binaries/lifescribe-backend"]
+    "externalBin": ["binaries/lifescribe-archive-backend"]
   }
 ```
 
-Create `apps/desktop/src-tauri/binaries/` and expect the PyInstaller output to be placed there as per Tauri's sidecar naming convention (`lifescribe-backend-<target-triple>`). For dev, we accept that contributors run `scripts/build-backend.{sh,ps1}` and copy the output to this folder; documented in `docs/dev/running-locally.md` (Task 23).
+Create `apps/desktop/src-tauri/binaries/` and expect the PyInstaller output to be placed there as per Tauri's sidecar naming convention (`lifescribe-archive-backend-<target-triple>`). For dev, we accept that contributors run `scripts/build-backend.{sh,ps1}` and copy the output to this folder; documented in `docs/dev/running-locally.md` (Task 23).
 
 Add `apps/desktop/src-tauri/binaries/` to `.gitignore`:
 
@@ -3020,7 +3020,7 @@ pub fn spawn_backend(app: &AppHandle) -> Result<(), String> {
     let token = generate_token();
     let cmd = app
         .shell()
-        .sidecar("lifescribe-backend")
+        .sidecar("lifescribe-archive-backend")
         .map_err(|e| format!("resolve sidecar: {e}"))?
         .args([
             "--host",
@@ -3085,7 +3085,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![backend_info])
         .run(tauri::generate_context!())
-        .expect("error while running LifeScribe Vault");
+        .expect("error while running LifeScribe Archive");
 }
 ```
 
@@ -3155,7 +3155,7 @@ Create `package.json` at repo root:
 
 ```json
 {
-  "name": "lifescribe-vault",
+  "name": "lifescribe-archive",
   "private": true,
   "workspaces": ["apps/desktop", "packages/*"]
 }
@@ -3388,7 +3388,7 @@ export default function FirstRunWizard({ onOpened }: Props) {
 
   return (
     <div style={{ maxWidth: 520, margin: "4rem auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1>Welcome to LifeScribe Vault</h1>
+      <h1>Welcome to LifeScribe Archive</h1>
       <p>Choose how to get started:</p>
       <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
         <button disabled={busy} onClick={handleCreate}>
@@ -3521,7 +3521,7 @@ case "$mode" in
     ;;
   backend-only)
     cd "$ROOT/apps/backend"
-    uv run lifescribe-backend --host 127.0.0.1 --port 0 --auth-token devtoken
+    uv run lifescribe-archive-backend --host 127.0.0.1 --port 0 --auth-token devtoken
     ;;
   frontend-only)
     cd "$ROOT/apps/desktop"
@@ -3552,7 +3552,7 @@ switch ($mode) {
     }
     "backend-only" {
         Push-Location (Join-Path $root "apps/backend")
-        uv run lifescribe-backend --host 127.0.0.1 --port 0 --auth-token devtoken
+        uv run lifescribe-archive-backend --host 127.0.0.1 --port 0 --auth-token devtoken
         Pop-Location
     }
     "frontend-only" {
@@ -3715,9 +3715,9 @@ git commit -m "test(vault): end-to-end foundation integration test"
 `docs/user/install.md`:
 
 ```markdown
-# Install LifeScribe Vault
+# Install LifeScribe Archive
 
-LifeScribe Vault ships as a signed desktop installer for Windows, macOS, and Linux.
+LifeScribe Archive ships as a signed desktop installer for Windows, macOS, and Linux.
 Release installers will be attached to GitHub releases once the first release
 workflow lands (sub-project 3.2).
 
@@ -3729,9 +3729,9 @@ For now, to run from source see [`../dev/running-locally.md`](../dev/running-loc
 ```markdown
 # Create a new vault
 
-1. Launch LifeScribe Vault.
+1. Launch LifeScribe Archive.
 2. On the first-run screen, click **Create new vault**.
-3. Pick an empty directory. The suggested default is `~/Documents/LifeScribe Vault/`.
+3. Pick an empty directory. The suggested default is `~/Documents/LifeScribe Archive/`.
 4. The app scaffolds the folder structure, initializes a git repo, and commits `chore: initialize vault`.
 
 The vault is tracked as a standalone git repository. You can inspect it with
@@ -3743,7 +3743,7 @@ standard git tools at any time.
 ```markdown
 # Open an existing vault
 
-1. Launch LifeScribe Vault.
+1. Launch LifeScribe Archive.
 2. Click **Open existing vault** and select a directory containing `system/vault.md`.
 3. If the vault's schema version matches the app, it opens. If the vault is older,
    the app offers to migrate. If the vault is newer than the installed app,
@@ -3757,7 +3757,7 @@ standard git tools at any time.
 ```markdown
 # Architecture
 
-LifeScribe Vault is a Tauri v2 desktop app with a Python FastAPI backend sidecar.
+LifeScribe Archive is a Tauri v2 desktop app with a Python FastAPI backend sidecar.
 
 - `apps/desktop/` — Tauri v2 + React + TypeScript frontend.
 - `apps/backend/` — Python 3.12 + FastAPI. Packaged as a single binary via PyInstaller and bundled with the desktop app as a Tauri sidecar.
@@ -3765,7 +3765,7 @@ LifeScribe Vault is a Tauri v2 desktop app with a Python FastAPI backend sidecar
 
 ## Startup sequence
 1. Tauri shell starts.
-2. Rust `spawn_backend` launches the bundled `lifescribe-backend` binary with a random auth token and port.
+2. Rust `spawn_backend` launches the bundled `lifescribe-archive-backend` binary with a random auth token and port.
 3. Backend binds `127.0.0.1:<random>`, then prints `{host, port, token}` as a single JSON line to stdout.
 4. Rust captures that line and emits a `backend-ready` event. It also exposes the values via the `backend_info` Tauri command.
 5. React reads `backend_info`, then makes authenticated HTTP calls to the backend for every vault operation.
@@ -3774,7 +3774,7 @@ LifeScribe Vault is a Tauri v2 desktop app with a Python FastAPI backend sidecar
 Every vault write goes through `VaultStore` in `apps/backend/src/lifescribe/vault/store.py`. No other code touches vault files directly. This is the firewall that makes the data invariants (provenance, idempotency, hand-edit safety, git history) enforceable.
 
 ## Invariants
-See [`docs/superpowers/specs/2026-04-12-lifescribe-vault-overview.md`](../superpowers/specs/2026-04-12-lifescribe-vault-overview.md) for the complete list.
+See [`docs/superpowers/specs/2026-04-12-lifescribe-archive-overview.md`](../superpowers/specs/2026-04-12-lifescribe-archive-overview.md) for the complete list.
 ```
 
 `docs/dev/running-locally.md`:
@@ -3816,7 +3816,7 @@ Then copy the output into Tauri's sidecar directory:
 
 ```bash
 mkdir -p apps/desktop/src-tauri/binaries
-cp apps/backend/dist/lifescribe-backend apps/desktop/src-tauri/binaries/lifescribe-backend-$(rustc -vV | awk '/host/{print $2}')
+cp apps/backend/dist/lifescribe-archive-backend apps/desktop/src-tauri/binaries/lifescribe-archive-backend-$(rustc -vV | awk '/host/{print $2}')
 ```
 
 On Windows, append `.exe` to the copy target.
@@ -3892,7 +3892,7 @@ Expected: clean.
 bash scripts/build-backend.sh
 mkdir -p apps/desktop/src-tauri/binaries
 HOST_TRIPLE=$(rustc -vV | awk '/host/{print $2}')
-cp apps/backend/dist/lifescribe-backend apps/desktop/src-tauri/binaries/lifescribe-backend-${HOST_TRIPLE}
+cp apps/backend/dist/lifescribe-archive-backend apps/desktop/src-tauri/binaries/lifescribe-archive-backend-${HOST_TRIPLE}
 bash scripts/dev.sh
 ```
 

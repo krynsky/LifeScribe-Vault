@@ -172,4 +172,36 @@ describe("Conversation", () => {
       expect(screen.getByPlaceholderText(/ask about your vault/i)).toHaveValue(""),
     );
   });
+
+  it("renders streamed reasoning before the final answer", async () => {
+    setupProviderHandlers();
+    server.use(
+      http.post(
+        `${BASE}/chat/send`,
+        () =>
+          new HttpResponse(
+            [
+              `event: session\ndata: {"session_id":"chat_reasoning","title":"t"}\n\n`,
+              `event: retrieval\ndata: {"chunks":[]}\n\n`,
+              `event: reasoning\ndata: {"delta":"thinking ","finish_reason":null}\n\n`,
+              `event: reasoning\ndata: {"delta":"through it","finish_reason":null}\n\n`,
+              `event: chunk\ndata: {"delta":"final","finish_reason":"stop"}\n\n`,
+              `event: citations\ndata: {"citations":[]}\n\n`,
+              `event: done\ndata: {"finish_reason":"stop"}\n\n`,
+            ].join(""),
+            { headers: { "Content-Type": "text/event-stream" } },
+          ),
+      ),
+      http.get(`${BASE}/chat/sessions`, () => HttpResponse.json([])),
+    );
+    renderWithProviders(
+      <Conversation sessionId={undefined} session={undefined} onSessionCreated={() => undefined} />,
+    );
+
+    await pickProviderAndTypeMessage("reason this out");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText(/thinking through it/i)).toBeInTheDocument();
+    expect(await screen.findByText(/final/i)).toBeInTheDocument();
+  });
 });

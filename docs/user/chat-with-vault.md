@@ -1,6 +1,6 @@
 # Chat with Vault
 
-LifeScribe Vault can answer questions using your own notes. Every
+LifeScribe Archive can answer questions using your own notes. Every
 answer cites exactly which notes it came from.
 
 ## First-time setup

@@ -31,4 +31,19 @@ describe("MessageBubble", () => {
     );
     expect(screen.getByTitle(/unresolved/i)).toBeInTheDocument();
   });
+
+  it("renders reasoning content in a collapsible thinking section", () => {
+    render(
+      <MemoryRouter>
+        <MessageBubble
+          role="assistant"
+          content="Final answer."
+          reasoningContent="checked the source and compared dates"
+          citations={[]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("group", { name: /thinking/i })).toBeInTheDocument();
+    expect(screen.getByText(/checked the source/i)).toBeInTheDocument();
+  });
 });

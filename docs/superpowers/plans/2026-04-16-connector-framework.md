@@ -2679,7 +2679,7 @@ git commit -m "types: regenerate after connectors route"
 - [ ] **Step 1: Locate the backend packaging step**
 
 Run: `cat scripts/build-backend.sh`
-Look for the `pyinstaller` invocation or the post-build copy that places `lifescribe-backend.exe` next to app binaries.
+Look for the `pyinstaller` invocation or the post-build copy that places `lifescribe-archive-backend.exe` next to app binaries.
 
 - [ ] **Step 2: Add a `connectors/` copy step**
 

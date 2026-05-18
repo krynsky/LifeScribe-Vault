@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the first real UI for LifeScribe Vault — a Tauri shell that browses `SourceRecord` notes, imports files with live job status, shows ingestion logs, and exposes a privacy toggle. Closes M1 (v0.1).
+**Goal:** Ship the first real UI for LifeScribe Archive — a Tauri shell that browses `SourceRecord` notes, imports files with live job status, shows ingestion logs, and exposes a privacy toggle. Closes M1 (v0.1).
 
 **Architecture:** Backend gains four endpoints (`GET /vault/notes`, `GET /vault/notes/{id}`, `GET/PUT /vault/settings`) backed by a new `VaultSettings` note type. Frontend adopts `react-router-dom` + `@tanstack/react-query`, with a single `AppShell` (sidebar + outlet), four reusable components (`NoteList`, `MarkdownViewer`, `JobProgress`, `DropZone`), and five routes (`/browse`, `/import`, `/logs`, `/settings` plus viewer).
 
@@ -524,7 +524,7 @@ Under `devDependencies` add:
 
 - [ ] **Step 2: Install**
 
-Run: `npm install --workspace lifescribe-desktop` (or the repo's equivalent — check `package.json` at repo root for the workspace tool).
+Run: `npm install --workspace lifescribe-archive-desktop` (or the repo's equivalent — check `package.json` at repo root for the workspace tool).
 Expected: lockfile updates, no peer dep errors.
 
 - [ ] **Step 3: Configure vitest for jsdom**

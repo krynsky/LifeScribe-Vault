@@ -1,7 +1,7 @@
 [project]
 name = "lifescribe"
 version = "0.1.0"
-description = "LifeScribe Vault backend"
+description = "LifeScribe Archive backend"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [
@@ -39,7 +39,7 @@ dev = [
 ]
 
 [project.scripts]
-lifescribe-backend = "lifescribe.api.main:main"
+lifescribe-archive-backend = "lifescribe.api.main:main"
 
 [build-system]
 requires = ["hatchling"]

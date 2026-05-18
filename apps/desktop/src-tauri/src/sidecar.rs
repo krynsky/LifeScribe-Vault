@@ -42,7 +42,7 @@ pub fn spawn_backend(app: &AppHandle) -> Result<(), String> {
     let token = generate_token();
     let cmd = app
         .shell()
-        .sidecar("lifescribe-backend")
+        .sidecar("lifescribe-archive-backend")
         .map_err(|e| format!("resolve sidecar: {e}"))?
         .args(["--host", "127.0.0.1", "--port", "0", "--auth-token", &token]);
 

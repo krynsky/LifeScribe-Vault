@@ -48,7 +48,7 @@ export default function FirstRunWizard({ onOpened }: Props) {
 
   return (
     <div style={{ maxWidth: 520, margin: "4rem auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1>Welcome to LifeScribe Vault</h1>
+      <h1>Welcome to LifeScribe Archive</h1>
       <p>Choose how to get started:</p>
       <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
         <button disabled={busy} onClick={handleCreate}>

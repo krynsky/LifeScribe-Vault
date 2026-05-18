@@ -1,6 +1,6 @@
 # LLM Providers
 
-LifeScribe Vault talks to Large Language Models through **providers**. Two are
+LifeScribe Archive talks to Large Language Models through **providers**. Two are
 built in: **LM Studio** (runs on your machine) and **GitHub Models** (served
 by Microsoft with a GitHub Copilot Pro PAT).
 
@@ -12,7 +12,7 @@ OS keyring.
 
 1. Install LM Studio and load a model. Open its local server (default
    `http://127.0.0.1:1234`).
-2. In LifeScribe Vault, add a provider with:
+2. In LifeScribe Archive, add a provider with:
    - **Display name:** `LM Studio`
    - **Base URL:** `http://127.0.0.1:1234/v1`
    - **Local:** yes

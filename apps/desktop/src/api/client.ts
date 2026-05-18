@@ -161,6 +161,7 @@ export interface ChatRequestDTO {
 
 export interface ChatChunkDTO {
   delta: string;
+  reasoning_delta?: string;
   finish_reason?: string | null;
 }
 
@@ -175,6 +176,7 @@ export interface ChatCitationDTO {
 export interface ChatTurnDTO {
   role: "user" | "assistant";
   content: string;
+  reasoning_content?: string;
   created_at: string;
   citations: ChatCitationDTO[];
   empty_retrieval: boolean;

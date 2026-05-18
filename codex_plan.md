@@ -1,7 +1,7 @@
-# LifeScribe Vault Detailed Product Plan
+# LifeScribe Archive Detailed Product Plan
 
 ## Summary
-Build **LifeScribe Vault** as a **local-first personal data operating system**: a desktop app that ingests files and service exports, normalizes them into a **Git-backed Obsidian vault**, supports **private LLM chat and retrieval**, and later publishes structured subsets of that data to LifeScribe and other destinations through a stable adapter layer.
+Build **LifeScribe Archive** as a **local-first personal data operating system**: a desktop app that ingests files and service exports, normalizes them into a **Git-backed Obsidian vault**, supports **private LLM chat and retrieval**, and later publishes structured subsets of that data to LifeScribe and other destinations through a stable adapter layer.
 
 The product should be designed around one core principle: the **vault is the human-readable system of record**. Everything else, including embeddings, search indexes, sync state, and publish mappings, is secondary and rebuildable. This keeps the app durable, portable, inspectable, and future-proof.
 
@@ -382,7 +382,7 @@ Then support three future delivery paths with the same internal contract:
 
 ### MCP recommendation
 Yes, MCP is worth planning for, but as a **bridge**, not the only integration path.
-- Build an MCP server for LifeScribe Vault if you want AI tools to inspect and manipulate vault data safely
+- Build an MCP server for LifeScribe Archive if you want AI tools to inspect and manipulate vault data safely
 - Build an MCP surface for `lifescribe.us` only if you want agent-driven workflows to create/update records there
 - Keep direct API adapters available for normal app-to-app publishing because they are more predictable for production sync
 

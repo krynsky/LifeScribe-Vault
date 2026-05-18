@@ -1,7 +1,7 @@
 # Connector Framework + Catalog Design
 
 **Status:** Approved · **Owner:** Mark Krynsky · **Date:** 2026-04-16
-**Umbrella:** [2026-04-12-lifescribe-vault-overview.md](2026-04-12-lifescribe-vault-overview.md) §3.6
+**Umbrella:** [2026-04-12-lifescribe-archive-overview.md](2026-04-12-lifescribe-archive-overview.md) §3.6
 **Branch:** `feat/connector-framework`
 
 ## 1. Goal

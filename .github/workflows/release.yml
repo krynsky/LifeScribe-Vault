@@ -37,7 +37,7 @@ jobs:
         run: |
           DATA_SEP="$(uv run python -c 'import os; print(os.pathsep)')"
           uv run pyinstaller \
-            --name lifescribe-backend \
+            --name lifescribe-archive-backend \
             --onefile \
             --clean \
             --noconfirm \
@@ -61,17 +61,17 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../desktop/src-tauri/binaries
-          cp "dist/lifescribe-backend${{ matrix.ext }}" \
-             "../desktop/src-tauri/binaries/lifescribe-backend-${{ matrix.target }}${{ matrix.ext }}"
+          cp "dist/lifescribe-archive-backend${{ matrix.ext }}" \
+             "../desktop/src-tauri/binaries/lifescribe-archive-backend-${{ matrix.target }}${{ matrix.ext }}"
           if [ -z "${{ matrix.ext }}" ]; then
-            chmod +x "../desktop/src-tauri/binaries/lifescribe-backend-${{ matrix.target }}"
+            chmod +x "../desktop/src-tauri/binaries/lifescribe-archive-backend-${{ matrix.target }}"
           fi
       - name: Upload sidecar artifact
         uses: actions/upload-artifact@v4
         with:
           name: sidecar-${{ matrix.target }}
           path: |
-            apps/desktop/src-tauri/binaries/lifescribe-backend-${{ matrix.target }}${{ matrix.ext }}
+            apps/desktop/src-tauri/binaries/lifescribe-archive-backend-${{ matrix.target }}${{ matrix.ext }}
             apps/backend/dist/connectors/
 
   build-tauri:
@@ -114,7 +114,7 @@ jobs:
           cd apps/desktop/src-tauri/binaries
           # download-artifact may nest files; flatten them
           if [ -d "apps" ]; then
-            find apps -name "lifescribe-backend*" -exec mv {} . \;
+            find apps -name "lifescribe-archive-backend*" -exec mv {} . \;
             rm -rf apps
           fi
           if [ -d "connectors" ]; then
@@ -124,7 +124,7 @@ jobs:
             rm -rf apps
           fi
           if [ -z "${{ matrix.ext }}" ]; then
-            chmod +x lifescribe-backend-${{ matrix.target }}
+            chmod +x lifescribe-archive-backend-${{ matrix.target }}
           fi
           ls -la
       - name: Build Tauri app
@@ -160,7 +160,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           body: |
-            ## LifeScribe Vault ${{ github.ref_name }}
+            ## LifeScribe Archive ${{ github.ref_name }}
 
             ### Downloads
             - **Windows**: `.msi` installer

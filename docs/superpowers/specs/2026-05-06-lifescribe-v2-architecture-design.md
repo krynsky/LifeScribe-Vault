@@ -1,4 +1,4 @@
-# LifeScribe Vault v2 Architecture Design
+# LifeScribe Archive v2 Architecture Design
 
 **Date:** 2026-05-06
 **Status:** Draft for user review
@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-This spec records the v2 direction for LifeScribe Vault after reviewing the current app, the two Claude research notes, and the latest product goals.
+This spec records the v2 direction for LifeScribe Archive after reviewing the current app, the two Claude research notes, and the latest product goals.
 
 The key decision is to continue from the existing Tauri + React + Python/FastAPI app rather than starting over. The current app already has the hard foundation: a local-first desktop shell, Obsidian-compatible Markdown vault, Git-backed storage, document ingestion, provider abstraction, privacy mode, chat with citations, and a pluggable connector framework. V2 should add stronger ingestion, service imports, generated life-wiki structure, and publishing rather than rebuild solved infrastructure.
 
@@ -28,7 +28,7 @@ V2 is not trying to prioritize a single differentiator. It should become a more 
 
 ### Decision
 
-LifeScribe Vault v2 will iterate on the existing app.
+LifeScribe Archive v2 will iterate on the existing app.
 
 ### Rationale
 
@@ -46,7 +46,7 @@ Starting over would mostly recreate these boundaries. The v2 risks are better ha
 
 ### When a rewrite would be justified
 
-A new app would only make sense if the product direction changed to a hosted multi-user SaaS, a web-only collaboration platform, or an Obsidian-plugin-only experience. Those are different products from the current local-first LifeScribe Vault.
+A new app would only make sense if the product direction changed to a hosted multi-user SaaS, a web-only collaboration platform, or an Obsidian-plugin-only experience. Those are different products from the current local-first LifeScribe Archive.
 
 ## 4. Application Shape
 

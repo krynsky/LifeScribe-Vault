@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "LifeScribe Vault API",
+    "title": "LifeScribe Archive API",
     "version": "0.1.0"
   },
   "paths": {

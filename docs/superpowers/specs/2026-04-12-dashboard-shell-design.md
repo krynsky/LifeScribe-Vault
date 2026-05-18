@@ -1,12 +1,12 @@
 # Dashboard Shell — Design
 
 **Status:** Draft — 2026-04-12
-**Parent umbrella:** `docs/superpowers/specs/2026-04-12-lifescribe-vault-overview.md` §3.3
+**Parent umbrella:** `docs/superpowers/specs/2026-04-12-lifescribe-archive-overview.md` §3.3
 **Depends on:** Vault Foundation (merged) and Ingestion Pipeline (merged).
 
 ## 1. Purpose
 
-Deliver the first real UI for LifeScribe Vault: a Tauri shell that lets a
+Deliver the first real UI for LifeScribe Archive: a Tauri shell that lets a
 user browse the `SourceRecord` notes produced by the Ingestion Pipeline,
 import more files (picker + drag-drop) with live job status, inspect
 past job logs, and toggle a privacy master-switch. This closes M1
@@ -383,7 +383,7 @@ No backend dependency additions.
 3. Import via picker and drag-drop both kick off jobs and show live progress; cancellation works.
 4. Logs lists every job; viewer renders the log table.
 5. Settings persists `privacy_mode` across app reloads.
-6. `ruff format --check`, `ruff check`, `mypy --strict`, `pytest`, `pnpm --filter lifescribe-desktop test`, `typecheck`, `lint`, `format:check` all clean on CI (Linux, macOS, Windows).
+6. `ruff format --check`, `ruff check`, `mypy --strict`, `pytest`, `pnpm --filter lifescribe-archive-desktop test`, `typecheck`, `lint`, `format:check` all clean on CI (Linux, macOS, Windows).
 7. User doc `docs/user/browse-and-import.md` ships with the sub-project.
 
 ## 12. Non-goals (deferred)

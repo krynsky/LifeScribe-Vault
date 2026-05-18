@@ -1,7 +1,7 @@
 # Ingestion Pipeline — Design
 
 **Status:** Draft — 2026-04-12
-**Parent umbrella:** `docs/superpowers/specs/2026-04-12-lifescribe-vault-overview.md` §3.2
+**Parent umbrella:** `docs/superpowers/specs/2026-04-12-lifescribe-archive-overview.md` §3.2
 **Depends on:** `docs/superpowers/specs/2026-04-12-vault-foundation-design.md` (merged)
 
 ## 1. Purpose

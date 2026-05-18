@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from .base import (
     Connector,
@@ -54,7 +54,6 @@ class VaultImporterProtocol(Protocol):
         self,
         connector: str,
         docs: Iterator[ImportedDoc] | Iterable[ImportedDoc],
-        **kwargs: Any,
     ) -> ImportResult: ...
 
 

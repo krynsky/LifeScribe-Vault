@@ -67,10 +67,10 @@ jobs:
           TRIPLE=$(rustc -vV | sed -n 's/host: //p')
           mkdir -p src-tauri/binaries
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            : > "src-tauri/binaries/lifescribe-backend-${TRIPLE}.exe"
+            : > "src-tauri/binaries/lifescribe-archive-backend-${TRIPLE}.exe"
           else
-            : > "src-tauri/binaries/lifescribe-backend-${TRIPLE}"
-            chmod +x "src-tauri/binaries/lifescribe-backend-${TRIPLE}"
+            : > "src-tauri/binaries/lifescribe-archive-backend-${TRIPLE}"
+            chmod +x "src-tauri/binaries/lifescribe-archive-backend-${TRIPLE}"
           fi
       - name: Lint JS/TS
         run: |

@@ -32,5 +32,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running LifeScribe Vault");
+        .expect("error while running LifeScribe Archive");
 }
