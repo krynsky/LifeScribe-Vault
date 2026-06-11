@@ -27,6 +27,10 @@ pub enum VaultError {
     Locked,
     #[error("The vault changed since this snapshot was loaded. Reload before saving.")]
     SnapshotConflict,
+    #[error("This backup requires a newer version of LifeScribe Vault.")]
+    BackupVersionTooNew,
+    #[error("A restore is already in progress. Complete or roll back before starting a new one.")]
+    RestoreConflict,
     #[error("File operation failed: {0}")]
     FileOperation(String),
     #[error("Storage operation failed: {0}")]
@@ -49,6 +53,8 @@ pub fn command_error_code(error: VaultError) -> String {
         VaultError::CorruptVault | VaultError::DecryptionFailed | VaultError::EncryptionFailed => {
             "CorruptVault"
         }
+        VaultError::BackupVersionTooNew => "BackupVersionTooNew",
+        VaultError::RestoreConflict => "RestoreConflict",
         VaultError::FileOperation(_) | VaultError::Storage(_) => "StorageError",
     }
     .to_string()

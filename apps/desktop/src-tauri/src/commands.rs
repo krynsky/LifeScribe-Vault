@@ -223,6 +223,13 @@ pub fn unlock_vault_at_path(
     session.vault_id = Some(header.vault_id);
     session.loaded_generation = 0;
     session.recovered = false;
+
+    // Clear any restore-in-progress marker (and auto-delete safety backup)
+    // on the first successful unlock after a restore completes.
+    if let Some(app_data_dir) = vault_path.parent() {
+        crate::backup::clear_restore_marker(app_data_dir);
+    }
+
     Ok(get_status_for_session(session))
 }
 
@@ -410,6 +417,100 @@ pub fn copy_vault_value(request: CopyVaultValueRequest) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
+// Backup / restore commands (U9)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBackupResponse {
+    /// Full path of the created .lsvbackup file (shown in success notice).
+    pub output_path: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreBackupResponse {
+    /// Path of the safety backup so the user can archive it before it
+    /// is auto-deleted on the next successful unlock.
+    pub safety_backup_path: String,
+}
+
+/// No `Debug` — carries the master password.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBackupRequest {
+    pub master_password: String,
+    /// User-chosen destination directory (from OS folder picker).
+    pub dest_dir: String,
+}
+
+/// No `Debug` — carries the backup password.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreBackupRequest {
+    pub backup_path: String,
+    pub backup_password: String,
+}
+
+/// Create an encrypted backup of the current vault + attachments.
+/// Must be called while unlocked.
+#[tauri::command]
+pub fn create_backup(
+    request: CreateBackupRequest,
+    session: State<'_, SharedVaultSession>,
+) -> Result<CreateBackupResponse, String> {
+    let master_password = zeroize::Zeroizing::new(request.master_password);
+    let session = lock_state(&session)?;
+    if session.key.is_none() {
+        return Err(command_error_code(VaultError::Locked));
+    }
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    let result = crate::backup::create_backup(
+        &session.vault_path,
+        &att_dir,
+        &master_password,
+        std::path::Path::new(&request.dest_dir),
+    )
+    .map_err(command_error_code)?;
+
+    Ok(CreateBackupResponse {
+        output_path: result.output_path.to_string_lossy().into_owned(),
+    })
+}
+
+/// Restore a .lsvbackup file: safety-backup, swap, clear draft stash.
+/// The session should be locked before calling this.
+#[tauri::command]
+pub fn restore_backup(
+    request: RestoreBackupRequest,
+    session: State<'_, SharedVaultSession>,
+) -> Result<RestoreBackupResponse, String> {
+    let backup_password = zeroize::Zeroizing::new(request.backup_password);
+    let session = lock_state(&session)?;
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    let app_data_dir = session
+        .vault_path
+        .parent()
+        .ok_or_else(|| command_error_code(VaultError::FileOperation(
+            "vault path has no parent".to_string(),
+        )))?
+        .to_path_buf();
+
+    let result = crate::backup::restore_backup(
+        std::path::Path::new(&request.backup_path),
+        &backup_password,
+        &session.vault_path,
+        &att_dir,
+        &app_data_dir,
+    )
+    .map_err(command_error_code)?;
+
+    Ok(RestoreBackupResponse {
+        safety_backup_path: result.safety_backup_db.to_string_lossy().into_owned(),
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Attachment commands (U8)
 // ---------------------------------------------------------------------------
 
@@ -475,7 +576,7 @@ pub fn delete_attachment(
 
 /// Sweep orphaned attachment files (present on disk but absent from
 /// `referenced_ids`). Called once after unlock + snapshot load. Returns the
-/// count of swept files.
+/// count of swept files. No-op while a restore marker is present.
 #[tauri::command]
 pub fn sweep_orphaned_attachments(
     referenced_ids: Vec<String>,
@@ -484,6 +585,14 @@ pub fn sweep_orphaned_attachments(
     let session = lock_state(&session)?;
     if session.key.is_none() {
         return Err(command_error_code(VaultError::Locked));
+    }
+    let app_data_dir = session
+        .vault_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_default();
+    if crate::backup::restore_in_progress(&app_data_dir) {
+        return Ok(0);
     }
     let att_dir = crate::attachments::attachment_dir(&session.vault_path);
     crate::attachments::sweep_orphaned_attachments(&att_dir, &referenced_ids)

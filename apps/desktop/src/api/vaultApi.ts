@@ -163,3 +163,42 @@ export function deleteAttachment(attachmentId: string): Promise<void> {
 export function sweepOrphanedAttachments(referencedIds: string[]): Promise<number> {
   return invoke("sweep_orphaned_attachments", { referencedIds });
 }
+
+// ---------------------------------------------------------------------------
+// Backup (U9)
+// ---------------------------------------------------------------------------
+
+export interface CreateBackupResponse {
+  outputPath: string;
+}
+
+export interface RestoreBackupResponse {
+  safetyBackupPath: string;
+}
+
+/**
+ * Create an encrypted backup at `destDir`. The backup is self-contained —
+ * it can be restored with only the master password in effect at backup time.
+ * Returns the path to the written .lsvbackup file.
+ */
+export function createBackup(
+  masterPassword: string,
+  destDir: string,
+): Promise<CreateBackupResponse> {
+  return invoke("create_backup", { request: { masterPassword, destDir } });
+}
+
+/**
+ * Restore a backup. Safety-copies the current vault before swapping, writes
+ * a restore-in-progress marker (auto-cleared on next successful unlock), and
+ * returns the path to the safety backup.
+ *
+ * Errors: "InvalidMasterPassword" (wrong password or corrupt backup),
+ * "BackupVersionTooNew", "RestoreConflict" (another restore is in progress).
+ */
+export function restoreBackup(
+  backupPath: string,
+  backupPassword: string,
+): Promise<RestoreBackupResponse> {
+  return invoke("restore_backup", { request: { backupPath, backupPassword } });
+}

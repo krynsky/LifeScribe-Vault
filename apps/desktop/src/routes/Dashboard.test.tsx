@@ -23,6 +23,9 @@ vi.mock("../api/vaultApi", () => ({
   addAttachment: vi.fn(),
   deleteAttachment: vi.fn(),
   sweepOrphanedAttachments: vi.fn().mockResolvedValue(0),
+  // Backup commands — not asserted in Dashboard tests.
+  createBackup: vi.fn(),
+  restoreBackup: vi.fn(),
 }));
 
 const mocked = vi.mocked(vaultApi);

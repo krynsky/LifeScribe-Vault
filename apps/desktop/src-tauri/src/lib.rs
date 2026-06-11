@@ -1,4 +1,5 @@
 pub mod attachments;
+pub mod backup;
 pub mod clipboard;
 pub mod commands;
 pub mod crypto;
@@ -36,6 +37,8 @@ pub fn run() {
             commands::add_attachment,
             commands::delete_attachment,
             commands::sweep_orphaned_attachments,
+            commands::create_backup,
+            commands::restore_backup,
             pack_resources::read_default_pack
         ])
         .run(tauri::generate_context!())
@@ -46,6 +49,8 @@ pub fn run() {
 mod tests {
     #[path = "attachment_tests.rs"]
     mod attachment_tests;
+    #[path = "backup_tests.rs"]
+    mod backup_tests;
     #[path = "clipboard_tests.rs"]
     mod clipboard_tests;
     #[path = "crypto_tests.rs"]

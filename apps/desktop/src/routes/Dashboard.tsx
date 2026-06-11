@@ -52,6 +52,7 @@ import {
   type SectionValues,
   type VaultValues,
 } from "../domain/valuesStore";
+import { BackupPage } from "./BackupPage";
 import { RecoveryKitPage } from "./RecoveryKitPage";
 import { SectionPage, type DraftBannerState } from "./SectionPage";
 import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
@@ -883,16 +884,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       />
     );
   } else if (route.kind === "backup") {
-    content = (
-      <article className="stub-page">
-        <h1 className="stub-page__title">Backup</h1>
-        <p className="stub-page__lede">
-          Encrypted backups you can store anywhere safe are coming in an
-          upcoming update. Until then, everything stays encrypted on this
-          computer.
-        </p>
-      </article>
-    );
+    content = <BackupPage />;
   }
 
   if (!content) {
