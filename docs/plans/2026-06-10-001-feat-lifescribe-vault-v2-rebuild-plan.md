@@ -1,7 +1,7 @@
 ---
 title: "feat: LifeScribe Vault v2 — schema-driven rebuild with creator-mode form authoring"
 type: feat
-status: active
+status: completed
 date: 2026-06-10
 deepened: 2026-06-10
 ---
