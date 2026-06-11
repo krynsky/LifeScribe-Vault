@@ -9,7 +9,7 @@
  * move a badge until they are persisted.
  */
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   discardDraft,
   loadVaultSnapshot,
@@ -55,6 +55,18 @@ import {
 import { BackupPage } from "./BackupPage";
 import { ImportPage } from "./ImportPage";
 import { RecoveryKitPage } from "./RecoveryKitPage";
+
+// Creator module: dynamically imported so Rollup excludes it from non-creator
+// bundles. The `import.meta.env.VITE_CREATOR_MODE` check is statically replaced
+// at build time — the false branch (and its import) is dead code in end-user builds.
+const LazyCreatorModePage =
+  import.meta.env.VITE_CREATOR_MODE === "1"
+    ? React.lazy(() =>
+        import("../creator/CreatorModePage").then((m) => ({
+          default: m.CreatorModePage,
+        })),
+      )
+    : null;
 import { SectionPage, type DraftBannerState } from "./SectionPage";
 import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 
@@ -70,7 +82,8 @@ type Route =
   | { kind: "section"; sectionKey: string }
   | { kind: "recovery-kit" }
   | { kind: "backup" }
-  | { kind: "import" };
+  | { kind: "import" }
+  | { kind: "creator" };
 
 interface VaultState {
   generation: number;
@@ -774,6 +787,22 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
               <span className="sidebar__item-title">Import from v1</span>
             </button>
           </li>
+          {import.meta.env.VITE_CREATOR_MODE === "1" ? (
+            <li>
+              <button
+                aria-current={route.kind === "creator" ? "page" : undefined}
+                className={
+                  route.kind === "creator"
+                    ? "sidebar__item sidebar__item--active"
+                    : "sidebar__item"
+                }
+                type="button"
+                onClick={() => setRoute({ kind: "creator" })}
+              >
+                <span className="sidebar__item-title">Pack Editor</span>
+              </button>
+            </li>
+          ) : null}
         </ul>
       </nav>
 
@@ -911,6 +940,12 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
         }
         onCancel={() => setRoute({ kind: "welcome" })}
       />
+    );
+  } else if (route.kind === "creator" && LazyCreatorModePage) {
+    content = (
+      <React.Suspense fallback={<div className="creator__loading">Loading editor…</div>}>
+        <LazyCreatorModePage />
+      </React.Suspense>
     );
   }
 

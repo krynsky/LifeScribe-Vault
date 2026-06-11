@@ -13,7 +13,7 @@ pub mod v1_import;
 pub fn run() {
     use tauri::Manager;
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
@@ -23,26 +23,54 @@ pub fn run() {
                 commands::VaultSession::new(vault_path),
             ));
             Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
-            commands::get_vault_status,
-            commands::create_vault,
-            commands::unlock_vault,
-            commands::lock_vault,
-            commands::save_vault_snapshot,
-            commands::load_vault_snapshot,
-            commands::stash_draft,
-            commands::take_draft,
-            commands::discard_draft,
-            commands::copy_vault_value,
-            commands::add_attachment,
-            commands::delete_attachment,
-            commands::sweep_orphaned_attachments,
-            commands::create_backup,
-            commands::restore_backup,
-            commands::import_v1_snapshot,
-            pack_resources::read_default_pack
-        ])
+        });
+
+    // End-user builds exclude write_default_pack (no `creator-mode` feature).
+    #[cfg(not(feature = "creator-mode"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        commands::get_vault_status,
+        commands::create_vault,
+        commands::unlock_vault,
+        commands::lock_vault,
+        commands::save_vault_snapshot,
+        commands::load_vault_snapshot,
+        commands::stash_draft,
+        commands::take_draft,
+        commands::discard_draft,
+        commands::copy_vault_value,
+        commands::add_attachment,
+        commands::delete_attachment,
+        commands::sweep_orphaned_attachments,
+        commands::create_backup,
+        commands::restore_backup,
+        commands::import_v1_snapshot,
+        pack_resources::read_default_pack
+    ]);
+
+    // Creator builds add write_default_pack for source-tree pack authoring.
+    #[cfg(feature = "creator-mode")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        commands::get_vault_status,
+        commands::create_vault,
+        commands::unlock_vault,
+        commands::lock_vault,
+        commands::save_vault_snapshot,
+        commands::load_vault_snapshot,
+        commands::stash_draft,
+        commands::take_draft,
+        commands::discard_draft,
+        commands::copy_vault_value,
+        commands::add_attachment,
+        commands::delete_attachment,
+        commands::sweep_orphaned_attachments,
+        commands::create_backup,
+        commands::restore_backup,
+        commands::import_v1_snapshot,
+        pack_resources::read_default_pack,
+        pack_resources::write_default_pack
+    ]);
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

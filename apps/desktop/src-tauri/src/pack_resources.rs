@@ -62,3 +62,32 @@ pub fn read_default_pack(app: tauri::AppHandle) -> Result<String, String> {
     let pack_path = default_pack_path(&app).map_err(command_error_code)?;
     read_pack_at_path(&pack_path).map_err(command_error_code)
 }
+
+// ---------------------------------------------------------------------------
+// Creator-only commands (compiled in only with the `creator-mode` feature).
+// These write back to the SOURCE resources directory and are only meaningful
+// in a dev build with direct access to the repo working tree.
+// ---------------------------------------------------------------------------
+
+/// Write `content` to `path`, creating parent directories as needed.
+#[cfg(feature = "creator-mode")]
+pub fn write_pack_at_path(content: &str, path: &std::path::Path) -> VaultResult<()> {
+    use std::fs;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    }
+    fs::write(path, content).map_err(|e| VaultError::FileOperation(e.to_string()))
+}
+
+/// Overwrite the default-pack source file with `pack_json` (creator builds only).
+///
+/// The path is always the source-tree `resources/` directory next to the crate
+/// manifest so the file can be committed and shipped in the next build.
+/// Non-creator binaries lack this command entirely (Cargo feature gate).
+#[cfg(feature = "creator-mode")]
+#[tauri::command]
+pub fn write_default_pack(pack_json: String) -> Result<(), String> {
+    let pack_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(DEFAULT_PACK_RESOURCE);
+    write_pack_at_path(&pack_json, &pack_path).map_err(command_error_code)
+}
