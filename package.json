@@ -1,0 +1,14 @@
+{
+  "name": "lifescribe-vault-v2-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix apps/desktop run tauri dev",
+    "build": "npm --prefix apps/desktop run tauri build",
+    "test": "npm --prefix apps/desktop test",
+    "typecheck": "npm --prefix apps/desktop run typecheck",
+    "lint": "npm --prefix apps/desktop run lint"
+  },
+  "workspaces": [
+    "apps/desktop"
+  ]
+}
