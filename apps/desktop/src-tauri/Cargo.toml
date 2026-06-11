@@ -35,5 +35,15 @@ time = { version = "0.3", features = ["formatting", "macros"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 zeroize = "1"
 
+[target.'cfg(windows)'.dependencies]
+# Raw Win32 clipboard access for the clipboard-hygiene command (exclusion
+# formats + auto-clear). Minimal feature set; version matches the windows
+# crate already in the tree via tauri.
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_DataExchange",
+  "Win32_System_Memory",
+] }
+
 [dev-dependencies]
 tempfile = "3"

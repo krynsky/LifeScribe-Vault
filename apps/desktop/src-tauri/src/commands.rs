@@ -362,6 +362,53 @@ pub fn load_vault_snapshot(
     load_vault_snapshot_for_session(&mut session).map_err(command_error_code)
 }
 
+/// Encrypt-and-stash a dirty draft (U5 lock flow). The frontend calls this
+/// BEFORE `lock_vault`, while the session data key still exists.
+#[tauri::command]
+pub fn stash_draft(
+    draft: Value,
+    session: State<'_, SharedVaultSession>,
+) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    crate::draft_stash::stash_draft_for_session(&session, &draft).map_err(command_error_code)
+}
+
+/// Decrypt and consume the stashed draft, surfacing corrupt / stale stashes
+/// explicitly (they never silently vanish).
+#[tauri::command]
+pub fn take_draft(
+    session: State<'_, SharedVaultSession>,
+) -> Result<crate::draft_stash::TakeDraftResponse, String> {
+    let session = lock_state(&session)?;
+    crate::draft_stash::take_draft_for_session(&session).map_err(command_error_code)
+}
+
+/// Delete any stashed draft (explicit user discard, or post-save purge).
+#[tauri::command]
+pub fn discard_draft(session: State<'_, SharedVaultSession>) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    crate::draft_stash::discard_draft_for_session(&session).map_err(command_error_code)
+}
+
+/// No `Debug` derive — carries a plaintext vault value in transit.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopyVaultValueRequest {
+    pub value: String,
+    pub clear_after_seconds: Option<u32>,
+}
+
+/// Clipboard-hygiene copy: Windows exclusion formats + auto-clear. The only
+/// sanctioned path for putting vault values on the clipboard (see
+/// `clipboard.rs` module docs).
+#[tauri::command]
+pub fn copy_vault_value(request: CopyVaultValueRequest) -> Result<(), String> {
+    crate::clipboard::copy_vault_value_with_auto_clear(
+        request.value,
+        request.clear_after_seconds,
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

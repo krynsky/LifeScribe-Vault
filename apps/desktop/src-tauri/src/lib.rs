@@ -1,5 +1,7 @@
+pub mod clipboard;
 pub mod commands;
 pub mod crypto;
+pub mod draft_stash;
 pub mod error;
 pub mod repository;
 
@@ -24,7 +26,11 @@ pub fn run() {
             commands::unlock_vault,
             commands::lock_vault,
             commands::save_vault_snapshot,
-            commands::load_vault_snapshot
+            commands::load_vault_snapshot,
+            commands::stash_draft,
+            commands::take_draft,
+            commands::discard_draft,
+            commands::copy_vault_value
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -32,8 +38,12 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    #[path = "clipboard_tests.rs"]
+    mod clipboard_tests;
     #[path = "crypto_tests.rs"]
     mod crypto_tests;
+    #[path = "draft_stash_tests.rs"]
+    mod draft_stash_tests;
     #[path = "snapshot_tests.rs"]
     mod snapshot_tests;
     #[path = "vault_lifecycle_tests.rs"]
