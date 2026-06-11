@@ -1,0 +1,74 @@
+{
+  "packId": "lifescribe-default",
+  "packVersion": "2.0.0-skeleton",
+  "schemaVersion": 1,
+  "minAppVersion": "0.2.0",
+  "sections": [
+    {
+      "sectionKey": "digital-executors",
+      "title": "Digital Executors",
+      "lede": "Choose the people who can coordinate with family, legal contacts, and service providers to handle your digital accounts and devices — naming them now saves your family weeks of chaos later.",
+      "multiRecord": false,
+      "order": 1,
+      "groups": [
+        {
+          "groupKey": "executor",
+          "title": "Executor",
+          "repeatable": true,
+          "minRecords": 1,
+          "order": 1,
+          "fields": [
+            {
+              "systemKey": "executorName",
+              "label": "Full name",
+              "type": "text",
+              "required": true,
+              "protected": true,
+              "order": 1
+            },
+            {
+              "systemKey": "executorRole",
+              "label": "Role",
+              "helperText": "Primary executors act first; backups step in when the primary cannot.",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "options": [
+                { "value": "primary", "label": "Primary" },
+                { "value": "backup", "label": "Backup" }
+              ],
+              "order": 2
+            },
+            {
+              "systemKey": "executorStepIn",
+              "label": "When this person should step in",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "visibleWhen": { "field": "executorRole", "equals": "backup" },
+              "order": 3
+            },
+            {
+              "systemKey": "executorEmail",
+              "label": "Email",
+              "type": "email",
+              "required": false,
+              "protected": false,
+              "order": 4
+            }
+          ]
+        }
+      ],
+      "readinessRule": { "requiredKeys": ["executorName"] },
+      "kitMapping": {
+        "entries": [
+          {
+            "heading": "Who to contact first",
+            "fields": ["executorName", "executorEmail"]
+          }
+        ]
+      }
+    }
+  ],
+  "migrations": []
+}
