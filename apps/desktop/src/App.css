@@ -30,3 +30,109 @@ body {
   margin: 0;
   color: #667085;
 }
+
+/* --- U4: generic form renderer (structural only; design system lands in U5) --- */
+
+.form-renderer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group__title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.field__label {
+  font-weight: 500;
+}
+
+.field__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #667085;
+}
+
+.field__error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b42318;
+}
+
+.field__previous-answer {
+  margin: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #667085;
+}
+
+.record-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.record-list__item {
+  border-bottom: 1px solid #eaecf0;
+  padding: 0.5rem 0;
+}
+
+.record-list__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.record-list__summary {
+  flex: 1;
+  text-align: left;
+}
+
+.record-list__empty {
+  padding: 1rem 0;
+}
+
+.record-list__lede {
+  color: #667085;
+}
+
+.record-list__confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.archived-answers {
+  margin-top: 1.5rem;
+}
+
+.archived-answers__list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.archived-answers__item {
+  border-top: 1px solid #eaecf0;
+  padding: 0.5rem 0;
+}
+
+.archived-answers__label {
+  margin: 0;
+  font-weight: 500;
+}
+
+.archived-answers__value,
+.archived-answers__reason {
+  margin: 0;
+  color: #667085;
+}
