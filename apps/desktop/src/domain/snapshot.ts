@@ -22,6 +22,10 @@
  *         }
  *       },
  *       overlay?: UserOverlay,        // user customization overlay (U3)
+ *       kitMeta?: {                   // Recovery Kit staleness anchor (U7)
+ *         lastGeneratedAt: string,    // ISO; when "Save Kit" last committed
+ *         fingerprint: string         // hash of the contributing values
+ *       },
  *       ...unknown top-level fields   // preserved verbatim on round-trip
  *     }
  *
@@ -50,6 +54,12 @@ export interface SectionMeta {
 
 export type SectionMetaMap = Record<string, SectionMeta>;
 
+/** When the Recovery Kit was last saved and the fingerprint of what it contained. */
+export interface KitMeta {
+  lastGeneratedAt: string;
+  fingerprint: string;
+}
+
 export interface ParsedSnapshot {
   snapshotFormat: number;
   schemaVersion: number;
@@ -57,6 +67,7 @@ export interface ParsedSnapshot {
   values: VaultValues;
   sectionMeta: SectionMetaMap;
   overlay: UserOverlay | null;
+  kitMeta: KitMeta | null;
   /** Unknown top-level fields, preserved for forward compatibility. */
   extra: Record<string, unknown>;
 }
@@ -68,6 +79,7 @@ const KNOWN_KEYS = new Set([
   "values",
   "sectionMeta",
   "overlay",
+  "kitMeta",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,6 +144,16 @@ function normalizeSectionMeta(raw: unknown): SectionMetaMap {
   return meta;
 }
 
+function normalizeKitMeta(raw: unknown): KitMeta | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  if (typeof raw.lastGeneratedAt !== "string" || typeof raw.fingerprint !== "string") {
+    return null;
+  }
+  return { lastGeneratedAt: raw.lastGeneratedAt, fingerprint: raw.fingerprint };
+}
+
 /** A brand-new snapshot for a vault that has never been saved. */
 export function emptySnapshot(ownerName: string): ParsedSnapshot {
   return {
@@ -141,6 +163,7 @@ export function emptySnapshot(ownerName: string): ParsedSnapshot {
     values: {},
     sectionMeta: {},
     overlay: null,
+    kitMeta: null,
     extra: {},
   };
 }
@@ -182,6 +205,7 @@ export function normalizeSnapshot(
     values: normalizeValues(raw.values),
     sectionMeta: normalizeSectionMeta(raw.sectionMeta),
     overlay: isRecord(raw.overlay) ? (raw.overlay as unknown as UserOverlay) : null,
+    kitMeta: normalizeKitMeta(raw.kitMeta),
     extra,
   };
 }
@@ -196,5 +220,6 @@ export function buildSnapshot(parsed: ParsedSnapshot): VaultSnapshot {
     values: parsed.values,
     sectionMeta: parsed.sectionMeta,
     ...(parsed.overlay ? { overlay: parsed.overlay } : {}),
+    ...(parsed.kitMeta ? { kitMeta: parsed.kitMeta } : {}),
   };
 }

@@ -269,6 +269,99 @@ describe("Dashboard snapshot conflict", () => {
   });
 });
 
+describe("Dashboard Recovery Kit", () => {
+  function kitSidebarButton() {
+    return screen.getByRole("button", { name: /^Recovery Kit/ });
+  }
+
+  /** Expand the saved executor record if the section collapsed it. */
+  async function expandRecord(user: ReturnType<typeof userEvent.setup>, summary: string) {
+    if (!screen.queryByLabelText("Full name")) {
+      await user.click(screen.getByRole("button", { name: summary }));
+    }
+  }
+
+  async function saveExecutorAndKit(user: ReturnType<typeof userEvent.setup>) {
+    await openSectionAndTypeName(user, "Dana Estate");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await within(sidebarSectionButton()).findByText("Complete");
+
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
+    await user.click(kitSidebarButton());
+    await user.click(screen.getByRole("button", { name: "Save Kit" }));
+    expect(await screen.findByText(/Last updated /)).toBeInTheDocument();
+  }
+
+  it("saves kit meta via the snapshot path; a contributing edit flags stale and Save Kit clears it", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    const user = userEvent.setup();
+
+    // A never-saved Kit carries no badge, even once it has content.
+    await openSectionAndTypeName(user, "Dana Estate");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await within(sidebarSectionButton()).findByText("Complete");
+    expect(screen.queryByText("Kit out of date")).not.toBeInTheDocument();
+
+    // Regenerate-on-view: the kit reflects saved values; commit it.
+    await user.click(kitSidebarButton());
+    expect(screen.getByText("Not saved yet")).toBeInTheDocument();
+    expect(screen.getAllByText("Dana Estate").length).toBeGreaterThan(0);
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
+    await user.click(screen.getByRole("button", { name: "Save Kit" }));
+
+    // The kitMeta staleness anchor went through the normal CAS save path.
+    const saveCalls = mocked.saveVaultSnapshot.mock.calls;
+    const kitSnapshot = saveCalls[saveCalls.length - 1][0] as {
+      kitMeta?: { lastGeneratedAt: string; fingerprint: string };
+    };
+    expect(kitSnapshot.kitMeta?.fingerprint).toEqual(expect.any(String));
+    expect(kitSnapshot.kitMeta?.lastGeneratedAt).toEqual(expect.any(String));
+    expect(await screen.findByText(/Last updated /)).toBeInTheDocument();
+    expect(screen.queryByText("Kit out of date")).not.toBeInTheDocument();
+
+    // Editing a contributing (kit-mapped) field flags the Kit stale.
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 3 });
+    await user.click(sidebarSectionButton());
+    await expandRecord(user, "Dana Estate");
+    const nameInput = screen.getByLabelText("Full name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Dana Updated");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Kit out of date")).toBeInTheDocument();
+
+    // The Kit page shows the stale banner; regenerating clears staleness.
+    await user.click(kitSidebarButton());
+    expect(
+      screen.getByText(
+        "Your vault data has changed since this Kit was last saved — this view reflects your latest data.",
+      ),
+    ).toBeInTheDocument();
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 4 });
+    await user.click(screen.getByRole("button", { name: "Save Kit" }));
+    expect(screen.queryByText("Kit out of date")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/has changed since this Kit was last saved/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("editing a NON-contributing field does not flag the Kit stale", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    const user = userEvent.setup();
+    await saveExecutorAndKit(user);
+
+    // executorAddress is populated but not in the kit mapping.
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 3 });
+    await user.click(sidebarSectionButton());
+    await expandRecord(user, "Dana Estate");
+    await user.type(screen.getByLabelText("Address"), "12 Elm Street");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.queryByText("Kit out of date")).not.toBeInTheDocument();
+  });
+});
+
 describe("Dashboard auto-lock", () => {
   async function flushMount() {
     await act(async () => {

@@ -31,10 +31,12 @@ import {
   sectionStatus,
   type SectionStatus,
 } from "../domain/readiness";
+import { computeKitFingerprint, isKitStale } from "../domain/recoveryKit";
 import {
   buildSnapshot,
   normalizeSnapshot,
   SNAPSHOT_FORMAT,
+  type KitMeta,
   type SectionMetaMap,
   type VaultProfile,
 } from "../domain/snapshot";
@@ -49,6 +51,7 @@ import {
   type SectionValues,
   type VaultValues,
 } from "../domain/valuesStore";
+import { RecoveryKitPage } from "./RecoveryKitPage";
 import { SectionPage, type DraftBannerState } from "./SectionPage";
 import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 
@@ -72,6 +75,7 @@ interface VaultState {
   sectionMeta: SectionMetaMap;
   savedValues: VaultValues;
   overlay: UserOverlay | null;
+  kitMeta: KitMeta | null;
   extra: Record<string, unknown>;
 }
 
@@ -140,6 +144,7 @@ function buildLoadedVault(
       sectionMeta: parsed.sectionMeta,
       savedValues: reconciled,
       overlay: merge.overlay.sections.length > 0 ? merge.overlay : null,
+      kitMeta: parsed.kitMeta,
       extra: parsed.extra,
     },
   };
@@ -337,6 +342,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     current: LoadedVault,
     values: VaultValues,
     sectionMeta: SectionMetaMap,
+    kitMeta: KitMeta | null,
   ): VaultSnapshot {
     return buildSnapshot({
       snapshotFormat: SNAPSHOT_FORMAT,
@@ -345,6 +351,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       values,
       sectionMeta,
       overlay: current.vault.overlay,
+      kitMeta,
       extra: current.vault.extra,
     });
   }
@@ -355,11 +362,12 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     nextValues: VaultValues,
     nextMeta: SectionMetaMap,
     savedSectionKey: string | null,
+    nextKitMeta: KitMeta | null = base.vault.kitMeta,
   ): Promise<boolean> {
     setSaving(true);
     setSaveError("");
     const promise = saveVaultSnapshot(
-      assembleSnapshot(base, nextValues, nextMeta),
+      assembleSnapshot(base, nextValues, nextMeta, nextKitMeta),
       base.vault.generation,
     );
     saveInFlightRef.current = promise;
@@ -373,6 +381,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
           recovered: false,
           savedValues: nextValues,
           sectionMeta: nextMeta,
+          kitMeta: nextKitMeta,
         },
       });
       if (savedSectionKey) {
@@ -547,6 +556,14 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     );
   }
 
+  /** Commit the current Kit view: staleness anchor only, values untouched. */
+  async function handleSaveKit(nextKitMeta: KitMeta) {
+    if (!loaded) {
+      return;
+    }
+    await persist(loaded, loaded.vault.savedValues, loaded.vault.sectionMeta, null, nextKitMeta);
+  }
+
   function handleSectionChange(sectionKey: string, values: SectionValues) {
     setWorkingValues((previous) => ({ ...previous, [sectionKey]: values }));
   }
@@ -627,6 +644,16 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     now,
   );
 
+  // Recovery Kit staleness: derived from SAVED data, like every badge.
+  // Stale when a saved Kit exists and its fingerprint no longer matches
+  // what the current data produces; a never-saved Kit carries no badge.
+  const kitCurrentFingerprint = computeKitFingerprint(
+    loaded.sections,
+    loaded.vault.savedValues,
+    loaded.vault.sectionMeta,
+  );
+  const kitStale = isKitStale(kitCurrentFingerprint, loaded.vault.kitMeta);
+
   const sidebar = (
     <div className="sidebar">
       <div className="sidebar__brand">
@@ -690,6 +717,11 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
               onClick={() => setRoute({ kind: "recovery-kit" })}
             >
               <span className="sidebar__item-title">Recovery Kit</span>
+              {kitStale ? (
+                <span className="status-badge status-badge--stale-complete">
+                  Kit out of date
+                </span>
+              ) : null}
             </button>
           </li>
           <li>
@@ -821,14 +853,15 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     }
   } else if (route.kind === "recovery-kit") {
     content = (
-      <article className="stub-page">
-        <h1 className="stub-page__title">Recovery Kit</h1>
-        <p className="stub-page__lede">
-          Your Recovery Kit will gather the contacts, instructions, and
-          locations your family would need — generated from the sections you
-          complete. It arrives in an upcoming update.
-        </p>
-      </article>
+      <RecoveryKitPage
+        sections={loaded.sections}
+        values={loaded.vault.savedValues}
+        sectionMeta={loaded.vault.sectionMeta}
+        profile={loaded.vault.profile}
+        kitMeta={loaded.vault.kitMeta}
+        saving={saving}
+        onSaveKit={(nextKitMeta) => void handleSaveKit(nextKitMeta)}
+      />
     );
   } else if (route.kind === "backup") {
     content = (
