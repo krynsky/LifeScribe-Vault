@@ -18,6 +18,10 @@ vi.mock("./api/vaultApi", () => ({
   // loadDefaultPack falls back to the static bundled pack when this mock
   // yields no JSON string — tests always run against the shipped pack.
   readDefaultPack: vi.fn(),
+  // Attachment commands — sweep runs silently; not asserted in App-level tests.
+  addAttachment: vi.fn(),
+  deleteAttachment: vi.fn(),
+  sweepOrphanedAttachments: vi.fn().mockResolvedValue(0),
 }));
 
 const mocked = vi.mocked(vaultApi);

@@ -131,3 +131,35 @@ export function copyVaultValue(
 ): Promise<void> {
   return invoke("copy_vault_value", { request: { value, clearAfterSeconds } });
 }
+
+// ---------------------------------------------------------------------------
+// Attachments (U8)
+// ---------------------------------------------------------------------------
+
+export interface AttachmentRefResponse {
+  id: string;
+  fileName: string;
+  sizeBytes: number;
+}
+
+/**
+ * Encrypt an attachment from a user-chosen path (from OS file picker) and
+ * return the metadata to embed in the snapshot record. Must be called BEFORE
+ * the snapshot save that references the attachment.
+ */
+export function addAttachment(sourcePath: string): Promise<AttachmentRefResponse> {
+  return invoke("add_attachment", { request: { sourcePath } });
+}
+
+/** Delete the ciphertext file for an attachment id. */
+export function deleteAttachment(attachmentId: string): Promise<void> {
+  return invoke("delete_attachment", { attachmentId });
+}
+
+/**
+ * Sweep orphaned attachment files not in `referencedIds`. Call once after
+ * unlock + snapshot load. Returns number of files swept.
+ */
+export function sweepOrphanedAttachments(referencedIds: string[]): Promise<number> {
+  return invoke("sweep_orphaned_attachments", { referencedIds });
+}

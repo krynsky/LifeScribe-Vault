@@ -410,6 +410,87 @@ pub fn copy_vault_value(request: CopyVaultValueRequest) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
+// Attachment commands (U8)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentRefResponse {
+    pub id: String,
+    pub file_name: String,
+    pub size_bytes: u64,
+}
+
+/// No `Debug` derive — source_path may contain user-identifying info.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddAttachmentRequest {
+    /// File path returned by the frontend OS file picker (Tauri dialog).
+    pub source_path: String,
+}
+
+/// Encrypt an attachment from a user-chosen path and return the metadata
+/// (id, file name, size) for the frontend to embed in the snapshot record.
+/// MUST be called BEFORE the snapshot save that references the attachment.
+#[tauri::command]
+pub fn add_attachment(
+    request: AddAttachmentRequest,
+    session: State<'_, SharedVaultSession>,
+) -> Result<AttachmentRefResponse, String> {
+    let session = lock_state(&session)?;
+    let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let vault_id = session
+        .vault_id
+        .as_deref()
+        .ok_or_else(|| command_error_code(VaultError::Locked))?;
+
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    let source = std::path::Path::new(&request.source_path);
+    let meta =
+        crate::attachments::encrypt_attachment(source, &att_dir, key, vault_id)
+            .map_err(command_error_code)?;
+
+    Ok(AttachmentRefResponse {
+        id: meta.id,
+        file_name: meta.file_name,
+        size_bytes: meta.size_bytes,
+    })
+}
+
+/// Delete the ciphertext file for an attachment. The caller must also remove
+/// the ref from the snapshot record and save.
+#[tauri::command]
+pub fn delete_attachment(
+    attachment_id: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    if session.key.is_none() {
+        return Err(command_error_code(VaultError::Locked));
+    }
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    crate::attachments::delete_attachment_file(&att_dir, &attachment_id)
+        .map_err(command_error_code)
+}
+
+/// Sweep orphaned attachment files (present on disk but absent from
+/// `referenced_ids`). Called once after unlock + snapshot load. Returns the
+/// count of swept files.
+#[tauri::command]
+pub fn sweep_orphaned_attachments(
+    referenced_ids: Vec<String>,
+    session: State<'_, SharedVaultSession>,
+) -> Result<u32, String> {
+    let session = lock_state(&session)?;
+    if session.key.is_none() {
+        return Err(command_error_code(VaultError::Locked));
+    }
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    crate::attachments::sweep_orphaned_attachments(&att_dir, &referenced_ids)
+        .map_err(command_error_code)
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

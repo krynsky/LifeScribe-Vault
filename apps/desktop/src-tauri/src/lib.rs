@@ -1,3 +1,4 @@
+pub mod attachments;
 pub mod clipboard;
 pub mod commands;
 pub mod crypto;
@@ -32,6 +33,9 @@ pub fn run() {
             commands::take_draft,
             commands::discard_draft,
             commands::copy_vault_value,
+            commands::add_attachment,
+            commands::delete_attachment,
+            commands::sweep_orphaned_attachments,
             pack_resources::read_default_pack
         ])
         .run(tauri::generate_context!())
@@ -40,6 +44,8 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    #[path = "attachment_tests.rs"]
+    mod attachment_tests;
     #[path = "clipboard_tests.rs"]
     mod clipboard_tests;
     #[path = "crypto_tests.rs"]

@@ -16,6 +16,7 @@ import {
   lockVault,
   saveVaultSnapshot,
   stashDraft,
+  sweepOrphanedAttachments,
   takeDraft,
   type VaultSnapshot,
 } from "../api/vaultApi";
@@ -150,6 +151,18 @@ function buildLoadedVault(
   };
 }
 
+function collectAttachmentIds(values: VaultValues): string[] {
+  const ids: string[] = [];
+  for (const sectionValues of Object.values(values)) {
+    for (const record of sectionValues.records) {
+      for (const att of record.attachments ?? []) {
+        ids.push(att.id);
+      }
+    }
+  }
+  return ids;
+}
+
 export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked" | "error">("loading");
   const [blockedMessage, setBlockedMessage] = useState("");
@@ -221,6 +234,12 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       }
       setLoaded(result);
       setPhase("ready");
+
+      // Orphan sweep: remove ciphertext files no longer referenced by any
+      // snapshot record. Runs once here — after unlock + load — never while
+      // locked (the reference set doesn't exist while locked).
+      const allAttachmentIds = collectAttachmentIds(result.vault.savedValues);
+      void sweepOrphanedAttachments(allAttachmentIds).catch(() => undefined);
 
       // Restore a stashed draft (corrupt stashes surface, never vanish).
       try {
