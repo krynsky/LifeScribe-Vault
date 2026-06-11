@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi", "nsis"],
     "resources": ["resources/packs/default-pack.json"],
     "icon": [
       "icons/32x32.png",
@@ -35,6 +35,28 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "Utility",
+    "shortDescription": "Local-first encrypted digital legacy vault",
+    "longDescription": "LifeScribe Vault keeps your digital estate organized and encrypted on your own machine. Guided sections cover executors, passwords, documents, devices, financial accounts, online accounts, platform legacy tools, and backups — so the people you trust can act without guesswork.",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "webviewInstallMode": {
+        "type": "skip"
+      },
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installMode": "perMachine",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": null,
+        "sidebarImage": null,
+        "license": null
+      },
+      "msi": {
+        "enableElevatedUpdateTask": false
+      }
+    }
   }
 }
