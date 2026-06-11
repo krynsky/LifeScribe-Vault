@@ -16,6 +16,9 @@ vi.mock("../api/vaultApi", () => ({
   takeDraft: vi.fn(),
   discardDraft: vi.fn(),
   copyVaultValue: vi.fn(),
+  // loadDefaultPack falls back to the static bundled pack when this mock
+  // yields no JSON string — tests always run against the shipped pack.
+  readDefaultPack: vi.fn(),
 }));
 
 const mocked = vi.mocked(vaultApi);
@@ -78,6 +81,7 @@ async function openSectionAndTypeName(user: ReturnType<typeof userEvent.setup>, 
   await user.click(sidebarSectionButton());
   await user.click(screen.getByRole("button", { name: "Add Executor" }));
   await user.type(screen.getByLabelText("Full name"), name);
+  await user.selectOptions(screen.getByLabelText("Role"), "primary");
 }
 
 describe("Dashboard checklist and saving", () => {
@@ -106,7 +110,8 @@ describe("Dashboard checklist and saving", () => {
     const values = snapshot.values as Record<string, { records: Array<{ values: Record<string, string> }> }>;
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Dana Estate");
     expect(await within(sidebarSectionButton()).findByText("Complete")).toBeInTheDocument();
-    expect(screen.getAllByText("100%").length).toBeGreaterThan(0);
+    // 1 of the pack's 8 sections ready -> 13% overall readiness.
+    expect(screen.getAllByText("13%").length).toBeGreaterThan(0);
   });
 
   it("blocks a save with missing required fields and lists them", async () => {
@@ -143,7 +148,8 @@ describe("Dashboard N/A flow", () => {
       (snapshot.sectionMeta as Record<string, { na?: boolean }>)[SECTION_KEY].na,
     ).toBe(true);
     expect(await within(sidebarSectionButton()).findByText("Doesn't apply")).toBeInTheDocument();
-    expect(screen.getAllByText("100%").length).toBeGreaterThan(0);
+    // 1 of 8 sections ready (via N/A) -> 13% overall readiness.
+    expect(screen.getAllByText("13%").length).toBeGreaterThan(0);
 
     mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
     await user.click(screen.getByRole("button", { name: "It applies to me after all" }));

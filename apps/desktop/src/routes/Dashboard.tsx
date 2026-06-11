@@ -179,7 +179,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     async function load() {
       let pack: FormPack;
       try {
-        pack = loadDefaultPack();
+        pack = await loadDefaultPack();
       } catch {
         if (isCurrent) {
           setPhase("error");
@@ -444,7 +444,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     let fresh: LoadedVault;
     try {
       const response = await loadVaultSnapshot();
-      const pack = loadDefaultPack();
+      const pack = await loadDefaultPack();
       const result = buildLoadedVault(
         pack,
         response.snapshot,
@@ -485,7 +485,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   async function handleDiscardConflict(sectionKey: string) {
     try {
       const response = await loadVaultSnapshot();
-      const pack = loadDefaultPack();
+      const pack = await loadDefaultPack();
       const result = buildLoadedVault(
         pack,
         response.snapshot,

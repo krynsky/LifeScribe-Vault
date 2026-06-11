@@ -3,6 +3,7 @@ pub mod commands;
 pub mod crypto;
 pub mod draft_stash;
 pub mod error;
+pub mod pack_resources;
 pub mod repository;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -30,7 +31,8 @@ pub fn run() {
             commands::stash_draft,
             commands::take_draft,
             commands::discard_draft,
-            commands::copy_vault_value
+            commands::copy_vault_value,
+            pack_resources::read_default_pack
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -44,6 +46,8 @@ mod tests {
     mod crypto_tests;
     #[path = "draft_stash_tests.rs"]
     mod draft_stash_tests;
+    #[path = "pack_resource_tests.rs"]
+    mod pack_resource_tests;
     #[path = "snapshot_tests.rs"]
     mod snapshot_tests;
     #[path = "vault_lifecycle_tests.rs"]

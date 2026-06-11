@@ -1,0 +1,64 @@
+//! Bundled form-definition pack resources (U6).
+//!
+//! The frontend has no filesystem scope, so the default pack ships as a
+//! Tauri bundle resource and is read through this command. Rust returns the
+//! RAW JSON string without parsing or interpreting it — the pack is
+//! UNTRUSTED INPUT and the frontend's `validatePack` is the single
+//! validation gate (never silent acceptance, never partial loads).
+//!
+//! Dev builds read from the source `resources/` directory next to the crate
+//! manifest so pack edits hot-reload without re-bundling; release builds
+//! resolve the bundled resource via Tauri's path resolver.
+
+use std::path::{Path, PathBuf};
+
+use crate::error::{command_error_code, VaultError, VaultResult};
+
+/// Resource-relative path of the default pack (also the bundle key in
+/// `tauri.conf.json` > `bundle.resources`).
+pub const DEFAULT_PACK_RESOURCE: &str = "resources/packs/default-pack.json";
+
+// ---------------------------------------------------------------------------
+// Testable core
+// ---------------------------------------------------------------------------
+
+/// Read a pack file at an explicit path and return the raw JSON string.
+/// Missing file -> `NotFound`; any other IO failure -> `FileOperation`.
+/// The content is never parsed here — validation happens in the frontend.
+pub fn read_pack_at_path(pack_path: &Path) -> VaultResult<String> {
+    match std::fs::read_to_string(pack_path) {
+        Ok(content) => Ok(content),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Err(VaultError::NotFound),
+        Err(error) => Err(VaultError::FileOperation(error.to_string())),
+    }
+}
+
+/// Dev-mode pack path: the source `resources/` dir next to Cargo.toml, so
+/// editing the JSON hot-reloads in `npm run dev` without re-bundling.
+#[cfg(debug_assertions)]
+fn default_pack_path(_app: &tauri::AppHandle) -> VaultResult<PathBuf> {
+    Ok(Path::new(env!("CARGO_MANIFEST_DIR")).join(DEFAULT_PACK_RESOURCE))
+}
+
+/// Release pack path: the bundled Tauri resource only.
+#[cfg(not(debug_assertions))]
+fn default_pack_path(app: &tauri::AppHandle) -> VaultResult<PathBuf> {
+    use tauri::path::BaseDirectory;
+    use tauri::Manager;
+
+    app.path()
+        .resolve(DEFAULT_PACK_RESOURCE, BaseDirectory::Resource)
+        .map_err(|error| VaultError::FileOperation(error.to_string()))
+}
+
+// ---------------------------------------------------------------------------
+// Tauri command wrapper
+// ---------------------------------------------------------------------------
+
+/// Return the bundled default pack as a raw JSON string. The frontend
+/// validates it as untrusted input before anything renders.
+#[tauri::command]
+pub fn read_default_pack(app: tauri::AppHandle) -> Result<String, String> {
+    let pack_path = default_pack_path(&app).map_err(command_error_code)?;
+    read_pack_at_path(&pack_path).map_err(command_error_code)
+}

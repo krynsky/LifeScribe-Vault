@@ -30,7 +30,7 @@ function mutateFirstField(mutate: (field: Record<string, unknown>) => void): unk
 }
 
 describe("validatePack", () => {
-  it("accepts the bundled default pack skeleton", () => {
+  it("accepts the bundled default pack", () => {
     const result = validatePack(JSON.parse(defaultPackJson));
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
@@ -127,11 +127,11 @@ describe("validatePack", () => {
   it("rejects readiness rules that reference unprotected fields", () => {
     const result = validatePack(
       mutatePack((pack) => {
-        (pack.sections as JsonSection[])[0].readinessRule.requiredKeys = ["executorRole"];
+        (pack.sections as JsonSection[])[0].readinessRule.requiredKeys = ["executorRelationship"];
       }),
     );
     expect(result.errors).toContain(
-      "Section digital-executors: readiness rule may only reference protected fields, but executorRole is not protected.",
+      "Section digital-executors: readiness rule may only reference protected fields, but executorRelationship is not protected.",
     );
   });
 

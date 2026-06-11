@@ -116,6 +116,15 @@ export function discardDraft(): Promise<void> {
  * holds the value. `navigator.clipboard.writeText` is banned for vault
  * values — it cannot set the exclusion formats.
  */
+/**
+ * Read the bundled default form-definition pack as a raw JSON string
+ * (the frontend has no fs scope). The content is UNTRUSTED INPUT — callers
+ * must run it through `validatePack` before anything renders.
+ */
+export function readDefaultPack(): Promise<string> {
+  return invoke("read_default_pack");
+}
+
 export function copyVaultValue(
   value: string,
   clearAfterSeconds?: number,
