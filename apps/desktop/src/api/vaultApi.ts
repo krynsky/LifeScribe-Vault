@@ -202,3 +202,34 @@ export function restoreBackup(
 ): Promise<RestoreBackupResponse> {
   return invoke("restore_backup", { request: { backupPath, backupPassword } });
 }
+
+// ---------------------------------------------------------------------------
+// v1 import (U11)
+// ---------------------------------------------------------------------------
+
+export interface V1AttachmentEntry {
+  v1Id: string;
+  v2Id: string;
+  fileName: string;
+  sizeBytes: number;
+}
+
+export interface ImportV1SnapshotResponse {
+  /** Raw v1 snapshot JSON — field mapping is done client-side. */
+  snapshot: Record<string, unknown>;
+  attachments: V1AttachmentEntry[];
+}
+
+/**
+ * Open a v1 vault, verify the v1 password, decrypt the snapshot, and
+ * re-encrypt any v1 attachments under the active v2 session key.
+ *
+ * Errors: "InvalidMasterPassword", "DatabaseLocked", "CorruptVault",
+ * "VaultLocked" (must be unlocked first).
+ */
+export function importV1Snapshot(
+  v1VaultPath: string,
+  v1Password: string,
+): Promise<ImportV1SnapshotResponse> {
+  return invoke("import_v1_snapshot", { request: { v1VaultPath, v1Password } });
+}

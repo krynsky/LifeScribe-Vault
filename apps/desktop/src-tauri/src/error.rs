@@ -31,6 +31,8 @@ pub enum VaultError {
     BackupVersionTooNew,
     #[error("A restore is already in progress. Complete or roll back before starting a new one.")]
     RestoreConflict,
+    #[error("The v1 vault file is locked by another application. Close LifeScribe Vault v1 and try again.")]
+    DatabaseLocked,
     #[error("File operation failed: {0}")]
     FileOperation(String),
     #[error("Storage operation failed: {0}")]
@@ -55,6 +57,7 @@ pub fn command_error_code(error: VaultError) -> String {
         }
         VaultError::BackupVersionTooNew => "BackupVersionTooNew",
         VaultError::RestoreConflict => "RestoreConflict",
+        VaultError::DatabaseLocked => "DatabaseLocked",
         VaultError::FileOperation(_) | VaultError::Storage(_) => "StorageError",
     }
     .to_string()

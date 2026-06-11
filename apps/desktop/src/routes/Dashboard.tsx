@@ -53,6 +53,7 @@ import {
   type VaultValues,
 } from "../domain/valuesStore";
 import { BackupPage } from "./BackupPage";
+import { ImportPage } from "./ImportPage";
 import { RecoveryKitPage } from "./RecoveryKitPage";
 import { SectionPage, type DraftBannerState } from "./SectionPage";
 import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
@@ -68,7 +69,8 @@ type Route =
   | { kind: "welcome" }
   | { kind: "section"; sectionKey: string }
   | { kind: "recovery-kit" }
-  | { kind: "backup" };
+  | { kind: "backup" }
+  | { kind: "import" };
 
 interface VaultState {
   generation: number;
@@ -758,6 +760,20 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
               <span className="sidebar__item-title">Backup</span>
             </button>
           </li>
+          <li>
+            <button
+              aria-current={route.kind === "import" ? "page" : undefined}
+              className={
+                route.kind === "import"
+                  ? "sidebar__item sidebar__item--active"
+                  : "sidebar__item"
+              }
+              type="button"
+              onClick={() => setRoute({ kind: "import" })}
+            >
+              <span className="sidebar__item-title">Import from v1</span>
+            </button>
+          </li>
         </ul>
       </nav>
 
@@ -885,6 +901,17 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     );
   } else if (route.kind === "backup") {
     content = <BackupPage />;
+  } else if (route.kind === "import") {
+    content = (
+      <ImportPage
+        savedValues={loaded.vault.savedValues}
+        saving={saving}
+        onSave={(nextValues) =>
+          persist(loaded, nextValues, loaded.vault.sectionMeta, null).then(() => undefined)
+        }
+        onCancel={() => setRoute({ kind: "welcome" })}
+      />
+    );
   }
 
   if (!content) {

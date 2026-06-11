@@ -83,6 +83,30 @@ pub fn encrypt_attachment(
     })
 }
 
+/// Encrypt raw plaintext bytes as a v2 attachment ciphertext file.
+///
+/// Used by v1 import to re-encrypt v1 attachment bytes under the v2 data key
+/// and AAD domain without needing a source file on disk.
+pub fn encrypt_attachment_bytes(
+    plaintext: &[u8],
+    file_name: &str,
+    dir: &Path,
+    key: &Zeroizing<[u8; KEY_LEN]>,
+    vault_id: &str,
+) -> VaultResult<AttachmentMeta> {
+    let size_bytes = plaintext.len() as u64;
+    fs::create_dir_all(dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let aad = content_aad(AadDomain::Attachment, vault_id, &id);
+    let encrypted = encrypt_bytes(plaintext, key, &aad)?;
+    let envelope =
+        serde_json::to_vec(&encrypted).map_err(|e| VaultError::Storage(e.to_string()))?;
+    let bin_path = dir.join(format!("{id}.bin"));
+    let tmp_path = dir.join(format!("{id}.tmp"));
+    write_atomically(&tmp_path, &bin_path, &envelope)?;
+    Ok(AttachmentMeta { id, file_name: file_name.to_string(), size_bytes })
+}
+
 /// Decrypt an attachment for round-trip verification (used in tests only —
 /// in-app viewer is deferred per plan scope).
 pub fn decrypt_attachment(

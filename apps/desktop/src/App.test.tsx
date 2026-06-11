@@ -25,6 +25,8 @@ vi.mock("./api/vaultApi", () => ({
   // Backup commands — not asserted in App-level tests.
   createBackup: vi.fn(),
   restoreBackup: vi.fn(),
+  // v1 import — not asserted in App-level tests.
+  importV1Snapshot: vi.fn(),
 }));
 
 const mocked = vi.mocked(vaultApi);

@@ -28,11 +28,9 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use zeroize::Zeroizing;
-
 use crate::crypto::{
-    content_aad, decrypt_bytes, encrypt_bytes, generate_data_key, key_wrap_aad, unwrap_data_key,
-    wrap_data_key, AadDomain, EncryptedBytes, KeyDerivationMetadata, KEY_LEN, WRAP_FORMAT_VERSION,
+    content_aad, decrypt_bytes, encrypt_bytes, generate_data_key, unwrap_data_key,
+    wrap_data_key, AadDomain, EncryptedBytes, KeyDerivationMetadata, WRAP_FORMAT_VERSION,
 };
 use crate::error::{VaultError, VaultResult};
 use crate::repository::VaultRepository;

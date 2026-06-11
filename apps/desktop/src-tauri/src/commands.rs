@@ -600,6 +600,47 @@ pub fn sweep_orphaned_attachments(
 }
 
 // ---------------------------------------------------------------------------
+// v1 import command (U11)
+// ---------------------------------------------------------------------------
+
+/// No `Debug` — carries the v1 master password.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportV1SnapshotRequest {
+    pub v1_vault_path: String,
+    pub v1_password: String,
+}
+
+/// Decrypt a v1 vault, re-encrypt its attachments under the active v2 session
+/// key, and return the raw v1 snapshot JSON + attachment id remapping to
+/// TypeScript for field-level mapping.
+///
+/// Must be called while unlocked. The v1 file is never mutated.
+#[tauri::command]
+pub fn import_v1_snapshot(
+    request: ImportV1SnapshotRequest,
+    session: State<'_, SharedVaultSession>,
+) -> Result<crate::v1_import::V1ImportResult, String> {
+    let v1_password = zeroize::Zeroizing::new(request.v1_password);
+    let session = lock_state(&session)?;
+    let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let vault_id = session
+        .vault_id
+        .as_deref()
+        .ok_or_else(|| command_error_code(VaultError::Locked))?;
+
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    crate::v1_import::import_v1_snapshot(
+        std::path::Path::new(&request.v1_vault_path),
+        &v1_password,
+        &att_dir,
+        key,
+        vault_id,
+    )
+    .map_err(command_error_code)
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
