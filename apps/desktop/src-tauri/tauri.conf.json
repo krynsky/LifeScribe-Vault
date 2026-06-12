@@ -40,22 +40,12 @@
     "shortDescription": "Local-first encrypted digital legacy vault",
     "longDescription": "LifeScribe Vault keeps your digital estate organized and encrypted on your own machine. Guided sections cover executors, passwords, documents, devices, financial accounts, online accounts, platform legacy tools, and backups — so the people you trust can act without guesswork.",
     "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "",
       "webviewInstallMode": {
         "type": "skip"
       },
       "nsis": {
         "displayLanguageSelector": false,
-        "installMode": "perMachine",
-        "installerIcon": "icons/icon.ico",
-        "headerImage": null,
-        "sidebarImage": null,
-        "license": null
-      },
-      "msi": {
-        "enableElevatedUpdateTask": false
+        "installMode": "perMachine"
       }
     }
   }
