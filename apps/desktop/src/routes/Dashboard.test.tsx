@@ -26,8 +26,6 @@ vi.mock("../api/vaultApi", () => ({
   // Backup commands — not asserted in Dashboard tests.
   createBackup: vi.fn(),
   restoreBackup: vi.fn(),
-  // v1 import — not asserted in Dashboard tests.
-  importV1Snapshot: vi.fn(),
 }));
 
 const mocked = vi.mocked(vaultApi);

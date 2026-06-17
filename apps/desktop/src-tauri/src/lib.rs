@@ -7,7 +7,6 @@ pub mod draft_stash;
 pub mod error;
 pub mod pack_resources;
 pub mod repository;
-pub mod v1_import;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -43,7 +42,6 @@ pub fn run() {
         commands::sweep_orphaned_attachments,
         commands::create_backup,
         commands::restore_backup,
-        commands::import_v1_snapshot,
         pack_resources::read_default_pack
     ]);
 
@@ -65,7 +63,6 @@ pub fn run() {
         commands::sweep_orphaned_attachments,
         commands::create_backup,
         commands::restore_backup,
-        commands::import_v1_snapshot,
         pack_resources::read_default_pack,
         pack_resources::write_default_pack
     ]);
@@ -81,8 +78,6 @@ mod tests {
     mod attachment_tests;
     #[path = "backup_tests.rs"]
     mod backup_tests;
-    #[path = "v1_import_tests.rs"]
-    mod v1_import_tests;
     #[path = "clipboard_tests.rs"]
     mod clipboard_tests;
     #[path = "crypto_tests.rs"]
