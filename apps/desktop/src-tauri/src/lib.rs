@@ -22,50 +22,26 @@ pub fn run() {
                 commands::VaultSession::new(vault_path),
             ));
             Ok(())
-        });
-
-    // End-user builds exclude write_default_pack (no `creator-mode` feature).
-    #[cfg(not(feature = "creator-mode"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        commands::get_vault_status,
-        commands::create_vault,
-        commands::unlock_vault,
-        commands::lock_vault,
-        commands::save_vault_snapshot,
-        commands::load_vault_snapshot,
-        commands::stash_draft,
-        commands::take_draft,
-        commands::discard_draft,
-        commands::copy_vault_value,
-        commands::add_attachment,
-        commands::delete_attachment,
-        commands::sweep_orphaned_attachments,
-        commands::create_backup,
-        commands::restore_backup,
-        pack_resources::read_default_pack
-    ]);
-
-    // Creator builds add write_default_pack for source-tree pack authoring.
-    #[cfg(feature = "creator-mode")]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        commands::get_vault_status,
-        commands::create_vault,
-        commands::unlock_vault,
-        commands::lock_vault,
-        commands::save_vault_snapshot,
-        commands::load_vault_snapshot,
-        commands::stash_draft,
-        commands::take_draft,
-        commands::discard_draft,
-        commands::copy_vault_value,
-        commands::add_attachment,
-        commands::delete_attachment,
-        commands::sweep_orphaned_attachments,
-        commands::create_backup,
-        commands::restore_backup,
-        pack_resources::read_default_pack,
-        pack_resources::write_default_pack
-    ]);
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::get_vault_status,
+            commands::create_vault,
+            commands::unlock_vault,
+            commands::lock_vault,
+            commands::save_vault_snapshot,
+            commands::load_vault_snapshot,
+            commands::stash_draft,
+            commands::take_draft,
+            commands::discard_draft,
+            commands::copy_vault_value,
+            commands::add_attachment,
+            commands::delete_attachment,
+            commands::sweep_orphaned_attachments,
+            commands::create_backup,
+            commands::restore_backup,
+            pack_resources::read_default_pack,
+            pack_resources::write_default_pack
+        ]);
 
     builder
         .run(tauri::generate_context!())
