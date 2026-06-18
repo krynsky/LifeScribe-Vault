@@ -6,6 +6,7 @@ const MINIMAL_PACK: FormPack = {
   packId: "test-pack",
   packVersion: "1.0.0",
   schemaVersion: 1,
+  minAppVersion: "0.0.0",
   sections: [],
   migrations: [],
 };
