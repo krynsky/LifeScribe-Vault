@@ -939,9 +939,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   } else if (route.kind === "creator") {
     content = (
       <React.Suspense fallback={<div className="creator__loading">Loading editor…</div>}>
-        {/* initialPack and onSave props will be typed in Task 5 */}
-        {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
-        {/* @ts-expect-error -- CreatorModePage props added in Task 5 */}
         <LazyCreatorModePage initialPack={loaded.pack} onSave={(newPack: FormPack) => void handleSavePack(newPack)} />
       </React.Suspense>
     );

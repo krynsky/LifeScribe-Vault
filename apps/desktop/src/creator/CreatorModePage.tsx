@@ -1,20 +1,16 @@
 /**
- * CreatorModePage (U10): in-app default-pack editor.
+ * CreatorModePage: in-app form-definition editor.
  *
- * CREATOR BUILDS ONLY — this module must never appear in end-user bundles.
- * Guarded by `import.meta.env.VITE_CREATOR_MODE === '1'` at the Dashboard
- * import boundary; Rollup tree-shakes this file out of non-creator builds.
+ * Enabled at runtime via the sidebar toggle (packEditorEnabled in localStorage).
+ * Receives the current active pack as `initialPack` from Dashboard and calls
+ * `onSave` with the validated updated pack, which Dashboard persists to the vault.
  *
  * Security contract:
  * - Preview uses synthetic sample data only — never live vault records.
- * - The write-back command is a creator-only Rust command (#[cfg(feature =
- *   "creator-mode")]); end-user builds lack it entirely.
- * - Exported packs contain structure only; the FormPack type has no value
- *   slots (asserted by packExport tests).
+ * - Exported packs contain structure only; no value slots.
  */
 
-import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FormRenderer } from "../forms/FormRenderer";
 import type {
   FieldDefinition,
@@ -28,7 +24,6 @@ import type {
   VisibleWhen,
 } from "../domain/formModel";
 import { FIELD_TYPES, isCustomFieldKey } from "../domain/formModel";
-import { loadDefaultPack } from "../domain/loadDefaultPack";
 import { mergePackWithOverlay } from "../domain/packMerge";
 import type { SectionValues } from "../domain/valuesStore";
 import { exportPack } from "./packExport";
@@ -461,30 +456,24 @@ function FieldEditor({ field, allFields, onChange }: FieldEditorProps) {
 // Main editor
 // ---------------------------------------------------------------------------
 
-export function CreatorModePage() {
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
-  const [pack, setPack] = useState<FormPack | null>(null);
-  const [originalPack, setOriginalPack] = useState<FormPack | null>(null);
+export interface CreatorModePageProps {
+  initialPack: FormPack;
+  onSave: (pack: FormPack) => void;
+}
+
+export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
+  const [loadState] = useState<"loading" | "ready" | "error">("ready");
+  const [pack, setPack] = useState<FormPack | null>(initialPack);
+  const [originalPack] = useState<FormPack | null>(initialPack);
   const [selection, setSelection] = useState<Selection>({ kind: "none", sectionKey: "" });
   const [previewValues, setPreviewValues] = useState<Record<string, SectionValues>>({});
   const [exportState, setExportState] = useState<"idle" | "success" | "error">("idle");
   const [exportErrors, setExportErrors] = useState<string[]>([]);
   const [exportJson, setExportJson] = useState("");
-  const [writeError, setWriteError] = useState("");
-  const [migrationsJson, setMigrationsJson] = useState("");
+  const [migrationsJson, setMigrationsJson] = useState(
+    () => JSON.stringify(initialPack.migrations, null, 2),
+  );
   const [migrationsError, setMigrationsError] = useState("");
-
-  // Load the default pack on mount.
-  useEffect(() => {
-    loadDefaultPack()
-      .then((loaded) => {
-        setPack(loaded);
-        setOriginalPack(loaded);
-        setMigrationsJson(JSON.stringify(loaded.migrations, null, 2));
-        setLoadState("ready");
-      })
-      .catch(() => setLoadState("error"));
-  }, []);
 
   if (loadState === "loading") {
     return (
@@ -686,25 +675,10 @@ export function CreatorModePage() {
     setExportJson(result.json);
   }
 
-  async function handleWriteBack() {
+  function handleSaveToVault() {
     if (!exportJson) return;
-    setWriteError("");
-    try {
-      await invoke("write_default_pack", { packJson: exportJson });
-      setWriteError("");
-      // Reload to reflect the write.
-      const reloaded = await loadDefaultPack();
-      setOriginalPack(reloaded);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      if (msg === "Command write_default_pack not found" || msg.includes("not found")) {
-        setWriteError(
-          "write_default_pack is not available — build with the creator-mode Cargo feature to enable it.",
-        );
-      } else {
-        setWriteError(`Write failed: ${msg}`);
-      }
-    }
+    const parsed = JSON.parse(exportJson) as FormPack;
+    onSave(parsed);
   }
 
   // -------------------------------------------------------------------------
@@ -944,9 +918,9 @@ export function CreatorModePage() {
                 <button
                   className="button button--primary"
                   type="button"
-                  onClick={() => void handleWriteBack()}
+                  onClick={handleSaveToVault}
                 >
-                  Write to resources/packs/default-pack.json
+                  Save to vault
                 </button>
                 <button
                   className="button button--secondary"
@@ -958,11 +932,6 @@ export function CreatorModePage() {
                   Copy JSON
                 </button>
               </div>
-              {writeError && <p className="creator__error">{writeError}</p>}
-              <p className="creator__export-hint">
-                After writing, commit the updated file and rebuild the app. The next build will
-                ship the new pack.
-              </p>
             </>
           )}
         </section>
