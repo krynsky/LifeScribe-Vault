@@ -369,6 +369,38 @@ describe("Dashboard Recovery Kit", () => {
   });
 });
 
+describe("Form Editor sidebar toggle", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("hides Form Editor nav item when toggle is off (default)", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    expect(screen.queryByRole("button", { name: /form editor/i })).not.toBeInTheDocument();
+  });
+
+  it("shows Form Editor nav item after toggling on", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    const toggle = screen.getByRole("checkbox", { name: /form editor/i });
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: /form editor/i })).toBeInTheDocument();
+  });
+
+  it("persists toggle state to localStorage", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    const toggle = screen.getByRole("checkbox", { name: /form editor/i });
+    await user.click(toggle);
+    expect(localStorage.getItem("lifescribe.packEditorEnabled")).toBe("true");
+    await user.click(toggle);
+    expect(localStorage.getItem("lifescribe.packEditorEnabled")).toBe("false");
+  });
+});
+
 describe("Dashboard auto-lock", () => {
   async function flushMount() {
     await act(async () => {

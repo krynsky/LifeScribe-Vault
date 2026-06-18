@@ -192,6 +192,9 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [saveError, setSaveError] = useState("");
   const [locking, setLocking] = useState(false);
   const [loadKey, setLoadKey] = useState(0);
+  const [packEditorEnabled, setPackEditorEnabled] = useState(
+    () => localStorage.getItem("lifescribe.packEditorEnabled") === "true",
+  );
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -638,6 +641,14 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     void discardDraft().catch(() => undefined);
   }
 
+  function handlePackEditorToggle(enabled: boolean) {
+    setPackEditorEnabled(enabled);
+    localStorage.setItem("lifescribe.packEditorEnabled", String(enabled));
+    if (!enabled && route.kind === "creator") {
+      setRoute({ kind: "welcome" });
+    }
+  }
+
   function openSection(sectionKey: string) {
     setValidationIssues([]);
     setRoute({ kind: "section", sectionKey });
@@ -795,7 +806,8 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
               <span className="sidebar__item-title">Backup</span>
             </button>
           </li>
-          <li>
+          {packEditorEnabled ? (
+            <li>
               <button
                 aria-current={route.kind === "creator" ? "page" : undefined}
                 className={
@@ -806,20 +818,34 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
                 type="button"
                 onClick={() => setRoute({ kind: "creator" })}
               >
-                <span className="sidebar__item-title">Pack Editor</span>
+                <span className="sidebar__item-title">Form Editor</span>
               </button>
             </li>
+          ) : null}
         </ul>
       </nav>
 
-      <button
-        className="button button--secondary sidebar__lock"
-        disabled={locking}
-        type="button"
-        onClick={() => void performLock()}
-      >
-        {locking ? "Locking…" : "Lock vault"}
-      </button>
+      <div className="sidebar__footer">
+        <label className="sidebar__toggle" htmlFor="pack-editor-toggle">
+          <input
+            id="pack-editor-toggle"
+            className="sidebar__toggle-input"
+            type="checkbox"
+            checked={packEditorEnabled}
+            onChange={(e) => handlePackEditorToggle(e.target.checked)}
+          />
+          <span className="sidebar__toggle-track" aria-hidden="true" />
+          <span className="sidebar__toggle-label">Form Editor</span>
+        </label>
+        <button
+          className="button button--secondary sidebar__lock"
+          disabled={locking}
+          type="button"
+          onClick={() => void performLock()}
+        >
+          {locking ? "Locking…" : "Lock vault"}
+        </button>
+      </div>
     </div>
   );
 

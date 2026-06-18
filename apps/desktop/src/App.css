@@ -380,6 +380,67 @@ button {
   width: 100%;
 }
 
+/* --- Sidebar footer (toggle + lock) ----------------------------------------- */
+
+.sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.sidebar__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar__toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sidebar__toggle-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 1.25rem;
+  background: var(--color-border-strong);
+  border-radius: 0.625rem;
+  transition: background var(--transition-fast);
+}
+
+.sidebar__toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  background: var(--color-surface);
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar__toggle-input:checked + .sidebar__toggle-track {
+  background: var(--color-accent);
+}
+
+.sidebar__toggle-input:checked + .sidebar__toggle-track::after {
+  transform: translateX(1rem);
+}
+
+.sidebar__toggle-label {
+  font-size: var(--text-xs);
+  color: var(--color-ink-secondary);
+}
+
 /* --- Status badges ----------------------------------------------------------- */
 
 .status-badge {
