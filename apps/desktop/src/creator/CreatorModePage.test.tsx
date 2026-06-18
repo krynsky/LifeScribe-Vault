@@ -4,10 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { FormPack } from "../domain/formModel";
 import { CreatorModePage } from "./CreatorModePage";
 
-vi.mock("../domain/loadDefaultPack", () => ({
-  loadDefaultPack: vi.fn(),
-}));
-
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));

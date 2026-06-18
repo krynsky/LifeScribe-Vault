@@ -462,9 +462,8 @@ export interface CreatorModePageProps {
 }
 
 export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
-  const [loadState] = useState<"loading" | "ready" | "error">("ready");
-  const [pack, setPack] = useState<FormPack | null>(initialPack);
-  const [originalPack] = useState<FormPack | null>(initialPack);
+  const [pack, setPack] = useState<FormPack>(initialPack);
+  const [originalPack] = useState<FormPack>(initialPack);
   const [selection, setSelection] = useState<Selection>({ kind: "none", sectionKey: "" });
   const [previewValues, setPreviewValues] = useState<Record<string, SectionValues>>({});
   const [exportState, setExportState] = useState<"idle" | "success" | "error">("idle");
@@ -474,21 +473,6 @@ export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
     () => JSON.stringify(initialPack.migrations, null, 2),
   );
   const [migrationsError, setMigrationsError] = useState("");
-
-  if (loadState === "loading") {
-    return (
-      <main className="centered-screen" aria-busy="true">
-        <p>Loading pack…</p>
-      </main>
-    );
-  }
-  if (loadState === "error" || !pack) {
-    return (
-      <main className="centered-screen">
-        <p role="alert">Pack could not be loaded.</p>
-      </main>
-    );
-  }
 
   // Resolve the selected section for the preview.
   const { resolved } = mergePackWithOverlay(pack);
@@ -527,23 +511,18 @@ export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
   // -------------------------------------------------------------------------
 
   function onSectionChange(updated: PackSection) {
-    setPack((current) =>
-      current
-        ? { ...current, sections: current.sections.map((s) => (s.sectionKey === updated.sectionKey ? updated : s)) }
-        : current,
-    );
+    setPack((current) => ({
+      ...current,
+      sections: current.sections.map((s) => (s.sectionKey === updated.sectionKey ? updated : s)),
+    }));
   }
 
   function onGroupChange(sectionKey: string, updated: FieldGroup) {
-    setPack((current) =>
-      current ? updateGroup(current, sectionKey, updated.groupKey, () => updated) : current,
-    );
+    setPack((current) => updateGroup(current, sectionKey, updated.groupKey, () => updated));
   }
 
   function onFieldChange(sectionKey: string, groupKey: string, updated: FieldDefinition) {
-    setPack((current) =>
-      current ? updateField(current, sectionKey, groupKey, updated.systemKey, () => updated) : current,
-    );
+    setPack((current) => updateField(current, sectionKey, groupKey, updated.systemKey, () => updated));
     // Update selection to follow systemKey changes.
     if (selection.systemKey && selection.systemKey !== updated.systemKey) {
       setSelection({ ...selection, systemKey: updated.systemKey });
@@ -551,7 +530,6 @@ export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
   }
 
   function addSection() {
-    if (!pack) return;
     const order = maxOrder(pack.sections) + 1;
     const key = `new-section-${order}`;
     const newSection: PackSection = {
@@ -587,7 +565,6 @@ export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
 
   function addGroup(sectionKey: string) {
     setPack((current) => {
-      if (!current) return current;
       const section = current.sections.find((s) => s.sectionKey === sectionKey);
       if (!section) return current;
       const order = maxOrder(section.groups) + 1;
@@ -618,7 +595,6 @@ export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
 
   function addField(sectionKey: string, groupKey: string) {
     setPack((current) => {
-      if (!current) return current;
       const section = current.sections.find((s) => s.sectionKey === sectionKey);
       const group = section?.groups.find((g) => g.groupKey === groupKey);
       if (!group) return current;
@@ -643,7 +619,6 @@ export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
   // -------------------------------------------------------------------------
 
   function applyMigrationsJson() {
-    if (!pack) return;
     try {
       const parsed = JSON.parse(migrationsJson) as MigrationStep[];
       if (!Array.isArray(parsed)) {
@@ -662,8 +637,7 @@ export function CreatorModePage({ initialPack, onSave }: CreatorModePageProps) {
   // -------------------------------------------------------------------------
 
   function handleExport() {
-    if (!pack) return;
-    const result = exportPack(pack, originalPack ?? pack);
+    const result = exportPack(pack, originalPack);
     if (!result.ok) {
       setExportState("error");
       setExportErrors(result.errors);
