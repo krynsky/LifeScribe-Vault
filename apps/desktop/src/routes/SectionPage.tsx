@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { RecordList } from "../components/RecordList";
 import { StatusBadge } from "../components/StatusBadge";
-import type { ResolvedSection } from "../domain/formModel";
+import type { FieldDefinition, PackSection, ResolvedSection } from "../domain/formModel";
 import type { SectionStatus } from "../domain/readiness";
 import type { SectionMeta } from "../domain/snapshot";
 import type { SectionValidationIssue } from "../domain/sectionValidation";
@@ -33,6 +33,20 @@ export interface SectionPageProps {
   onDiscardDraft: () => void;
   onMarkReviewed: () => void;
   onSetNa: (na: boolean) => void;
+  /** Whether form-structure editing is active for this section. */
+  editing?: boolean;
+  /** Raw PackSection needed to map resolved fields back to their editable definitions. */
+  packSection?: PackSection;
+  /** Called when a field's definition is changed inline. */
+  onEditField?: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
+  /** Called when a field is removed. */
+  onRemoveField?: (sectionKey: string, groupKey: string, systemKey: string) => void;
+  /** Called when a field is moved up or down. */
+  onMoveField?: (sectionKey: string, groupKey: string, systemKey: string, direction: "up" | "down") => void;
+  /** Called when a new field should be added to a group. */
+  onAddField?: (sectionKey: string, groupKey: string) => void;
+  /** Called when a group's title changes. */
+  onEditGroupTitle?: (sectionKey: string, groupKey: string, title: string) => void;
 }
 
 function formatStashTime(iso: string | null): string {
@@ -68,6 +82,13 @@ export function SectionPage({
   onDiscardDraft,
   onMarkReviewed,
   onSetNa,
+  editing,
+  packSection,
+  onEditField,
+  onRemoveField,
+  onMoveField,
+  onAddField,
+  onEditGroupTitle,
 }: SectionPageProps) {
   const [confirmingNa, setConfirmingNa] = useState(false);
 
@@ -156,6 +177,13 @@ export function SectionPage({
           values={values}
           schemaVersion={schemaVersion}
           onChange={onChange}
+          editing={editing}
+          packSection={packSection}
+          onEditField={onEditField}
+          onRemoveField={onRemoveField}
+          onMoveField={onMoveField}
+          onAddField={onAddField}
+          onEditGroupTitle={onEditGroupTitle}
         />
       </div>
 

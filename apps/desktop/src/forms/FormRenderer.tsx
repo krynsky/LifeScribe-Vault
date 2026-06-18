@@ -19,7 +19,10 @@
 import { type ChangeEvent, type FormEvent, useState } from "react";
 import { Field } from "../components/Field";
 import {
+  findSectionField,
   isConditionSatisfied,
+  type FieldDefinition,
+  type PackSection,
   type ResolvedField,
   type ResolvedGroup,
   type ResolvedSection,
@@ -29,6 +32,8 @@ import {
   type SectionValues,
   upsertSectionRecord,
 } from "../domain/valuesStore";
+import { InlineFieldEditor } from "./inline/InlineFieldEditor";
+import { InlineGroupControls } from "./inline/InlineGroupControls";
 import { createRecordId, recordSummaryLabel } from "./recordUtils";
 
 export interface FormRendererProps {
@@ -46,6 +51,20 @@ export interface FormRendererProps {
   onSave?: (values: SectionValues) => void;
   /** External errors keyed by systemKey, shown on the bound record's fields. */
   validationErrors?: Record<string, string>;
+  /** Whether form-structure editing is active for this section. */
+  editing?: boolean;
+  /** Raw PackSection needed to map resolved fields back to their editable definitions. */
+  packSection?: PackSection;
+  /** Called when a field's definition is changed inline. */
+  onEditField?: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
+  /** Called when a field is removed. */
+  onRemoveField?: (sectionKey: string, groupKey: string, systemKey: string) => void;
+  /** Called when a field is moved up or down. */
+  onMoveField?: (sectionKey: string, groupKey: string, systemKey: string, direction: "up" | "down") => void;
+  /** Called when a new field should be added to a group. */
+  onAddField?: (sectionKey: string, groupKey: string) => void;
+  /** Called when a group's title changes. */
+  onEditGroupTitle?: (sectionKey: string, groupKey: string, title: string) => void;
 }
 
 type FieldControlElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -122,6 +141,13 @@ export function FormRenderer({
   onChange,
   onSave,
   validationErrors,
+  editing,
+  packSection,
+  onEditField,
+  onRemoveField,
+  onMoveField,
+  onAddField,
+  onEditGroupTitle,
 }: FormRendererProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [expandedByGroup, setExpandedByGroup] = useState<Record<string, string | null>>({});
@@ -196,7 +222,7 @@ export function FormRenderer({
   const fieldDomId = (record: SectionRecord, systemKey: string): string =>
     `${section.sectionKey}--${record.id}--${systemKey}`;
 
-  const renderField = (field: ResolvedField, record: SectionRecord) => {
+  const renderField = (field: ResolvedField, record: SectionRecord, group: ResolvedGroup) => {
     const fieldId = fieldDomId(record, field.systemKey);
     const storedValue = record.values[field.systemKey] ?? "";
     const error =
@@ -205,6 +231,10 @@ export function FormRenderer({
     const previousAnswer = field.previousAnswers?.find(
       (answer) => answer.recordId === record.id && answer.value === storedValue,
     );
+
+    // Resolve the raw FieldDefinition for inline editing (pack fields only).
+    const rawFieldDef: FieldDefinition | undefined =
+      editing && packSection ? findSectionField(packSection, field.systemKey) : undefined;
 
     return (
       <Field
@@ -226,6 +256,23 @@ export function FormRenderer({
             Previous answer (kept as you saved it): {previousAnswer.value}
           </p>
         ) : null}
+        {editing && rawFieldDef ? (
+          <InlineFieldEditor
+            field={rawFieldDef}
+            onChange={(updated) =>
+              onEditField?.(section.sectionKey, group.groupKey, updated)
+            }
+            onRemove={() =>
+              onRemoveField?.(section.sectionKey, group.groupKey, field.systemKey)
+            }
+            onMoveUp={() =>
+              onMoveField?.(section.sectionKey, group.groupKey, field.systemKey, "up")
+            }
+            onMoveDown={() =>
+              onMoveField?.(section.sectionKey, group.groupKey, field.systemKey, "down")
+            }
+          />
+        ) : null}
       </Field>
     );
   };
@@ -235,7 +282,7 @@ export function FormRenderer({
       .sort((left, right) => left.order - right.order)
       .filter((field) => !field.hidden)
       .filter((field) => isConditionSatisfied(field.visibleWhen, record.values))
-      .map((field) => renderField(field, record));
+      .map((field) => renderField(field, record, group));
 
   const renderRepeatableGroup = (group: ResolvedGroup) => {
     const records = groupRecords(group);
@@ -243,6 +290,16 @@ export function FormRenderer({
     return (
       <section className="form-group form-group--repeatable" key={group.groupKey}>
         <h3 className="form-group__title">{group.title}</h3>
+        {editing ? (
+          <InlineGroupControls
+            groupTitle={group.title}
+            repeatable={group.repeatable}
+            onAddField={() => onAddField?.(section.sectionKey, group.groupKey)}
+            onGroupTitleChange={(title) =>
+              onEditGroupTitle?.(section.sectionKey, group.groupKey, title)
+            }
+          />
+        ) : null}
         {records.length === 0 ? (
           <p className="record-list__empty-hint">No {group.title} added yet.</p>
         ) : (
@@ -353,6 +410,16 @@ export function FormRenderer({
           <section className="form-group" key={group.groupKey}>
             <h3 className="form-group__title">{group.title}</h3>
             {renderGroupFields(group, boundRecord)}
+            {editing ? (
+              <InlineGroupControls
+                groupTitle={group.title}
+                repeatable={group.repeatable}
+                onAddField={() => onAddField?.(section.sectionKey, group.groupKey)}
+                onGroupTitleChange={(title) =>
+                  onEditGroupTitle?.(section.sectionKey, group.groupKey, title)
+                }
+              />
+            ) : null}
           </section>
         ),
       )}
