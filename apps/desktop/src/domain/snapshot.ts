@@ -35,7 +35,7 @@
  */
 
 import type { VaultSnapshot } from "../api/vaultApi";
-import type { UserOverlay } from "./formModel";
+import type { FormPack, UserOverlay } from "./formModel";
 import type { SectionValues, VaultValues } from "./valuesStore";
 
 export const SNAPSHOT_FORMAT = 1;
@@ -70,6 +70,8 @@ export interface ParsedSnapshot {
   kitMeta: KitMeta | null;
   /** Unknown top-level fields, preserved for forward compatibility. */
   extra: Record<string, unknown>;
+  /** User's personal form-definition pack, stored encrypted in their vault. */
+  customPack?: FormPack;
 }
 
 const KNOWN_KEYS = new Set([
@@ -80,6 +82,7 @@ const KNOWN_KEYS = new Set([
   "sectionMeta",
   "overlay",
   "kitMeta",
+  "customPack",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -206,6 +209,9 @@ export function normalizeSnapshot(
     sectionMeta: normalizeSectionMeta(raw.sectionMeta),
     overlay: isRecord(raw.overlay) ? (raw.overlay as unknown as UserOverlay) : null,
     kitMeta: normalizeKitMeta(raw.kitMeta),
+    customPack: isRecord(raw.customPack)
+      ? (raw.customPack as unknown as FormPack)
+      : undefined,
     extra,
   };
 }
@@ -221,5 +227,6 @@ export function buildSnapshot(parsed: ParsedSnapshot): VaultSnapshot {
     sectionMeta: parsed.sectionMeta,
     ...(parsed.overlay ? { overlay: parsed.overlay } : {}),
     ...(parsed.kitMeta ? { kitMeta: parsed.kitMeta } : {}),
+    ...(parsed.customPack ? { customPack: parsed.customPack } : {}),
   };
 }
