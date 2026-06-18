@@ -87,12 +87,14 @@ interface VaultState {
   overlay: UserOverlay | null;
   kitMeta: KitMeta | null;
   extra: Record<string, unknown>;
+  customPack: FormPack | null;
 }
 
 interface LoadedVault {
   sections: ResolvedSection[];
   notices: MergeNotice[];
   schemaVersion: number;
+  pack: FormPack;
   vault: VaultState;
 }
 
@@ -147,6 +149,7 @@ function buildLoadedVault(
     sections: merge.resolved.sections,
     notices: merge.notices,
     schemaVersion: pack.schemaVersion,
+    pack,
     vault: {
       generation,
       recovered,
@@ -156,6 +159,7 @@ function buildLoadedVault(
       overlay: merge.overlay.sections.length > 0 ? merge.overlay : null,
       kitMeta: parsed.kitMeta,
       extra: parsed.extra,
+      customPack: parsed.customPack ?? null,
     },
   };
 }
@@ -187,6 +191,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [noticesDismissed, setNoticesDismissed] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [locking, setLocking] = useState(false);
+  const [loadKey, setLoadKey] = useState(0);
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -204,19 +209,10 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     let isCurrent = true;
 
     async function load() {
-      let pack: FormPack;
-      try {
-        pack = await loadDefaultPack();
-      } catch {
-        if (isCurrent) {
-          setPhase("error");
-        }
-        return;
-      }
-
       let raw: VaultSnapshot | null = null;
       let generation = 0;
       let recovered = false;
+
       try {
         const response = await loadVaultSnapshot();
         raw = response.snapshot;
@@ -224,12 +220,24 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
         recovered = response.recovered;
       } catch (error) {
         if (errorCode(error) !== "NotFound") {
-          if (isCurrent) {
-            setPhase("error");
-          }
+          if (isCurrent) setPhase("error");
           return;
         }
         // Fresh vault: no snapshot saved yet; base generation stays 0.
+      }
+
+      // Use the user's personal pack if saved, else fall back to bundled default.
+      const parsedForPack = normalizeSnapshot(raw, ownerNameHint);
+      let pack: FormPack;
+      if (parsedForPack.customPack) {
+        pack = parsedForPack.customPack;
+      } else {
+        try {
+          pack = await loadDefaultPack();
+        } catch {
+          if (isCurrent) setPhase("error");
+          return;
+        }
       }
 
       const result = buildLoadedVault(pack, raw, generation, recovered, ownerNameHint);
@@ -292,7 +300,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     return () => {
       isCurrent = false;
     };
-  }, [ownerNameHint]);
+  }, [ownerNameHint, loadKey]);
 
   // -------------------------------------------------------------------------
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
@@ -381,6 +389,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       overlay: current.vault.overlay,
       kitMeta,
       extra: current.vault.extra,
+      customPack: current.vault.customPack ?? undefined,
     });
   }
 
@@ -436,6 +445,26 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     } finally {
       saveInFlightRef.current = null;
       setSaving(false);
+    }
+  }
+
+  async function handleSavePack(newPack: FormPack) {
+    if (!loaded) return;
+    const nextLoaded: LoadedVault = {
+      ...loaded,
+      pack: newPack,
+      vault: { ...loaded.vault, customPack: newPack },
+    };
+    const ok = await persist(
+      nextLoaded,
+      loaded.vault.savedValues,
+      loaded.vault.sectionMeta,
+      null,
+    );
+    if (ok) {
+      // Reload so sections rebuild from the new pack.
+      setPhase("loading");
+      setLoadKey((k) => k + 1);
     }
   }
 
@@ -910,7 +939,10 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   } else if (route.kind === "creator") {
     content = (
       <React.Suspense fallback={<div className="creator__loading">Loading editor…</div>}>
-        <LazyCreatorModePage />
+        {/* initialPack and onSave props will be typed in Task 5 */}
+        {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+        {/* @ts-expect-error -- CreatorModePage props added in Task 5 */}
+        <LazyCreatorModePage initialPack={loaded.pack} onSave={(newPack: FormPack) => void handleSavePack(newPack)} />
       </React.Suspense>
     );
   }
