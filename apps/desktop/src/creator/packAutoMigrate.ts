@@ -22,6 +22,7 @@
  */
 
 import type {
+  FieldType,
   FormPack,
   MigrationOperation,
   MigrationStep,
@@ -34,7 +35,7 @@ export type AutoMigrateResult =
   | { ok: false; error: string };
 
 interface FieldInfo {
-  type: string;
+  type: FieldType;
 }
 
 function indexSectionFields(section: PackSection): Map<string, FieldInfo> {
