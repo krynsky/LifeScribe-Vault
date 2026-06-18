@@ -11,9 +11,6 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = []
-# Creator-only commands (pack write/export) compile in only for creator builds.
-# End-user binaries are built without this feature; U10 gates its commands on it.
-creator-mode = []
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
