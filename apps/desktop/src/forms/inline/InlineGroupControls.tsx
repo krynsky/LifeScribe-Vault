@@ -33,6 +33,7 @@ export function InlineGroupControls({
       )}
 
       <button
+        aria-label={`Add field to ${groupTitle}`}
         className="button button--secondary button--small"
         type="button"
         onClick={onAddField}

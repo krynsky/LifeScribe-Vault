@@ -147,7 +147,7 @@ export function InlineFieldEditor({
             {(field.options ?? []).length > 0 && (
               <ul className="inline-field-editor__option-list">
                 {(field.options ?? []).map((opt, i) => (
-                  <li key={`${opt.value}-${i}`} className="inline-field-editor__option-item">
+                  <li key={opt.value} className="inline-field-editor__option-item">
                     <span className="inline-field-editor__option-text">
                       <strong>{opt.value}</strong>: {opt.label}
                     </span>
