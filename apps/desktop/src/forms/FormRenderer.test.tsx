@@ -392,7 +392,7 @@ describe("FormRenderer — editing mode", () => {
     );
     // One InlineFieldEditor per field (2 fields in this fixture).
     const editors = container.querySelectorAll(".inline-field-editor");
-    expect(editors.length).toBeGreaterThanOrEqual(1);
+    expect(editors.length).toBe(2);
     // InlineGroupControls rendered for the non-repeatable group.
     expect(container.querySelector(".inline-group-controls")).toBeTruthy();
   });
