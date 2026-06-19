@@ -22,6 +22,16 @@ import {
 } from "../api/vaultApi";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
+import {
+  addOptionalField,
+  addSection,
+  moveField,
+  removeField,
+  updateGroup,
+  updateSection,
+  updateField,
+} from "../creator/packEdits";
+import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
@@ -195,6 +205,9 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [packEditorEnabled, setPackEditorEnabled] = useState(
     () => localStorage.getItem("lifescribe.packEditorEnabled") === "true",
   );
+  const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
+  const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
+  const [packEditError, setPackEditError] = useState<string | null>(null);
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -451,8 +464,8 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     }
   }
 
-  async function handleSavePack(newPack: FormPack) {
-    if (!loaded) return;
+  async function handleSavePack(newPack: FormPack): Promise<boolean> {
+    if (!loaded) return false;
     const nextLoaded: LoadedVault = {
       ...loaded,
       pack: newPack,
@@ -469,6 +482,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       setPhase("loading");
       setLoadKey((k) => k + 1);
     }
+    return ok;
   }
 
   function sectionWorkingValues(sectionKey: string): SectionValues {
@@ -644,9 +658,102 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   function handlePackEditorToggle(enabled: boolean) {
     setPackEditorEnabled(enabled);
     localStorage.setItem("lifescribe.packEditorEnabled", String(enabled));
-    if (!enabled && route.kind === "creator") {
-      setRoute({ kind: "welcome" });
+    if (!enabled) {
+      if (route.kind === "creator") {
+        setRoute({ kind: "welcome" });
+      }
+      setEditingSectionKey(null);
+      setWorkingPack(null);
+      setPackEditError(null);
     }
+  }
+
+  function handleEnterSectionEdit(sectionKey: string) {
+    if (!loaded) return;
+    setEditingSectionKey(sectionKey);
+    setWorkingPack(loaded.pack);
+    setPackEditError(null);
+  }
+
+  function handleCancelSectionEdit() {
+    setEditingSectionKey(null);
+    setWorkingPack(null);
+    setPackEditError(null);
+  }
+
+  async function handleSaveFormChanges() {
+    if (!loaded || !workingPack) return;
+    const result = deriveAutoMigration(loaded.pack, workingPack);
+    if (!result.ok) {
+      setPackEditError(result.error);
+      return;
+    }
+    const ok = await handleSavePack(result.pack);
+    if (ok !== false) {
+      setEditingSectionKey(null);
+      setWorkingPack(null);
+      setPackEditError(null);
+    }
+  }
+
+  function handleEditField(sectionKey: string, groupKey: string, updatedField: import("../domain/formModel").FieldDefinition) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return updateField(prev, sectionKey, groupKey, updatedField.systemKey, () => updatedField);
+    });
+  }
+
+  function handleRemoveField(sectionKey: string, groupKey: string, systemKey: string) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      try {
+        return removeField(prev, sectionKey, groupKey, systemKey);
+      } catch (err) {
+        setPackEditError(err instanceof Error ? err.message : String(err));
+        return prev;
+      }
+    });
+  }
+
+  function handleMoveField(sectionKey: string, groupKey: string, systemKey: string, direction: "up" | "down") {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return moveField(prev, sectionKey, groupKey, systemKey, direction);
+    });
+  }
+
+  function handleAddField(sectionKey: string, groupKey: string) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return addOptionalField(prev, sectionKey, groupKey);
+    });
+  }
+
+  function handleEditGroupTitle(sectionKey: string, groupKey: string, title: string) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return updateGroup(prev, sectionKey, groupKey, (g) => ({ ...g, title }));
+    });
+  }
+
+  function handleEditSectionTitle(sectionKey: string, title: string) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return updateSection(prev, sectionKey, (s) => ({ ...s, title }));
+    });
+  }
+
+  function handleEditSectionLede(sectionKey: string, lede: string) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return updateSection(prev, sectionKey, (s) => ({ ...s, lede }));
+    });
+  }
+
+  async function handleAddSection() {
+    if (!loaded) return;
+    const newPack = addSection(loaded.pack);
+    await handleSavePack(newPack);
   }
 
   function openSection(sectionKey: string) {
@@ -770,6 +877,16 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             );
           })}
         </ul>
+
+        {packEditorEnabled && !editingSectionKey ? (
+          <button
+            className="sidebar__add-section"
+            type="button"
+            onClick={() => void handleAddSection()}
+          >
+            + Add section
+          </button>
+        ) : null}
 
         <p className="sidebar__heading">Tools</p>
         <ul className="sidebar__list">
@@ -922,30 +1039,115 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       (entry) => entry.sectionKey === route.sectionKey,
     );
     if (section) {
+      const isSectionEditing =
+        packEditorEnabled && editingSectionKey === section.sectionKey;
+      const packSectionForEdit = isSectionEditing && workingPack
+        ? workingPack.sections.find((s) => s.sectionKey === section.sectionKey)
+        : undefined;
+
+      // When editing, rebuild a transient ResolvedSection from workingPack title/lede
+      // so the header reflects in-progress edits immediately.
+      const displaySection = isSectionEditing && workingPack
+        ? (() => {
+            const ps = workingPack.sections.find((s) => s.sectionKey === section.sectionKey);
+            return ps ? { ...section, title: ps.title, lede: ps.lede } : section;
+          })()
+        : section;
+
       content = (
-        <SectionPage
-          conflict={conflictSection === section.sectionKey}
-          dirty={section.sectionKey in workingValues}
-          draftBanner={
-            draftRestore && draftRestore.sectionKey === section.sectionKey
-              ? { stashedAt: draftRestore.stashedAt, stale: draftRestore.stale }
-              : null
-          }
-          meta={loaded.vault.sectionMeta[section.sectionKey] ?? {}}
-          saving={saving}
-          schemaVersion={loaded.schemaVersion}
-          section={section}
-          status={statusFor(section)}
-          validationIssues={validationIssues}
-          values={sectionWorkingValues(section.sectionKey)}
-          onChange={(values) => handleSectionChange(section.sectionKey, values)}
-          onDiscardConflict={() => void handleDiscardConflict(section.sectionKey)}
-          onDiscardDraft={handleDiscardDraft}
-          onMarkReviewed={() => void handleMarkReviewed(section.sectionKey)}
-          onSave={() => void handleSaveSection(section.sectionKey)}
-          onSaveAgain={() => void handleSaveAgain(section.sectionKey)}
-          onSetNa={(na) => void handleSetNa(section.sectionKey, na)}
-        />
+        <>
+          {packEditorEnabled && !isSectionEditing && (
+            <div className="section-editor-bar">
+              <button
+                className="button button--secondary button--small"
+                type="button"
+                onClick={() => handleEnterSectionEdit(section.sectionKey)}
+              >
+                Edit this form
+              </button>
+            </div>
+          )}
+          {isSectionEditing && (
+            <div className="section-editor-bar">
+              <div className="section-editor-bar__title-row">
+                <label className="section-editor-bar__label" htmlFor="section-title-edit">
+                  Section title
+                </label>
+                <input
+                  id="section-title-edit"
+                  className="section-editor-bar__input"
+                  type="text"
+                  value={workingPack?.sections.find((s) => s.sectionKey === section.sectionKey)?.title ?? section.title}
+                  onChange={(e) => handleEditSectionTitle(section.sectionKey, e.target.value)}
+                  aria-label="Section title"
+                />
+              </div>
+              <div className="section-editor-bar__lede-row">
+                <label className="section-editor-bar__label" htmlFor="section-lede-edit">
+                  Section lede
+                </label>
+                <textarea
+                  id="section-lede-edit"
+                  className="section-editor-bar__input"
+                  value={workingPack?.sections.find((s) => s.sectionKey === section.sectionKey)?.lede ?? section.lede}
+                  onChange={(e) => handleEditSectionLede(section.sectionKey, e.target.value)}
+                  aria-label="Section lede"
+                />
+              </div>
+              <div className="section-editor-bar__actions">
+                <button
+                  className="button button--primary button--small"
+                  type="button"
+                  onClick={() => void handleSaveFormChanges()}
+                >
+                  Save form changes
+                </button>
+                <button
+                  className="button button--ghost button--small"
+                  type="button"
+                  onClick={handleCancelSectionEdit}
+                >
+                  Done editing
+                </button>
+              </div>
+              {packEditError && (
+                <p className="section-editor-bar__error" role="alert">
+                  {packEditError}
+                </p>
+              )}
+            </div>
+          )}
+          <SectionPage
+            conflict={conflictSection === section.sectionKey}
+            dirty={section.sectionKey in workingValues}
+            draftBanner={
+              draftRestore && draftRestore.sectionKey === section.sectionKey
+                ? { stashedAt: draftRestore.stashedAt, stale: draftRestore.stale }
+                : null
+            }
+            meta={loaded.vault.sectionMeta[section.sectionKey] ?? {}}
+            saving={saving}
+            schemaVersion={loaded.schemaVersion}
+            section={displaySection}
+            status={statusFor(section)}
+            validationIssues={validationIssues}
+            values={sectionWorkingValues(section.sectionKey)}
+            onChange={(values) => handleSectionChange(section.sectionKey, values)}
+            onDiscardConflict={() => void handleDiscardConflict(section.sectionKey)}
+            onDiscardDraft={handleDiscardDraft}
+            onMarkReviewed={() => void handleMarkReviewed(section.sectionKey)}
+            onSave={() => void handleSaveSection(section.sectionKey)}
+            onSaveAgain={() => void handleSaveAgain(section.sectionKey)}
+            onSetNa={(na) => void handleSetNa(section.sectionKey, na)}
+            editing={isSectionEditing}
+            packSection={packSectionForEdit}
+            onEditField={(sk, gk, field) => handleEditField(sk, gk, field)}
+            onRemoveField={(sk, gk, key) => handleRemoveField(sk, gk, key)}
+            onMoveField={(sk, gk, key, dir) => handleMoveField(sk, gk, key, dir)}
+            onAddField={(sk, gk) => handleAddField(sk, gk)}
+            onEditGroupTitle={(sk, gk, title) => handleEditGroupTitle(sk, gk, title)}
+          />
+        </>
       );
     }
   } else if (route.kind === "recovery-kit") {

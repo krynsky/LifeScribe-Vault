@@ -401,6 +401,69 @@ describe("Form Editor sidebar toggle", () => {
   });
 });
 
+describe("Inline form editor", () => {
+  beforeEach(() => {
+    localStorage.setItem("lifescribe.packEditorEnabled", "true");
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  async function openSectionAndEnterEdit(user: ReturnType<typeof userEvent.setup>) {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    await user.click(sidebarSectionButton());
+    const editBtn = await screen.findByRole("button", { name: "Edit this form" });
+    await user.click(editBtn);
+  }
+
+  it("shows 'Edit this form' on a section when Form Editor is enabled and enters editing state", async () => {
+    const user = userEvent.setup();
+    await openSectionAndEnterEdit(user);
+    expect(screen.getByRole("button", { name: "Save form changes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Done editing" })).toBeInTheDocument();
+    // Fill-mode "Edit this form" is gone while editing
+    expect(screen.queryByRole("button", { name: "Edit this form" })).not.toBeInTheDocument();
+  });
+
+  it("'Done editing' cancels and returns to fill view without saving", async () => {
+    const user = userEvent.setup();
+    await openSectionAndEnterEdit(user);
+    await user.click(screen.getByRole("button", { name: "Done editing" }));
+    expect(screen.queryByRole("button", { name: "Save form changes" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit this form" })).toBeInTheDocument();
+    expect(mocked.saveVaultSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("'Save form changes' persists the pack via saveVaultSnapshot with customPack set", async () => {
+    const user = userEvent.setup();
+    await openSectionAndEnterEdit(user);
+    await user.click(screen.getByRole("button", { name: "Save form changes" }));
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
+    const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
+    expect((snapshot as Record<string, unknown>).customPack).toBeDefined();
+  });
+
+  it("turning the Form Editor toggle off mid-edit exits editing state", async () => {
+    const user = userEvent.setup();
+    await openSectionAndEnterEdit(user);
+    const toggle = screen.getByRole("checkbox", { name: /form editor/i });
+    await user.click(toggle);
+    expect(screen.queryByRole("button", { name: "Save form changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Done editing" })).not.toBeInTheDocument();
+  });
+
+  it("a saveVaultSnapshot failure keeps the user in editing state", async () => {
+    mocked.saveVaultSnapshot.mockRejectedValueOnce(new Error("disk full"));
+    const user = userEvent.setup();
+    await openSectionAndEnterEdit(user);
+    await user.click(screen.getByRole("button", { name: "Save form changes" }));
+    expect(await screen.findByRole("button", { name: "Save form changes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Done editing" })).toBeInTheDocument();
+  });
+});
+
 describe("Dashboard auto-lock", () => {
   async function flushMount() {
     await act(async () => {
