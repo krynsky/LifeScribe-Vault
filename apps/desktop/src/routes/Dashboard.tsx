@@ -9,7 +9,7 @@
  * move a badge until they are persisted.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   discardDraft,
   loadVaultSnapshot,
@@ -65,12 +65,6 @@ import {
 import { BackupPage } from "./BackupPage";
 import { RecoveryKitPage } from "./RecoveryKitPage";
 
-// Creator module: dynamically imported so Rollup can split the bundle.
-const LazyCreatorModePage = React.lazy(() =>
-  import("../creator/CreatorModePage").then((m) => ({
-    default: m.CreatorModePage,
-  })),
-);
 import { SectionPage, type DraftBannerState } from "./SectionPage";
 import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 
@@ -85,8 +79,7 @@ type Route =
   | { kind: "welcome" }
   | { kind: "section"; sectionKey: string }
   | { kind: "recovery-kit" }
-  | { kind: "backup" }
-  | { kind: "creator" };
+  | { kind: "backup" };
 
 interface VaultState {
   generation: number;
@@ -659,9 +652,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     setPackEditorEnabled(enabled);
     localStorage.setItem("lifescribe.packEditorEnabled", String(enabled));
     if (!enabled) {
-      if (route.kind === "creator") {
-        setRoute({ kind: "welcome" });
-      }
       setEditingSectionKey(null);
       setWorkingPack(null);
       setPackEditError(null);
@@ -923,22 +913,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
               <span className="sidebar__item-title">Backup</span>
             </button>
           </li>
-          {packEditorEnabled ? (
-            <li>
-              <button
-                aria-current={route.kind === "creator" ? "page" : undefined}
-                className={
-                  route.kind === "creator"
-                    ? "sidebar__item sidebar__item--active"
-                    : "sidebar__item"
-                }
-                type="button"
-                onClick={() => setRoute({ kind: "creator" })}
-              >
-                <span className="sidebar__item-title">Form Editor</span>
-              </button>
-            </li>
-          ) : null}
         </ul>
       </nav>
 
@@ -1164,12 +1138,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     );
   } else if (route.kind === "backup") {
     content = <BackupPage />;
-  } else if (route.kind === "creator") {
-    content = (
-      <React.Suspense fallback={<div className="creator__loading">Loading editor…</div>}>
-        <LazyCreatorModePage initialPack={loaded.pack} onSave={(newPack: FormPack) => void handleSavePack(newPack)} />
-      </React.Suspense>
-    );
   }
 
   if (!content) {
