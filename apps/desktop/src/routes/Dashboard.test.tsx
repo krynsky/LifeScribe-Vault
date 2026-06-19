@@ -455,6 +455,232 @@ describe("Inline form editor", () => {
   });
 });
 
+describe("Inline editor — end-to-end", () => {
+  beforeEach(() => {
+    localStorage.setItem("lifescribe.packEditorEnabled", "true");
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  /** Helper: render, wait for welcome, navigate to Digital Executors, enter editing. */
+  async function openSectionInEditMode(user: ReturnType<typeof userEvent.setup>) {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    await user.click(sidebarSectionButton());
+    const editBtn = await screen.findByRole("button", { name: "Edit this form" });
+    await user.click(editBtn);
+  }
+
+  /**
+   * Helper: add one executor record (auto-expands) then enter edit mode.
+   * This ensures InlineFieldEditor instances are visible (repeatable group).
+   */
+  async function addRecordThenEnterEditMode(user: ReturnType<typeof userEvent.setup>) {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    await user.click(sidebarSectionButton());
+    // "Add Executor" creates a record and auto-expands it.
+    await user.click(screen.getByRole("button", { name: "Add Executor" }));
+    // Now enter edit mode — the expanded record's fields get InlineFieldEditors.
+    const editBtn = await screen.findByRole("button", { name: "Edit this form" });
+    await user.click(editBtn);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scenario 1: Label edit persists in the snapshot's customPack (R2, R6)
+  // ---------------------------------------------------------------------------
+  it("label change is persisted in customPack after Save form changes", async () => {
+    const user = userEvent.setup();
+    await addRecordThenEnterEditMode(user);
+
+    // The "Full name" field is protected — its InlineFieldEditor has a Label
+    // input pre-filled with "Full name". Find it via its current value.
+    // All label inputs inside .inline-field-editor have type="text".
+    // We look for one whose value is "Full name".
+    const labelInputs = screen
+      .getAllByDisplayValue("Full name")
+      // Filter to those inside an .inline-field-editor container.
+      .filter((el) => el.closest(".inline-field-editor") !== null);
+    expect(labelInputs.length).toBeGreaterThan(0);
+    const labelInput = labelInputs[0];
+
+    await user.clear(labelInput);
+    await user.type(labelInput, "Legal full name");
+
+    await user.click(screen.getByRole("button", { name: "Save form changes" }));
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
+
+    const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
+    const snapshotRecord = snapshot as Record<string, unknown>;
+    const customPack = snapshotRecord.customPack as import("../domain/formModel").FormPack | undefined;
+    expect(customPack).toBeDefined();
+
+    // Find the digital-executors section in the saved customPack.
+    const executorsSection = customPack!.sections.find(
+      (s) => s.sectionKey === "digital-executors",
+    );
+    expect(executorsSection).toBeDefined();
+
+    // At least one field in the section should have the updated label.
+    const allFields = executorsSection!.groups.flatMap((g) => g.fields);
+    const renamedField = allFields.find((f) => f.label === "Legal full name");
+    expect(renamedField).toBeDefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Scenario 2: Added field appears in the customPack after Save form changes (R3)
+  // ---------------------------------------------------------------------------
+  it("added field appears in customPack after Save form changes", async () => {
+    const user = userEvent.setup();
+    // Enter edit mode — no records needed since InlineGroupControls shows regardless.
+    await openSectionInEditMode(user);
+
+    // InlineGroupControls renders "Add field to Executor" button for the repeatable group.
+    const addFieldBtn = await screen.findByRole("button", {
+      name: /Add field to Executor/i,
+    });
+    await user.click(addFieldBtn);
+
+    await user.click(screen.getByRole("button", { name: "Save form changes" }));
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
+
+    const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
+    const snapshotRecord = snapshot as Record<string, unknown>;
+    const customPack = snapshotRecord.customPack as import("../domain/formModel").FormPack | undefined;
+    expect(customPack).toBeDefined();
+
+    const executorsSection = customPack!.sections.find(
+      (s) => s.sectionKey === "digital-executors",
+    );
+    expect(executorsSection).toBeDefined();
+
+    const executorGroup = executorsSection!.groups.find((g) => g.groupKey === "executor");
+    expect(executorGroup).toBeDefined();
+
+    // Default pack has 10 fields in the executor group; after adding one it should have 11.
+    expect(executorGroup!.fields.length).toBeGreaterThanOrEqual(11);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Scenario 3: Protected field has no Remove button in editing state (R4)
+  // ---------------------------------------------------------------------------
+  it("protected fields have no Remove field button while in editing state", async () => {
+    const user = userEvent.setup();
+    await addRecordThenEnterEditMode(user);
+
+    // Both "Full name" (executorName) and "Role" (executorRole) are protected.
+    // InlineFieldEditor renders null for the remove button when field.protected is true.
+    // Get all visible InlineFieldEditors and confirm that protected fields
+    // (identified by having no Remove field button beside them) are handled correctly.
+    //
+    // Strategy: find all .inline-field-editor elements and check whether the
+    // protected ones lack a "Remove field" button.
+    const fieldEditors = document.querySelectorAll(".inline-field-editor");
+    expect(fieldEditors.length).toBeGreaterThan(0);
+
+    // Collect all "Remove field" buttons.
+    const removeButtons = screen.queryAllByRole("button", { name: "Remove field" });
+
+    // For each remove button, verify it does NOT belong to a protected field's editor.
+    // The editor for a protected field will have its Label input set to the field's
+    // current label. We check that none of the remove buttons sit inside an editor
+    // whose label input value is "Full name" or "Role" (the two protected fields).
+    for (const btn of removeButtons) {
+      const parentEditor = btn.closest(".inline-field-editor");
+      if (!parentEditor) continue;
+      const labelInput = parentEditor.querySelector<HTMLInputElement>(
+        '.inline-field-editor__controls input[type="text"]',
+      );
+      if (!labelInput) continue;
+      expect(["Full name", "Role"]).not.toContain(labelInput.value);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Scenario 4: Retype-with-data auto-migration emits a retypeField step (R5)
+  // ---------------------------------------------------------------------------
+  it("changing a non-protected field type emits a retypeField migration step in customPack", async () => {
+    const user = userEvent.setup();
+    await addRecordThenEnterEditMode(user);
+
+    // Find the type <select> for a non-protected field (e.g. "Relationship",
+    // systemKey executorRelationship, default type "text").
+    // Each InlineFieldEditor renders a <select> inside .inline-field-editor__controls.
+    // We find the one whose sibling Label input value is "Relationship".
+    const fieldEditors = Array.from(document.querySelectorAll(".inline-field-editor"));
+    let typeSelect: HTMLSelectElement | null = null;
+
+    for (const editor of fieldEditors) {
+      const labelInput = editor.querySelector<HTMLInputElement>(
+        '.inline-field-editor__controls input[type="text"]',
+      );
+      // The first text input in the controls is the Label input (the label for the field).
+      if (labelInput && labelInput.value === "Relationship") {
+        typeSelect = editor.querySelector<HTMLSelectElement>(
+          ".inline-field-editor__controls select",
+        );
+        break;
+      }
+    }
+
+    expect(typeSelect).not.toBeNull();
+    // Change type from "text" to "textarea"
+    await user.selectOptions(typeSelect!, "textarea");
+
+    await user.click(screen.getByRole("button", { name: "Save form changes" }));
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
+
+    const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
+    const snapshotRecord = snapshot as Record<string, unknown>;
+    const customPack = snapshotRecord.customPack as import("../domain/formModel").FormPack | undefined;
+    expect(customPack).toBeDefined();
+
+    // schemaVersion should be bumped from 1 to 2 because a retypeField migration was derived.
+    expect(customPack!.schemaVersion).toBe(2);
+
+    // The migrations array should contain a step with a retypeField operation.
+    const steps = customPack!.migrations;
+    expect(steps.length).toBeGreaterThanOrEqual(1);
+    const lastStep = steps[steps.length - 1];
+    const retypeOp = lastStep.operations.find((op) => op.op === "retypeField");
+    expect(retypeOp).toBeDefined();
+    expect(retypeOp).toMatchObject({
+      op: "retypeField",
+      sectionKey: "digital-executors",
+      systemKey: "executorRelationship",
+      toType: "textarea",
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Scenario 5: Turning the toggle off hides ALL editing affordances (R1)
+  // ---------------------------------------------------------------------------
+  it("turning the Form Editor toggle off hides all editing affordances including InlineFieldEditors", async () => {
+    const user = userEvent.setup();
+    await addRecordThenEnterEditMode(user);
+
+    // Confirm we are in editing state with InlineFieldEditor visible.
+    expect(screen.getByRole("button", { name: "Save form changes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Done editing" })).toBeInTheDocument();
+    expect(document.querySelector(".inline-field-editor")).toBeInTheDocument();
+
+    // Turn the Form Editor toggle off.
+    const toggle = screen.getByRole("checkbox", { name: /form editor/i });
+    await user.click(toggle);
+
+    // All editing affordances must be gone.
+    expect(screen.queryByRole("button", { name: "Save form changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Done editing" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit this form" })).not.toBeInTheDocument();
+    // InlineFieldEditor elements should be absent.
+    expect(document.querySelector(".inline-field-editor")).not.toBeInTheDocument();
+    // Group-level add-field controls should also be absent.
+    expect(screen.queryByRole("button", { name: /Add field to/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("Dashboard auto-lock", () => {
   async function flushMount() {
     await act(async () => {
