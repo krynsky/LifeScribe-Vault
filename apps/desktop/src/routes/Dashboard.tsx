@@ -182,7 +182,7 @@ function collectAttachmentIds(values: VaultValues): string[] {
   return ids;
 }
 
-export function Dashboard({ ownerNameHint = "", formModeHint: _formModeHint = "hint", onLocked }: DashboardProps) {
+export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked }: DashboardProps) {
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked" | "error">("loading");
   const [blockedMessage, setBlockedMessage] = useState("");
   const [loaded, setLoaded] = useState<LoadedVault | null>(null);
@@ -214,6 +214,14 @@ export function Dashboard({ ownerNameHint = "", formModeHint: _formModeHint = "h
   const saveInFlightRef = useRef<Promise<unknown> | null>(null);
   const lockingRef = useRef(false);
 
+  // Resolve the base FormPack for a given raw snapshot, honouring the
+  // formMode stored in the snapshot (or the hint from props when the vault
+  // is new and the snapshot is null).
+  async function resolveBasePack(raw: VaultSnapshot | null): Promise<FormPack> {
+    const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
+    return parsed.customPack ?? (await loadDefaultPack(parsed.profile.formMode));
+  }
+
   // -------------------------------------------------------------------------
   // Initial load: snapshot, merge pipeline, then the stashed draft (if any).
   // -------------------------------------------------------------------------
@@ -238,18 +246,15 @@ export function Dashboard({ ownerNameHint = "", formModeHint: _formModeHint = "h
         // Fresh vault: no snapshot saved yet; base generation stays 0.
       }
 
-      // Use the user's personal pack if saved, else fall back to bundled default.
-      const parsedForPack = normalizeSnapshot(raw, ownerNameHint);
+      // Use the user's personal pack if saved, else fall back to the bundled
+      // default for the mode stored in the snapshot (or the prop hint when
+      // the vault is new).
       let pack: FormPack;
-      if (parsedForPack.customPack) {
-        pack = parsedForPack.customPack;
-      } else {
-        try {
-          pack = await loadDefaultPack();
-        } catch {
-          if (isCurrent) setPhase("error");
-          return;
-        }
+      try {
+        pack = await resolveBasePack(raw);
+      } catch {
+        if (isCurrent) setPhase("error");
+        return;
       }
 
       const result = buildLoadedVault(pack, raw, generation, recovered, ownerNameHint);
@@ -523,7 +528,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint: _formModeHint = "h
     let fresh: LoadedVault;
     try {
       const response = await loadVaultSnapshot();
-      const pack = await loadDefaultPack();
+      const pack = await resolveBasePack(response.snapshot);
       const result = buildLoadedVault(
         pack,
         response.snapshot,
@@ -564,7 +569,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint: _formModeHint = "h
   async function handleDiscardConflict(sectionKey: string) {
     try {
       const response = await loadVaultSnapshot();
-      const pack = await loadDefaultPack();
+      const pack = await resolveBasePack(response.snapshot);
       const result = buildLoadedVault(
         pack,
         response.snapshot,

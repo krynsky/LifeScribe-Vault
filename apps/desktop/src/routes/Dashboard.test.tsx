@@ -681,6 +681,27 @@ describe("Inline editor — end-to-end", () => {
   });
 });
 
+describe("Dashboard formModeHint — credential pack on load", () => {
+  it("loads the credential pack when the snapshot profile has formMode: credential", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "credential" },
+      },
+      generation: 1,
+      recovered: false,
+    });
+    const onLocked = vi.fn();
+    render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Mark");
+
+    // Navigate to the Password Manager Plan section (credential-pack-only section)
+    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
+    // "Master password" is a field *label* exclusive to the credential pack.
+    // getByLabelText looks for a form control associated with that label string.
+    expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
+  });
+});
+
 describe("Dashboard auto-lock", () => {
   async function flushMount() {
     await act(async () => {
