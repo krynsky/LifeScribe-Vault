@@ -381,6 +381,38 @@ describe("kitMeta snapshot round-trip (additive)", () => {
   });
 });
 
+describe("Recovery Kit from the credential pack", () => {
+  const CREDENTIAL_PACK_PATH = resolve(
+    process.cwd(),
+    "src-tauri/resources/packs/default-pack-credential.json",
+  );
+
+  function loadCredentialPack(): FormPack {
+    const result = validatePack(JSON.parse(readFileSync(CREDENTIAL_PACK_PATH, "utf-8")));
+    if (!result.ok) {
+      throw new Error("credential pack failed validation");
+    }
+    return result.pack;
+  }
+
+  it("includes the master password in the Recovery Kit under credential mode", () => {
+    const pack = loadCredentialPack();
+    const values = makeVaultValues([
+      makeSectionValues("password-manager", [
+        makeRecord({
+          id: "pm-1",
+          values: {
+            passwordManagerProvider: "1Password",
+            passwordManagerMasterPassword: "hunter2-correct-horse",
+          },
+        }),
+      ]),
+    ]);
+    const kit = buildRecoveryKit(pack.sections, values);
+    expect(allKitStrings(kit)).toContain("hunter2-correct-horse");
+  });
+});
+
 describe("Recovery Kit from the shipped default pack", () => {
   function shippedValues(): VaultValues {
     return makeVaultValues([
