@@ -204,6 +204,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
   const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
   const [packEditError, setPackEditError] = useState<string | null>(null);
+  const [pendingModeSwitch, setPendingModeSwitch] = useState<FormMode | null>(null);
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -484,6 +485,45 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       setLoadKey((k) => k + 1);
     }
     return ok;
+  }
+
+  async function handleSwitchMode(newMode: FormMode) {
+    if (!loaded || loaded.vault.profile.formMode === newMode) {
+      setPendingModeSwitch(null);
+      return;
+    }
+    // Build a new vault state with the new mode and no customPack.
+    const nextVault: VaultState = {
+      ...loaded.vault,
+      profile: { ...loaded.vault.profile, formMode: newMode },
+      customPack: null,
+    };
+    const nextLoaded: LoadedVault = { ...loaded, vault: nextVault };
+    const snapshot = buildSnapshot({
+      snapshotFormat: SNAPSHOT_FORMAT,
+      schemaVersion: loaded.schemaVersion,
+      profile: nextVault.profile,
+      values: loaded.vault.savedValues,
+      sectionMeta: loaded.vault.sectionMeta,
+      overlay: loaded.vault.overlay,
+      kitMeta: loaded.vault.kitMeta,
+      extra: loaded.vault.extra,
+      customPack: undefined, // cleared
+    });
+    setSaving(true);
+    setSaveError("");
+    try {
+      await saveVaultSnapshot(snapshot, loaded.vault.generation);
+      setLoaded(nextLoaded);
+      // Reload so sections rebuild from the new mode's pack.
+      setPhase("loading");
+      setLoadKey((k) => k + 1);
+    } catch {
+      setSaveError("Mode switch could not be saved. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+    setPendingModeSwitch(null);
   }
 
   function sectionWorkingValues(sectionKey: string): SectionValues {
@@ -924,6 +964,26 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         </ul>
       </nav>
 
+      <div className="sidebar__mode">
+        <span className="sidebar__mode-label">Form detail</span>
+        <span className="sidebar__mode-current">
+          {loaded.vault.profile.formMode === "credential" ? "Stores secrets" : "Locations only"}
+        </span>
+        <button
+          className="button button--secondary button--small"
+          type="button"
+          onClick={() =>
+            setPendingModeSwitch(
+              loaded.vault.profile.formMode === "credential" ? "hint" : "credential",
+            )
+          }
+        >
+          {loaded.vault.profile.formMode === "credential"
+            ? "Switch to locations only"
+            : "Switch to store actual secrets"}
+        </button>
+      </div>
+
       <div className="sidebar__footer">
         <label className="sidebar__toggle" htmlFor="pack-editor-toggle">
           <input
@@ -1200,6 +1260,38 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         {banners}
         {content}
       </div>
+      {pendingModeSwitch ? (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Confirm form detail change">
+          <div className="modal__body">
+            <p>
+              {pendingModeSwitch === "credential"
+                ? "Switch to storing actual passwords and PINs in this vault?"
+                : "Switch back to storing locations only?"}
+            </p>
+            {loaded.vault.customPack ? (
+              <p className="modal__warning">
+                Your custom form edits will be replaced by the standard form. Your entered data is kept.
+              </p>
+            ) : null}
+            <div className="modal__actions">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => void handleSwitchMode(pendingModeSwitch)}
+              >
+                Confirm
+              </button>
+              <button
+                className="button button--ghost"
+                type="button"
+                onClick={() => setPendingModeSwitch(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

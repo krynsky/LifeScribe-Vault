@@ -702,6 +702,95 @@ describe("Dashboard formModeHint — credential pack on load", () => {
   });
 });
 
+describe("Dashboard mode switch", () => {
+  it("switches from hint to credential mode: saves snapshot with formMode=credential and no customPack", async () => {
+    // Snapshot with hint mode and a customPack (to verify customPack is cleared on switch)
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "hint" },
+        customPack: {
+          schemaVersion: 1,
+          migrations: [],
+          sections: [],
+        },
+      },
+      generation: 3,
+      recovered: false,
+    });
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 4 });
+
+    const onLocked = vi.fn();
+    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Mark");
+
+    // Find and click the mode switch button
+    const switchBtn = screen.getByRole("button", { name: "Switch to store actual secrets" });
+    await userEvent.click(switchBtn);
+
+    // Confirm dialog should appear
+    const confirmBtn = screen.getByRole("button", { name: "Confirm" });
+    await userEvent.click(confirmBtn);
+
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalledTimes(1);
+    const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
+    expect(baseGeneration).toBe(3);
+    const snapshotRecord = snapshot as Record<string, unknown>;
+    const profile = snapshotRecord.profile as Record<string, unknown>;
+    expect(profile.formMode).toBe("credential");
+    expect(snapshotRecord.customPack).toBeUndefined();
+  });
+
+  it("switches from credential to hint mode: saves snapshot with formMode=hint", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "credential" },
+      },
+      generation: 2,
+      recovered: false,
+    });
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 3 });
+
+    const onLocked = vi.fn();
+    render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Mark");
+
+    const switchBtn = screen.getByRole("button", { name: "Switch to locations only" });
+    await userEvent.click(switchBtn);
+
+    const confirmBtn = screen.getByRole("button", { name: "Confirm" });
+    await userEvent.click(confirmBtn);
+
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalledTimes(1);
+    const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
+    expect(baseGeneration).toBe(2);
+    const snapshotRecord = snapshot as Record<string, unknown>;
+    const profile = snapshotRecord.profile as Record<string, unknown>;
+    expect(profile.formMode).toBe("hint");
+    expect(snapshotRecord.customPack).toBeUndefined();
+  });
+
+  it("Cancel button dismisses the dialog without saving", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "hint" },
+      },
+      generation: 1,
+      recovered: false,
+    });
+
+    const onLocked = vi.fn();
+    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Mark");
+
+    await userEvent.click(screen.getByRole("button", { name: "Switch to store actual secrets" }));
+    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(mocked.saveVaultSnapshot).not.toHaveBeenCalled();
+  });
+});
+
 describe("Dashboard auto-lock", () => {
   async function flushMount() {
     await act(async () => {
