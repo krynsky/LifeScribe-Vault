@@ -704,7 +704,8 @@ describe("Dashboard formModeHint — credential pack on load", () => {
 
 describe("Dashboard mode switch", () => {
   it("switches from hint to credential mode: saves snapshot with formMode=credential and no customPack", async () => {
-    // Snapshot with hint mode and a customPack (to verify customPack is cleared on switch)
+    // Snapshot with hint mode, a customPack (to verify customPack is cleared on switch),
+    // and saved field values (to verify values round-trip through the switch unchanged).
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {
         profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "hint" },
@@ -712,6 +713,20 @@ describe("Dashboard mode switch", () => {
           schemaVersion: 1,
           migrations: [],
           sections: [],
+        },
+        values: {
+          [SECTION_KEY]: {
+            sectionKey: SECTION_KEY,
+            records: [
+              {
+                id: "record-1",
+                groupKey: "executor",
+                schemaVersion: 1,
+                values: { executorName: "Mark Estate" },
+              },
+            ],
+            archivedAnswers: [],
+          },
         },
       },
       generation: 3,
@@ -738,6 +753,35 @@ describe("Dashboard mode switch", () => {
     const profile = snapshotRecord.profile as Record<string, unknown>;
     expect(profile.formMode).toBe("credential");
     expect(snapshotRecord.customPack).toBeUndefined();
+    // Field-level user data must survive the mode switch unchanged.
+    const values = snapshotRecord.values as Record<
+      string,
+      { records: Array<{ values: Record<string, string> }> }
+    >;
+    expect(values[SECTION_KEY].records[0].values.executorName).toBe("Mark Estate");
+  });
+
+  it("a save failure during mode switch shows the error banner and closes the dialog", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "hint" },
+      },
+      generation: 3,
+      recovered: false,
+    });
+    mocked.saveVaultSnapshot.mockRejectedValueOnce(new Error("conflict"));
+
+    const onLocked = vi.fn();
+    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Mark");
+
+    await userEvent.click(screen.getByRole("button", { name: "Switch to store actual secrets" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(
+      await screen.findByText("Mode switch could not be saved. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Confirm form detail change" })).not.toBeInTheDocument();
   });
 
   it("switches from credential to hint mode: saves snapshot with formMode=hint", async () => {
