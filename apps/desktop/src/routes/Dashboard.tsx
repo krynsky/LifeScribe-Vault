@@ -47,6 +47,7 @@ import {
   buildSnapshot,
   normalizeSnapshot,
   SNAPSHOT_FORMAT,
+  type FormMode,
   type KitMeta,
   type SectionMetaMap,
   type VaultProfile,
@@ -71,6 +72,8 @@ import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 export interface DashboardProps {
   /** Owner name from the setup flow, used until the first snapshot exists. */
   ownerNameHint?: string;
+  /** Form mode chosen at setup; consumed by Task 5. */
+  formModeHint?: FormMode;
   /** Called once the vault is locked (auto or manual). */
   onLocked: () => void;
 }
@@ -179,7 +182,7 @@ function collectAttachmentIds(values: VaultValues): string[] {
   return ids;
 }
 
-export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
+export function Dashboard({ ownerNameHint = "", formModeHint: _formModeHint = "hint", onLocked }: DashboardProps) {
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked" | "error">("loading");
   const [blockedMessage, setBlockedMessage] = useState("");
   const [loaded, setLoaded] = useState<LoadedVault | null>(null);
@@ -1019,12 +1022,18 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
         ? workingPack.sections.find((s) => s.sectionKey === section.sectionKey)
         : undefined;
 
-      // When editing, rebuild a transient ResolvedSection from workingPack title/lede
-      // so the header reflects in-progress edits immediately.
+      // When editing, re-resolve from workingPack so structural changes (add/remove/reorder
+      // fields) render immediately without waiting for a save.
       const displaySection = isSectionEditing && workingPack
         ? (() => {
-            const ps = workingPack.sections.find((s) => s.sectionKey === section.sectionKey);
-            return ps ? { ...section, title: ps.title, lede: ps.lede } : section;
+            const liveResolve = mergePackWithOverlay(
+              workingPack,
+              loaded.vault.overlay,
+              loaded.vault.savedValues,
+            );
+            return liveResolve.resolved.sections.find(
+              (s) => s.sectionKey === section.sectionKey,
+            ) ?? section;
           })()
         : section;
 

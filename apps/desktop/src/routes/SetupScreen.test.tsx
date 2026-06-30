@@ -28,7 +28,7 @@ describe("SetupScreen", () => {
     expect(createButton).toBeEnabled();
 
     await user.click(createButton);
-    expect(onCreate).toHaveBeenCalledWith(STRONG_PASSWORD, "Dana");
+    expect(onCreate).toHaveBeenCalledWith(STRONG_PASSWORD, "Dana", "hint");
   });
 
   it("blocks mismatched passwords with a friendly error", async () => {
@@ -53,5 +53,17 @@ describe("SetupScreen", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(/at least 15 characters/i);
     expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it("passes the chosen form mode to onCreate (defaults to hint)", async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<SetupScreen onCreate={onCreate} />);
+
+    const user = await fillPasswords();
+    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
+    await user.click(screen.getByLabelText(/store the actual secrets/i));
+    await user.click(screen.getByRole("button", { name: /create/i }));
+
+    expect(onCreate).toHaveBeenCalledWith(STRONG_PASSWORD, "Dana", "credential");
   });
 });

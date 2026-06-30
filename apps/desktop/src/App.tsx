@@ -18,6 +18,7 @@ import {
   unlockVault,
   type VaultStatusResponse,
 } from "./api/vaultApi";
+import type { FormMode } from "./domain/snapshot";
 import { Dashboard } from "./routes/Dashboard";
 import { LockedScreen } from "./routes/LockedScreen";
 import { SetupScreen } from "./routes/SetupScreen";
@@ -34,6 +35,7 @@ function screenFromStatus(status: VaultStatusResponse): AppScreen {
 function App() {
   const [screen, setScreen] = useState<AppScreen>("loading");
   const [ownerNameHint, setOwnerNameHint] = useState("");
+  const [formModeHint, setFormModeHint] = useState<FormMode>("hint");
 
   useEffect(() => {
     let isCurrent = true;
@@ -65,9 +67,10 @@ function App() {
     }
   }
 
-  async function handleCreate(masterPassword: string, ownerName: string) {
+  async function handleCreate(masterPassword: string, ownerName: string, formMode: FormMode) {
     const status = await createVault(masterPassword, ownerName);
     setOwnerNameHint(ownerName);
+    setFormModeHint(formMode);
     setScreen(screenFromStatus(status));
   }
 
@@ -121,7 +124,7 @@ function App() {
   }
 
   return (
-    <Dashboard ownerNameHint={ownerNameHint} onLocked={() => setScreen("locked")} />
+    <Dashboard ownerNameHint={ownerNameHint} formModeHint={formModeHint} onLocked={() => setScreen("locked")} />
   );
 }
 

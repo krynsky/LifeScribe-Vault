@@ -1,7 +1,8 @@
 import { type FormEvent, useState } from "react";
+import type { FormMode } from "../domain/snapshot";
 
 export interface SetupScreenProps {
-  onCreate: (masterPassword: string, ownerName: string) => Promise<void>;
+  onCreate: (masterPassword: string, ownerName: string, formMode: FormMode) => Promise<void>;
 }
 
 const MIN_MASTER_PASSWORD_LENGTH = 15;
@@ -26,6 +27,7 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
   const [confirmMasterPassword, setConfirmMasterPassword] = useState("");
   const [acknowledgedNoRecovery, setAcknowledgedNoRecovery] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
+  const [formMode, setFormMode] = useState<FormMode>("hint");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,7 +55,7 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
 
     setIsSubmitting(true);
     try {
-      await onCreate(masterPassword, ownerName.trim());
+      await onCreate(masterPassword, ownerName.trim(), formMode);
     } catch (caughtError) {
       setError(createErrorMessage(caughtError));
     } finally {
@@ -153,6 +155,36 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
               reset, and losing it means losing access to the vault.
             </span>
           </label>
+
+          <fieldset className="setup-mode">
+            <legend>What should this vault store?</legend>
+            <label className="setup-mode__option">
+              <input
+                type="radio"
+                name="formMode"
+                value="hint"
+                checked={formMode === "hint"}
+                onChange={() => setFormMode("hint")}
+              />
+              <span className="setup-mode__title">Store locations only (safer)</span>
+              <span className="setup-mode__desc">
+                Records where to find passwords and PINs, never the secrets themselves.
+              </span>
+            </label>
+            <label className="setup-mode__option">
+              <input
+                type="radio"
+                name="formMode"
+                value="credential"
+                checked={formMode === "credential"}
+                onChange={() => setFormMode("credential")}
+              />
+              <span className="setup-mode__title">Store the actual secrets</span>
+              <span className="setup-mode__desc">
+                Keeps real passwords, PINs, and codes inside this encrypted vault.
+              </span>
+            </label>
+          </fieldset>
 
           {error ? (
             <p className="form-error" id={ERROR_ID} role="alert">
