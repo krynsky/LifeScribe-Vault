@@ -9,7 +9,7 @@
  * move a badge until they are persisted.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   discardDraft,
   loadVaultSnapshot,
@@ -218,10 +218,13 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   // Resolve the base FormPack for a given raw snapshot, honouring the
   // formMode stored in the snapshot (or the hint from props when the vault
   // is new and the snapshot is null).
-  async function resolveBasePack(raw: VaultSnapshot | null): Promise<FormPack> {
-    const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
-    return parsed.customPack ?? (await loadDefaultPack(parsed.profile.formMode));
-  }
+  const resolveBasePack = useCallback(
+    async (raw: VaultSnapshot | null): Promise<FormPack> => {
+      const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
+      return parsed.customPack ?? (await loadDefaultPack(parsed.profile.formMode));
+    },
+    [ownerNameHint, formModeHint],
+  );
 
   // -------------------------------------------------------------------------
   // Initial load: snapshot, merge pipeline, then the stashed draft (if any).
@@ -318,7 +321,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     return () => {
       isCurrent = false;
     };
-  }, [ownerNameHint, loadKey]);
+  }, [ownerNameHint, loadKey, resolveBasePack]);
 
   // -------------------------------------------------------------------------
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
