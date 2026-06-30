@@ -18,6 +18,18 @@ use crate::error::{command_error_code, VaultError, VaultResult};
 /// `tauri.conf.json` > `bundle.resources`).
 pub const DEFAULT_PACK_RESOURCE: &str = "resources/packs/default-pack.json";
 
+/// Resource-relative path of the credential-mode pack.
+pub const CREDENTIAL_PACK_RESOURCE: &str = "resources/packs/default-pack-credential.json";
+
+/// Map a wire variant string to its resource-relative path. Any unknown value
+/// resolves to the hint pack — the safe default.
+pub fn pack_resource_for_variant(variant: &str) -> &'static str {
+    match variant {
+        "credential" => CREDENTIAL_PACK_RESOURCE,
+        _ => DEFAULT_PACK_RESOURCE,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Testable core
 // ---------------------------------------------------------------------------
@@ -36,18 +48,18 @@ pub fn read_pack_at_path(pack_path: &Path) -> VaultResult<String> {
 /// Dev-mode pack path: the source `resources/` dir next to Cargo.toml, so
 /// editing the JSON hot-reloads in `npm run dev` without re-bundling.
 #[cfg(debug_assertions)]
-fn default_pack_path(_app: &tauri::AppHandle) -> VaultResult<PathBuf> {
-    Ok(Path::new(env!("CARGO_MANIFEST_DIR")).join(DEFAULT_PACK_RESOURCE))
+fn default_pack_path(_app: &tauri::AppHandle, resource: &str) -> VaultResult<PathBuf> {
+    Ok(Path::new(env!("CARGO_MANIFEST_DIR")).join(resource))
 }
 
 /// Release pack path: the bundled Tauri resource only.
 #[cfg(not(debug_assertions))]
-fn default_pack_path(app: &tauri::AppHandle) -> VaultResult<PathBuf> {
+fn default_pack_path(app: &tauri::AppHandle, resource: &str) -> VaultResult<PathBuf> {
     use tauri::path::BaseDirectory;
     use tauri::Manager;
 
     app.path()
-        .resolve(DEFAULT_PACK_RESOURCE, BaseDirectory::Resource)
+        .resolve(resource, BaseDirectory::Resource)
         .map_err(|error| VaultError::FileOperation(error.to_string()))
 }
 
@@ -55,11 +67,12 @@ fn default_pack_path(app: &tauri::AppHandle) -> VaultResult<PathBuf> {
 // Tauri command wrapper
 // ---------------------------------------------------------------------------
 
-/// Return the bundled default pack as a raw JSON string. The frontend
-/// validates it as untrusted input before anything renders.
+/// Return the bundled pack for the given variant as a raw JSON string. The
+/// frontend validates it as untrusted input before anything renders.
 #[tauri::command]
-pub fn read_default_pack(app: tauri::AppHandle) -> Result<String, String> {
-    let pack_path = default_pack_path(&app).map_err(command_error_code)?;
+pub fn read_default_pack(app: tauri::AppHandle, variant: String) -> Result<String, String> {
+    let resource = pack_resource_for_variant(&variant);
+    let pack_path = default_pack_path(&app, resource).map_err(command_error_code)?;
     read_pack_at_path(&pack_path).map_err(command_error_code)
 }
 
@@ -85,4 +98,20 @@ pub fn write_default_pack(pack_json: String) -> Result<(), String> {
     let pack_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join(DEFAULT_PACK_RESOURCE);
     write_pack_at_path(&pack_json, &pack_path).map_err(command_error_code)
+}
+
+#[cfg(test)]
+mod variant_tests {
+    use super::{pack_resource_for_variant, CREDENTIAL_PACK_RESOURCE, DEFAULT_PACK_RESOURCE};
+
+    #[test]
+    fn credential_variant_maps_to_credential_resource() {
+        assert_eq!(pack_resource_for_variant("credential"), CREDENTIAL_PACK_RESOURCE);
+    }
+
+    #[test]
+    fn hint_and_unknown_variants_map_to_default_resource() {
+        assert_eq!(pack_resource_for_variant("hint"), DEFAULT_PACK_RESOURCE);
+        assert_eq!(pack_resource_for_variant("anything-else"), DEFAULT_PACK_RESOURCE);
+    }
 }

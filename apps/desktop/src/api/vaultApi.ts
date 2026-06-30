@@ -121,8 +121,10 @@ export function discardDraft(): Promise<void> {
  * (the frontend has no fs scope). The content is UNTRUSTED INPUT — callers
  * must run it through `validatePack` before anything renders.
  */
-export function readDefaultPack(): Promise<string> {
-  return invoke("read_default_pack");
+export function readDefaultPack(
+  variant: "hint" | "credential" = "hint",
+): Promise<string> {
+  return invoke("read_default_pack", { variant });
 }
 
 export function copyVaultValue(

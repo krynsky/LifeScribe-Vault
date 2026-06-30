@@ -11,29 +11,34 @@
  * before anything renders — never silent acceptance, never partial loads.
  */
 
-import defaultPackJson from "../../src-tauri/resources/packs/default-pack.json";
+import type { FormMode } from "./snapshot";
+import hintPackJson from "../../src-tauri/resources/packs/default-pack.json";
+import credentialPackJson from "../../src-tauri/resources/packs/default-pack-credential.json";
 import { readDefaultPack } from "../api/vaultApi";
 import type { FormPack } from "./formModel";
 import { validatePack } from "./packValidation";
+
+function staticPackFor(mode: FormMode): unknown {
+  return mode === "credential" ? credentialPackJson : hintPackJson;
+}
 
 function validateCandidate(candidate: unknown): FormPack | null {
   const result = validatePack(candidate);
   return result.ok ? result.pack : null;
 }
 
-/** Validate the static build-time copy; throws when even that is broken. */
-function loadStaticDefaultPack(): FormPack {
-  const result = validatePack(defaultPackJson as unknown);
+function loadStaticDefaultPack(mode: FormMode): FormPack {
+  const result = validatePack(staticPackFor(mode));
   if (!result.ok) {
-    throw new Error(`The bundled default pack failed validation: ${result.errors.join("; ")}`);
+    throw new Error(`The bundled ${mode} pack failed validation: ${result.errors.join("; ")}`);
   }
   return result.pack;
 }
 
-export async function loadDefaultPack(): Promise<FormPack> {
+export async function loadDefaultPack(mode: FormMode = "hint"): Promise<FormPack> {
   let raw: unknown;
   try {
-    raw = await readDefaultPack();
+    raw = await readDefaultPack(mode);
   } catch {
     raw = null; // invoke unavailable (tests) or resource read failed.
   }
@@ -47,5 +52,5 @@ export async function loadDefaultPack(): Promise<FormPack> {
       // Malformed resource JSON: fall through to the static copy.
     }
   }
-  return loadStaticDefaultPack();
+  return loadStaticDefaultPack(mode);
 }
