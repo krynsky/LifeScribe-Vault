@@ -41,9 +41,12 @@ import type { SectionValues, VaultValues } from "./valuesStore";
 export const SNAPSHOT_FORMAT = 1;
 export const DEFAULT_REVIEW_CADENCE_MONTHS = 12;
 
+export type FormMode = "hint" | "credential";
+
 export interface VaultProfile {
   ownerName: string;
   reviewCadenceMonths: number;
+  formMode: FormMode;
 }
 
 export interface SectionMeta {
@@ -91,6 +94,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asString(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function asFormMode(value: unknown, fallback: FormMode): FormMode {
+  return value === "hint" || value === "credential" ? value : fallback;
 }
 
 function asOptionalIso(value: unknown): string | undefined {
@@ -158,11 +165,14 @@ function normalizeKitMeta(raw: unknown): KitMeta | null {
 }
 
 /** A brand-new snapshot for a vault that has never been saved. */
-export function emptySnapshot(ownerName: string): ParsedSnapshot {
+export function emptySnapshot(
+  ownerName: string,
+  formMode: FormMode = "hint",
+): ParsedSnapshot {
   return {
     snapshotFormat: SNAPSHOT_FORMAT,
     schemaVersion: 0,
-    profile: { ownerName, reviewCadenceMonths: DEFAULT_REVIEW_CADENCE_MONTHS },
+    profile: { ownerName, reviewCadenceMonths: DEFAULT_REVIEW_CADENCE_MONTHS, formMode },
     values: {},
     sectionMeta: {},
     overlay: null,
@@ -179,9 +189,10 @@ export function emptySnapshot(ownerName: string): ParsedSnapshot {
 export function normalizeSnapshot(
   raw: VaultSnapshot | null,
   fallbackOwnerName = "",
+  fallbackFormMode: FormMode = "hint",
 ): ParsedSnapshot {
   if (!isRecord(raw)) {
-    return emptySnapshot(fallbackOwnerName);
+    return emptySnapshot(fallbackOwnerName, fallbackFormMode);
   }
   const profileRaw = isRecord(raw.profile) ? raw.profile : {};
   const cadenceRaw = profileRaw.reviewCadenceMonths;
@@ -204,6 +215,7 @@ export function normalizeSnapshot(
     profile: {
       ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
       reviewCadenceMonths,
+      formMode: asFormMode(profileRaw.formMode, fallbackFormMode),
     },
     values: normalizeValues(raw.values),
     sectionMeta: normalizeSectionMeta(raw.sectionMeta),
