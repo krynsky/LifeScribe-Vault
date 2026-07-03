@@ -15,10 +15,11 @@ import { useEffect, useState } from "react";
 import {
   createVault,
   getVaultStatus,
+  saveVaultSnapshot,
   unlockVault,
   type VaultStatusResponse,
 } from "./api/vaultApi";
-import type { FormMode } from "./domain/snapshot";
+import { buildSnapshot, emptySnapshot, type FormMode } from "./domain/snapshot";
 import { Dashboard } from "./routes/Dashboard";
 import { LockedScreen } from "./routes/LockedScreen";
 import { SetupScreen } from "./routes/SetupScreen";
@@ -71,6 +72,17 @@ function App() {
     const status = await createVault(masterPassword, ownerName);
     setOwnerNameHint(ownerName);
     setFormModeHint(formMode);
+    // Persist the onboarding choices (owner name + form mode) into an initial
+    // generation-0 snapshot so they survive a relaunch even before any data is
+    // entered. Best-effort: createVault has already succeeded, so a failure
+    // here must not block reaching the vault — formModeHint still carries the
+    // choice for this session and the first data save will persist it.
+    try {
+      await saveVaultSnapshot(buildSnapshot(emptySnapshot(ownerName, formMode)), 0);
+    } catch {
+      // Non-fatal: the vault exists; the mode is held in formModeHint until the
+      // first save writes it.
+    }
     setScreen(screenFromStatus(status));
   }
 

@@ -87,6 +87,38 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Backup" })).toBeInTheDocument();
   });
 
+  it("persists the chosen form mode into an initial snapshot on create", async () => {
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false });
+    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true });
+    render(<App />);
+
+    expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Your name"), "Dana");
+    await user.type(
+      screen.getByLabelText("Master password"),
+      "correct horse battery staple",
+    );
+    await user.type(
+      screen.getByLabelText("Confirm master password"),
+      "correct horse battery staple",
+    );
+    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
+    // Choose credential mode at onboarding.
+    await user.click(screen.getByLabelText(/store the actual secrets/i));
+    await user.click(screen.getByRole("button", { name: "Create vault" }));
+
+    // The onboarding choice is written straight into a generation-0 CAS save,
+    // so it survives a relaunch even before the user enters any data.
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
+    const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
+    expect((snapshot as { profile: { formMode: string } }).profile.formMode).toBe(
+      "credential",
+    );
+    expect(baseGeneration).toBe(0);
+  });
+
   it("shows the locked screen for an existing vault and reaches the dashboard on unlock", async () => {
     mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: true });
     mocked.unlockVault.mockResolvedValue({ unlocked: true, vaultExists: true });
