@@ -700,6 +700,27 @@ describe("Dashboard formModeHint — credential pack on load", () => {
     // getByLabelText looks for a form control associated with that label string.
     expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
   });
+
+  it("carries the onboarding formMode hint into a fresh vault's profile", async () => {
+    // Fresh vault: no snapshot persisted yet (loadVaultSnapshot rejects NotFound
+    // via the default beforeEach). The ONLY source of formMode is the onboarding
+    // hint prop. The loaded profile — not just the pack — must reflect it, or the
+    // first save will persist "hint" and silently discard the user's choice.
+    const onLocked = vi.fn();
+    render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Mark");
+
+    // Sidebar reads the profile mode. In credential mode the toggle offers the
+    // *reverse* switch. If the profile were stuck on "hint", this button would
+    // instead read "Switch to store actual secrets".
+    expect(
+      screen.getByRole("button", { name: "Switch to locations only" }),
+    ).toBeInTheDocument();
+
+    // And the credential-only field renders, confirming pack and profile agree.
+    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
+    expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
+  });
 });
 
 describe("Dashboard mode switch", () => {

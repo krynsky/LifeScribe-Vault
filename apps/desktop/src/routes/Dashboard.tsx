@@ -123,8 +123,14 @@ function buildLoadedVault(
   generation: number,
   recovered: boolean,
   ownerNameHint: string,
+  formModeHint: FormMode,
 ): LoadedVault | { blocked: string } {
-  const parsed = normalizeSnapshot(raw, ownerNameHint);
+  // formModeHint seeds the profile only for a fresh vault (raw null, or a
+  // snapshot with no persisted formMode). An existing snapshot keeps its own
+  // formMode — normalizeSnapshot ignores the fallback when a valid one is
+  // present. Without this the onboarding choice never reaches the profile and
+  // the first save persists "hint", silently discarding it.
+  const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
   const merge = mergePackWithOverlay(pack, parsed.overlay, parsed.values);
   let values = applyKeyRenames(parsed.values, merge.keyRenames);
 
@@ -261,7 +267,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         return;
       }
 
-      const result = buildLoadedVault(pack, raw, generation, recovered, ownerNameHint);
+      const result = buildLoadedVault(pack, raw, generation, recovered, ownerNameHint, formModeHint);
       if (!isCurrent) {
         return;
       }
@@ -321,7 +327,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     return () => {
       isCurrent = false;
     };
-  }, [ownerNameHint, loadKey, resolveBasePack]);
+  }, [ownerNameHint, formModeHint, loadKey, resolveBasePack]);
 
   // -------------------------------------------------------------------------
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
@@ -578,6 +584,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         response.generation,
         response.recovered,
         ownerNameHint,
+        formModeHint,
       );
       if ("blocked" in result) {
         setBlockedMessage(result.blocked);
@@ -619,6 +626,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         response.generation,
         response.recovered,
         ownerNameHint,
+        formModeHint,
       );
       if ("blocked" in result) {
         setBlockedMessage(result.blocked);
