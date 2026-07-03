@@ -72,6 +72,10 @@ function App() {
     const status = await createVault(masterPassword, ownerName);
     setOwnerNameHint(ownerName);
     setFormModeHint(formMode);
+    // The Form Editor preference persists in localStorage (app-global, not
+    // vault-scoped). A freshly created vault must start with it OFF, so clear
+    // any flag left over from a previous vault on this machine.
+    localStorage.removeItem("lifescribe.packEditorEnabled");
     // Persist the onboarding choices (owner name + form mode) into an initial
     // generation-0 snapshot so they survive a relaunch even before any data is
     // entered. Best-effort: createVault has already succeeded, so a failure

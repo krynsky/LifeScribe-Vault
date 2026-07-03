@@ -119,6 +119,37 @@ describe("App", () => {
     expect(baseGeneration).toBe(0);
   });
 
+  it("resets the Form Editor preference to off when a new vault is created", async () => {
+    // A previous vault on this machine left the editor enabled; a new vault
+    // must not inherit it (localStorage is app-global, not vault-scoped).
+    localStorage.setItem("lifescribe.packEditorEnabled", "true");
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false });
+    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true });
+    render(<App />);
+
+    expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Your name"), "Dana");
+    await user.type(
+      screen.getByLabelText("Master password"),
+      "correct horse battery staple",
+    );
+    await user.type(
+      screen.getByLabelText("Confirm master password"),
+      "correct horse battery staple",
+    );
+    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
+    await user.click(screen.getByRole("button", { name: "Create vault" }));
+
+    await screen.findByText("Welcome, Dana");
+    expect(localStorage.getItem("lifescribe.packEditorEnabled")).not.toBe("true");
+    // The Form Editor toggle is off, so its nav item is absent.
+    expect(
+      screen.queryByRole("button", { name: /form editor/i }),
+    ).not.toBeInTheDocument();
+    localStorage.clear();
+  });
+
   it("shows the locked screen for an existing vault and reaches the dashboard on unlock", async () => {
     mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: true });
     mocked.unlockVault.mockResolvedValue({ unlocked: true, vaultExists: true });
