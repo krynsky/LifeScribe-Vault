@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest --run"
+    "test": "vitest --run",
+    "build:credential-pack": "node scripts/build-credential-pack.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

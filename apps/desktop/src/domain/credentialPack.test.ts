@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import hintPack from "../../src-tauri/resources/packs/default-pack.json";
 import credentialPack from "../../src-tauri/resources/packs/default-pack-credential.json";
+import overlay from "../../scripts/credential-overlay.json";
+import { buildCredentialPack, serializePack } from "../../scripts/lib/credential-pack.mjs";
 import type { FormPack } from "./formModel";
 import { validatePack } from "./packValidation";
 
@@ -19,6 +23,18 @@ function systemKeys(pack: FormPack): Set<string> {
 describe("credential pack", () => {
   it("passes the same validation as the default pack", () => {
     expect(validatePack(credentialPack).ok).toBe(true);
+  });
+
+  it("matches the generator output — no drift from the overlay", () => {
+    // The committed pack is generated from the hint pack + credential-overlay.json.
+    // If this fails, run `npm run build:credential-pack` and commit the result,
+    // or reconcile a hand-edit that bypassed the overlay.
+    const committed = readFileSync(
+      resolve(process.cwd(), "src-tauri/resources/packs/default-pack-credential.json"),
+      "utf-8",
+    );
+    const generated = serializePack(buildCredentialPack(hintPack, overlay));
+    expect(generated).toBe(committed);
   });
 
   it("is a superset of the hint pack (every hint key exists in credential)", () => {
