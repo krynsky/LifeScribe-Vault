@@ -55,6 +55,26 @@ describe("SetupScreen", () => {
     expect(onCreate).not.toHaveBeenCalled();
   });
 
+  it("reveals and re-hides the master password with the in-field toggle", async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<SetupScreen onCreate={onCreate} />);
+    const user = userEvent.setup();
+
+    const master = screen.getByLabelText("Master password");
+    expect(master).toHaveAttribute("type", "password");
+
+    await user.click(screen.getByRole("button", { name: "Show master password" }));
+    expect(master).toHaveAttribute("type", "text");
+    // Toggling one field does not reveal the other.
+    expect(screen.getByLabelText("Confirm master password")).toHaveAttribute(
+      "type",
+      "password",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Hide master password" }));
+    expect(master).toHaveAttribute("type", "password");
+  });
+
   it("passes the chosen form mode to onCreate (defaults to hint)", async () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<SetupScreen onCreate={onCreate} />);

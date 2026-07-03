@@ -5,6 +5,49 @@ export interface SetupScreenProps {
   onCreate: (masterPassword: string, ownerName: string, formMode: FormMode) => Promise<void>;
 }
 
+/** Eye glyph; a slash is overlaid when the password is currently visible. */
+function EyeIcon({ off }: { off: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+      {off ? <line x1="3" y1="3" x2="21" y2="21" /> : null}
+    </svg>
+  );
+}
+
+/** In-field button that toggles a password input between masked and visible. */
+function RevealToggle({
+  fieldLabel,
+  shown,
+  onToggle,
+}: {
+  fieldLabel: string;
+  shown: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="password-field__toggle"
+      aria-label={`${shown ? "Hide" : "Show"} ${fieldLabel}`}
+      aria-pressed={shown}
+      onClick={onToggle}
+    >
+      <EyeIcon off={shown} />
+    </button>
+  );
+}
+
 const MIN_MASTER_PASSWORD_LENGTH = 15;
 const GUIDANCE_ID = "setup-password-guidance";
 const ERROR_ID = "setup-error";
@@ -26,12 +69,12 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
   const [masterPassword, setMasterPassword] = useState("");
   const [confirmMasterPassword, setConfirmMasterPassword] = useState("");
   const [acknowledgedNoRecovery, setAcknowledgedNoRecovery] = useState(false);
-  const [showPasswords, setShowPasswords] = useState(false);
+  const [revealMaster, setRevealMaster] = useState(false);
+  const [revealConfirm, setRevealConfirm] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>("hint");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const passwordType = showPasswords ? "text" : "password";
   const describedBy = error ? `${GUIDANCE_ID} ${ERROR_ID}` : GUIDANCE_ID;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -98,48 +141,53 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
 
           <div className="vault-form__field">
             <label htmlFor="master-password">Master password</label>
-            <input
-              aria-describedby={describedBy}
-              aria-invalid={error ? "true" : undefined}
-              autoComplete="new-password"
-              id="master-password"
-              required
-              spellCheck={false}
-              type={passwordType}
-              value={masterPassword}
-              onChange={(event) => {
-                setError("");
-                setMasterPassword(event.currentTarget.value);
-              }}
-            />
+            <div className="password-field">
+              <input
+                aria-describedby={describedBy}
+                aria-invalid={error ? "true" : undefined}
+                autoComplete="new-password"
+                id="master-password"
+                required
+                spellCheck={false}
+                type={revealMaster ? "text" : "password"}
+                value={masterPassword}
+                onChange={(event) => {
+                  setError("");
+                  setMasterPassword(event.currentTarget.value);
+                }}
+              />
+              <RevealToggle
+                fieldLabel="master password"
+                shown={revealMaster}
+                onToggle={() => setRevealMaster((shown) => !shown)}
+              />
+            </div>
           </div>
 
           <div className="vault-form__field">
             <label htmlFor="confirm-master-password">Confirm master password</label>
-            <input
-              aria-describedby={describedBy}
-              aria-invalid={error ? "true" : undefined}
-              autoComplete="new-password"
-              id="confirm-master-password"
-              required
-              spellCheck={false}
-              type={passwordType}
-              value={confirmMasterPassword}
-              onChange={(event) => {
-                setError("");
-                setConfirmMasterPassword(event.currentTarget.value);
-              }}
-            />
+            <div className="password-field">
+              <input
+                aria-describedby={describedBy}
+                aria-invalid={error ? "true" : undefined}
+                autoComplete="new-password"
+                id="confirm-master-password"
+                required
+                spellCheck={false}
+                type={revealConfirm ? "text" : "password"}
+                value={confirmMasterPassword}
+                onChange={(event) => {
+                  setError("");
+                  setConfirmMasterPassword(event.currentTarget.value);
+                }}
+              />
+              <RevealToggle
+                fieldLabel="confirmation password"
+                shown={revealConfirm}
+                onToggle={() => setRevealConfirm((shown) => !shown)}
+              />
+            </div>
           </div>
-
-          <label className="checkbox-control">
-            <input
-              checked={showPasswords}
-              type="checkbox"
-              onChange={(event) => setShowPasswords(event.currentTarget.checked)}
-            />
-            <span>Show passwords</span>
-          </label>
 
           <label className="checkbox-control checkbox-control--acknowledge">
             <input
