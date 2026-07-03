@@ -210,6 +210,10 @@ button {
 }
 
 .checkbox-control input {
+  /* Reset the width:100% that .vault-form input applies to text fields, so the
+     checkbox stays intrinsically sized and the label text keeps its space. */
+  width: auto;
+  flex-shrink: 0;
   margin-top: 0.2em;
   accent-color: var(--color-accent);
 }
@@ -1309,6 +1313,9 @@ button {
 }
 
 .setup-mode__option > input {
+  /* Same reset as checkboxes — otherwise .vault-form input width:100% inflates
+     the radio and collapses the text column. */
+  width: auto;
   grid-column: 1;
   grid-row: 1 / span 2;
   align-self: start;
