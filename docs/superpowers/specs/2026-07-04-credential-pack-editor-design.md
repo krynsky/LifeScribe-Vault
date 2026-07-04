@@ -173,7 +173,8 @@ save    →  POST /__pack {editedPack}
 
 - **`deriveOverlay` unit + round-trip tests** (Vitest, `scripts/lib`): inverse
   property against the committed overlay and against hand-constructed edited
-  packs (rewords, added field, reorder, kit toggle).
+  packs (rewords, added field, reorder). Kit additions are still exercised via
+  the committed overlay's `kitAdditions` in the round-trip.
 - **Existing drift-guard test** — unchanged; continues to assert the committed
   pack equals `buildCredentialPack(hint, overlay)`.
 - **`save-plugin` handler test** — deriving + serializing writes the expected
@@ -181,12 +182,14 @@ save    →  POST /__pack {editedPack}
   live server needed).
 - **Editor smoke test** (optional, RTL): the app renders a loaded pack and a
   field edit updates the preview.
-- Manual: `npm run pack-editor`, reword a field, add/remove a secret, reorder,
-  toggle kit membership, Save, confirm `git diff` shows the expected overlay +
-  regenerated pack, and `npm test` (drift + round-trip) stays green.
+- Manual: `npm run pack-editor`, reword a field, add/remove a field, reorder,
+  Save, confirm `git diff` shows the expected overlay + regenerated pack, and
+  `npm test` (drift + round-trip) stays green.
 
 ## Future enhancements (out of scope now)
 
+- Recovery-Kit membership editing (needs an overlay `kitRemovals` extension so
+  removing a hint-kit field is representable; today only additions are encoded).
 - Group/section structural editing (needs overlay schema extensions).
 - Drag-and-drop reordering.
 - Editing the hint pack / a general multi-pack editor.
