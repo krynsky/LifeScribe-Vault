@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest --run",
-    "build:credential-pack": "node scripts/build-credential-pack.mjs"
+    "build:credential-pack": "node scripts/build-credential-pack.mjs",
+    "pack-editor": "vite --config vite.pack-editor.config.ts",
+    "typecheck:pack-editor": "tsc --noEmit -p tsconfig.pack-editor.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
