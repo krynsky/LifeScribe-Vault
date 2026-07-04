@@ -1,0 +1,7 @@
+# Form-pack JSON is written by tooling with LF (scripts/lib/credential-pack.mjs
+# serializePack, the pack-editor save endpoint) and byte-compared in tests
+# (credentialPack / saveArtifacts drift + round-trip guards). Pin these to LF so
+# they are NOT smudged to CRLF on checkout under core.autocrlf=true — otherwise
+# the byte-exact tests fail and every editor save rewrites the whole file.
+apps/desktop/src-tauri/resources/packs/*.json text eol=lf
+apps/desktop/scripts/credential-overlay.json text eol=lf
