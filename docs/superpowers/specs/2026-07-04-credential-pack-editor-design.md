@@ -140,21 +140,27 @@ Save button; save results (success / validation or write error) surface inline.
 ```
 launch  →  GET /__pack  →  buildCredentialPack(hint, overlay)  →  render (edit + preview)
 edit    →  packEdits ops mutate the in-memory FormPack  →  live preview updates
-save    →  POST /__pack {editedPack}
-            → validatePack(editedPack)                 (reject on failure)
+save    →  validatePack(editedPack)   (client-side, in the editor; reject → show error, no POST)
+        →  POST /__pack {editedPack}
             → overlay = deriveOverlay(hint, editedPack)
             → write credential-overlay.json
             → write default-pack-credential.json = buildCredentialPack(hint, overlay)
             → respond {ok}; editor reloads from disk so preview == saved
 ```
 
+`validatePack` is a frontend (`.ts`) module and runs in the editor client before
+the POST is sent — a validation failure surfaces in the UI and no request is
+made. The dev-server plugin is plain Node ESM (`.mjs`) and does not re-import the
+TS validator; it trusts the already-validated client on a localhost-only endpoint.
+
 ## Error handling
 
 - **Load:** if the hint pack or overlay fails to read/parse/validate, the editor
   shows a blocking error rather than a partial form.
-- **Save:** `validatePack` runs before any write; a validation failure is
-  reported to the UI and nothing is written. Filesystem write failures are
-  returned and surfaced. The save is all-or-nothing (overlay + pack together).
+- **Save:** the editor runs `validatePack` client-side before POSTing; a
+  validation failure is reported in the UI and no request is sent. On the
+  server, filesystem write failures are returned (400) and surfaced. The save is
+  all-or-nothing (overlay + pack written together).
 - **Round-trip safety:** the `deriveOverlay`/`buildCredentialPack` round-trip
   test and the existing drift-guard test keep the overlay and the committed pack
   provably in sync; a regression fails CI.
