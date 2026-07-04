@@ -3,6 +3,7 @@ import hintPack from "../../src-tauri/resources/packs/default-pack.json";
 import overlay from "../../scripts/credential-overlay.json";
 import { buildCredentialPack } from "../../scripts/lib/credential-pack.mjs";
 import { deriveOverlay } from "../../scripts/lib/derive-overlay.mjs";
+import type { FormPack } from "./formModel";
 
 // buildCredentialPack/deriveOverlay treat packs as opaque JSON; cast loosely.
 const hint = hintPack as unknown as Record<string, unknown>;
@@ -18,11 +19,11 @@ describe("deriveOverlay", () => {
   });
 
   it("generate ∘ derive = identity for a helper-text reword", () => {
-    const pack = buildCredentialPack(hint, overlay) as any;
-    const pm = pack.sections.find((s: any) => s.sectionKey === "password-manager");
+    const pack = buildCredentialPack(hint, overlay) as FormPack;
+    const pm = pack.sections.find((s) => s.sectionKey === "password-manager")!;
     const field = pm.groups
-      .flatMap((g: any) => g.fields)
-      .find((f: any) => f.systemKey === "passwordManagerRecoveryLocation");
+      .flatMap((g) => g.fields)
+      .find((f) => f.systemKey === "passwordManagerRecoveryLocation")!;
     field.helperText = "Reworded for credential mode.";
     const derived = deriveOverlay(hint, pack);
     expect(derived.fieldOverrides.passwordManagerRecoveryLocation).toEqual({
@@ -32,18 +33,18 @@ describe("deriveOverlay", () => {
   });
 
   it("generate ∘ derive = identity when shared fields are reordered", () => {
-    const pack = buildCredentialPack(hint, overlay) as any;
-    const devices = pack.sections.find((s: any) => s.sectionKey === "devices");
-    const group = devices.groups.find((g: any) => g.groupKey === "device");
+    const pack = buildCredentialPack(hint, overlay) as FormPack;
+    const devices = pack.sections.find((s) => s.sectionKey === "devices")!;
+    const group = devices.groups.find((g) => g.groupKey === "device")!;
     // Reorder deviceType (2) and deviceOwner (3): swap both their order values
     // and their array positions, mirroring a real editor reorder so the group
     // stays internally consistent (array order == order-value order).
-    const ti = group.fields.findIndex((f: any) => f.systemKey === "deviceType");
-    const oi = group.fields.findIndex((f: any) => f.systemKey === "deviceOwner");
-    const type = group.fields[ti];
-    const owner = group.fields[oi];
+    const ti = group.fields.findIndex((f) => f.systemKey === "deviceType");
+    const oi = group.fields.findIndex((f) => f.systemKey === "deviceOwner");
+    const type = group.fields[ti]!;
+    const owner = group.fields[oi]!;
     [type.order, owner.order] = [owner.order, type.order];
-    [group.fields[ti], group.fields[oi]] = [group.fields[oi], group.fields[ti]];
+    [group.fields[ti], group.fields[oi]] = [group.fields[oi]!, group.fields[ti]!];
     const derived = deriveOverlay(hint, pack);
     expect(buildCredentialPack(hint, derived)).toEqual(pack);
   });
