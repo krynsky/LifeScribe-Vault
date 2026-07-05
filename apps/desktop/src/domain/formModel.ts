@@ -13,7 +13,7 @@
  *   delete or retype protected fields.
  */
 
-export const FIELD_TYPES = ["text", "textarea", "date", "select", "email", "phone"] as const;
+export const FIELD_TYPES = ["text", "textarea", "date", "select", "email", "phone", "file"] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
 

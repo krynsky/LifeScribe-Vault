@@ -159,6 +159,11 @@ function validateField(
       );
     }
   }
+  if (candidate.type === "file" && candidate.options !== undefined) {
+    errors.push(
+      `Section ${sectionKey}: file field ${label} must not declare options.`,
+    );
+  }
   if (candidate.visibleWhen !== undefined) {
     validateVisibleWhen(candidate.visibleWhen, `${sectionKey}.${label}`, errors);
   }

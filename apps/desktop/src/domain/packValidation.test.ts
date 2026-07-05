@@ -67,6 +67,27 @@ describe("validatePack", () => {
     expect(result.errors.join(" ")).toMatch(/unsupported type "javascript"/);
   });
 
+  it("accepts a file field type", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const fields = (pack.sections as JsonSection[])[0].groups[0].fields;
+        fields.push({ systemKey: "willPdf", label: "Will", type: "file", required: false, protected: false, order: 99 });
+      }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects options on a file field", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const fields = (pack.sections as JsonSection[])[0].groups[0].fields;
+        fields.push({ systemKey: "willPdf", label: "Will", type: "file", required: false, protected: false, order: 99, options: [{ value: "a", label: "A" }] });
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toMatch(/file field .* must not declare options/i);
+  });
+
   it("rejects select fields without options", () => {
     const result = validatePack(
       mutatePack((pack) => {

@@ -183,6 +183,7 @@ export function valueConformsToField(
     case "text":
     case "textarea":
     case "phone":
+    case "file":
       return true;
   }
 }
