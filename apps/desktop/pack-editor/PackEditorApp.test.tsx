@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import defaultPack from "../src-tauri/resources/packs/default-pack.json";
@@ -68,5 +68,21 @@ describe("PackEditorApp", () => {
     expect(
       screen.queryByRole("button", { name: /edit field Master password/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("switches to the Preview tab and shows the field read-only", async () => {
+    await openPasswordManager();
+    await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
+    const preview = screen.getByRole("tabpanel");
+    expect(within(preview).getByText("Master password")).toBeInTheDocument();
+  });
+
+  it("switches to the JSON tab and shows the derived overlay", async () => {
+    await openPasswordManager();
+    await userEvent.click(screen.getByRole("tab", { name: /json/i }));
+    const panel = screen.getByRole("tabpanel");
+    expect(
+      within(panel).getByText(/"packId": "lifescribe-default-credential"/),
+    ).toBeInTheDocument();
   });
 });
