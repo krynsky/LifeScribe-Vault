@@ -5,6 +5,7 @@ import defaultPack from "../src-tauri/resources/packs/default-pack.json";
 import overlay from "../scripts/credential-overlay.json";
 import type { FormPack } from "../src/domain/formModel";
 import * as api from "./api";
+import type { PackName } from "./api";
 import { PackEditorApp } from "./PackEditorApp";
 
 const hintPack = defaultPack as unknown as FormPack;
@@ -14,7 +15,10 @@ const mocked = vi.mocked(api);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocked.getPack.mockResolvedValue({ hintPack, overlay });
+  mocked.getPack.mockImplementation(async (packName: PackName = "credential") => {
+    if (packName === "hint") return { hintPack };
+    return { hintPack, overlay };
+  });
 });
 
 async function openPasswordManager() {
@@ -23,11 +27,28 @@ async function openPasswordManager() {
 }
 
 describe("PackEditorApp", () => {
+  it("shows Credential Pack and Hint Pack selector buttons", async () => {
+    render(<PackEditorApp />);
+    expect(await screen.findByRole("button", { name: /credential pack/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /hint pack/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /credential pack/i })).toHaveAttribute("aria-current", "page");
+  });
+
   it("lists the credential-only field row after loading", async () => {
     await openPasswordManager();
     expect(
       await screen.findByRole("button", { name: /edit field Master password/i }),
     ).toBeInTheDocument();
+  });
+
+  it("switching to Hint Pack reloads without credential-only fields", async () => {
+    render(<PackEditorApp />);
+    await userEvent.click(await screen.findByRole("button", { name: /hint pack/i }));
+    expect(screen.getByRole("button", { name: /hint pack/i })).toHaveAttribute("aria-current", "page");
+    // "Master password" is a credential-only field added by the overlay — not present in hint mode
+    await screen.findByRole("button", { name: /password manager plan/i });
+    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
+    expect(screen.queryByRole("button", { name: /edit field Master password/i })).not.toBeInTheDocument();
   });
 
   it("selecting a field edits it in the property panel and saves", async () => {
@@ -47,6 +68,15 @@ describe("PackEditorApp", () => {
       .groups.flatMap((g) => g.fields)
       .find((f) => f.systemKey === "passwordManagerMasterPassword")!;
     expect(field.label).toBe("Vault master password");
+  });
+
+  it("save passes packName to savePack", async () => {
+    mocked.savePack.mockResolvedValue(undefined);
+    render(<PackEditorApp />);
+    await userEvent.click(await screen.findByRole("button", { name: /hint pack/i }));
+    await screen.findByRole("button", { name: /password manager plan/i });
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(mocked.savePack).toHaveBeenCalledWith(expect.anything(), "hint");
   });
 
   it("blocks save with an alert when a label is emptied", async () => {

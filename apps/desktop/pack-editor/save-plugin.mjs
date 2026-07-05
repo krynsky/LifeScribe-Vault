@@ -6,6 +6,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { buildCredentialPack, serializePack } from "../scripts/lib/credential-pack.mjs";
 import { renderSaveArtifacts } from "../scripts/lib/save-artifacts.mjs";
 
 const resolvePath = (rel) => fileURLToPath(new URL(rel, import.meta.url));
@@ -26,11 +27,18 @@ export function packEditorSavePlugin() {
     name: "pack-editor-save",
     configureServer(server) {
       server.middlewares.use("/__pack", (req, res, next) => {
+        const packParam = new URL(req.url, "http://localhost").searchParams.get("pack");
+        const hintMode = packParam === "hint";
+
         if (req.method === "GET") {
           try {
             const hintPack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
-            const overlay = JSON.parse(readFileSync(OVERLAY_PATH, "utf-8"));
-            sendJson(res, 200, { hintPack, overlay });
+            if (hintMode) {
+              sendJson(res, 200, { hintPack });
+            } else {
+              const overlay = JSON.parse(readFileSync(OVERLAY_PATH, "utf-8"));
+              sendJson(res, 200, { hintPack, overlay });
+            }
           } catch (error) {
             sendJson(res, 500, { error: String(error?.message ?? error) });
           }
@@ -44,14 +52,20 @@ export function packEditorSavePlugin() {
           req.on("end", () => {
             try {
               const editedPack = JSON.parse(body);
-              const hintPack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
-              const { overlayJson, packJson } = renderSaveArtifacts(
-                hintPack,
-                editedPack,
-              );
-              writeFileSync(OVERLAY_PATH, overlayJson);
-              writeFileSync(PACK_PATH, packJson);
-              sendJson(res, 200, { ok: true });
+              if (hintMode) {
+                // Write the edited hint pack directly, then regenerate credential pack
+                // from updated hint + the existing overlay (overlay stays unchanged).
+                const overlay = JSON.parse(readFileSync(OVERLAY_PATH, "utf-8"));
+                writeFileSync(HINT_PATH, serializePack(editedPack));
+                writeFileSync(PACK_PATH, serializePack(buildCredentialPack(editedPack, overlay)));
+                sendJson(res, 200, { ok: true });
+              } else {
+                const hintPack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
+                const { overlayJson, packJson } = renderSaveArtifacts(hintPack, editedPack);
+                writeFileSync(OVERLAY_PATH, overlayJson);
+                writeFileSync(PACK_PATH, packJson);
+                sendJson(res, 200, { ok: true });
+              }
             } catch (error) {
               sendJson(res, 400, { error: String(error?.message ?? error) });
             }

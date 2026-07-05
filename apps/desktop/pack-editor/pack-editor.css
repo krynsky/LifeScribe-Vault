@@ -1,4 +1,7 @@
-.pack-editor { display: grid; grid-template-columns: 12rem 1fr; min-height: 100vh; }
+.pack-editor { display: grid; grid-template-columns: 12rem 1fr; grid-template-rows: auto 1fr; min-height: 100vh; }
+.pack-editor__pack-selector { grid-column: 1 / -1; display: flex; gap: 4px; padding: var(--space-3) var(--space-4); border-bottom: 2px solid var(--color-border); background: var(--color-surface-sunken); }
+.pack-editor__pack-selector button { padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; cursor: pointer; color: var(--color-ink-secondary); font: inherit; font-size: var(--text-sm); }
+.pack-editor__pack-selector button[aria-current="page"] { background: var(--color-surface); border-color: var(--color-border); color: var(--color-ink); font-weight: 600; }
 .pack-editor__nav { display: flex; flex-direction: column; gap: 2px; padding: var(--space-4); border-right: 1px solid var(--color-border); }
 .pack-editor__nav button { text-align: left; padding: var(--space-2) var(--space-3); border: none; background: transparent; border-radius: var(--radius-sm); cursor: pointer; color: var(--color-ink); }
 .pack-editor__nav button[aria-current="page"] { background: var(--color-accent-tint); color: var(--color-accent); }

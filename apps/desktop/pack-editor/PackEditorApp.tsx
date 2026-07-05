@@ -14,7 +14,7 @@ import { FormRenderer } from "../src/forms/FormRenderer";
 import { FieldList } from "./FieldList";
 import { FieldPropertyPanel } from "./FieldPropertyPanel";
 import { duplicateField, reorderFields } from "./fieldOps";
-import { getPack, savePack } from "./api";
+import { getPack, savePack, type PackName } from "./api";
 
 type Status = "loading" | "ready" | "error";
 
@@ -29,6 +29,7 @@ function hintSystemKeys(pack: FormPack): Set<string> {
 }
 
 export function PackEditorApp() {
+  const [packName, setPackName] = useState<PackName>("credential");
   const [status, setStatus] = useState<Status>("loading");
   const [hintPack, setHintPack] = useState<FormPack | null>(null);
   const [pack, setPack] = useState<FormPack | null>(null);
@@ -42,13 +43,18 @@ export function PackEditorApp() {
 
   useEffect(() => {
     let current = true;
-    getPack()
+    setStatus("loading");
+    setSelectedKey(null);
+    setSaveMessage("");
+    setSaveError("");
+    getPack(packName)
       .then(({ hintPack: hint, overlay }) => {
         if (!current) return;
-        const credential = buildCredentialPack(hint, overlay) as FormPack;
+        const editablePack: FormPack =
+          packName === "hint" ? hint : (buildCredentialPack(hint, overlay!) as FormPack);
         setHintPack(hint);
-        setPack(credential);
-        setActiveSection(credential.sections[0]?.sectionKey ?? "");
+        setPack(editablePack);
+        setActiveSection(editablePack.sections[0]?.sectionKey ?? "");
         setStatus("ready");
       })
       .catch((error: unknown) => {
@@ -59,9 +65,12 @@ export function PackEditorApp() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [packName]);
 
-  const hintKeys = useMemo(() => (hintPack ? hintSystemKeys(hintPack) : new Set<string>()), [hintPack]);
+  const hintKeys = useMemo(
+    () => (packName === "credential" && hintPack ? hintSystemKeys(hintPack) : new Set<string>()),
+    [hintPack, packName],
+  );
 
   if (status === "loading") {
     return <main className="centered-screen">Loading the credential form…</main>;
@@ -86,7 +95,10 @@ export function PackEditorApp() {
         (s) => s.sectionKey === activeSection,
       )
     : undefined;
-  const overlayJson = JSON.stringify(deriveOverlay(hintPack, pack), null, 2);
+  const overlayJson =
+    packName === "hint"
+      ? JSON.stringify(pack, null, 2)
+      : JSON.stringify(deriveOverlay(hintPack, pack), null, 2);
 
   async function handleSave() {
     if (!pack) return;
@@ -100,10 +112,10 @@ export function PackEditorApp() {
     setSaveError("");
     setSaveMessage("");
     try {
-      await savePack(pack);
-      const { hintPack: hint, overlay } = await getPack();
+      await savePack(pack, packName);
+      const { hintPack: hint, overlay } = await getPack(packName);
       setHintPack(hint);
-      setPack(buildCredentialPack(hint, overlay) as FormPack);
+      setPack(packName === "hint" ? hint : (buildCredentialPack(hint, overlay!) as FormPack));
       setSaveMessage("Saved.");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : String(error));
@@ -114,6 +126,22 @@ export function PackEditorApp() {
 
   return (
     <div className="pack-editor">
+      <nav className="pack-editor__pack-selector" aria-label="Pack">
+        <button
+          type="button"
+          aria-current={packName === "credential" ? "page" : undefined}
+          onClick={() => setPackName("credential")}
+        >
+          Credential Pack
+        </button>
+        <button
+          type="button"
+          aria-current={packName === "hint" ? "page" : undefined}
+          onClick={() => setPackName("hint")}
+        >
+          Hint Pack
+        </button>
+      </nav>
       <nav className="pack-editor__nav" aria-label="Sections">
         {pack.sections.map((s) => (
           <button
