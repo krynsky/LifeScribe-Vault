@@ -114,7 +114,11 @@ function buildItems(
     if (value.length === 0) {
       continue;
     }
-    items.push({ systemKey, label: field.label, value });
+    const displayValue =
+      field.type === "file"
+        ? (record.attachments?.find((a) => a.id === value)?.fileName ?? value)
+        : value;
+    items.push({ systemKey, label: field.label, value: displayValue });
   }
   return items;
 }

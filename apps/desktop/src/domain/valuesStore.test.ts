@@ -167,6 +167,29 @@ describe("reconcileSectionValues — orphaned field values", () => {
     expect(result.sectionValues.records[0].values.provider).toBe("LastPass");
     expect(result.newlyArchived).toEqual([]);
   });
+
+  it("deletes the attached file (drops the ref) and archives the id when a file field is removed", () => {
+    const sectionWithoutWillPdf = resolvedPlanSection((pack) => {
+      pack.sections[0].groups[0].fields = [];
+    });
+    const sectionValues = makeSectionValues("plan", [
+      makeRecord({
+        id: "r1",
+        values: { willPdf: "att1" },
+        attachments: [{ id: "att1", fileName: "will.pdf", sizeBytes: 10 }],
+      }),
+    ]);
+
+    const { sectionValues: reconciled, newlyArchived } = reconcileSectionValues(
+      sectionValues,
+      sectionWithoutWillPdf,
+    );
+
+    expect(reconciled.records[0].attachments).toEqual([]);
+    const archived = newlyArchived.find((a) => a.systemKey === "willPdf");
+    expect(archived?.value).toBe("att1");
+    expect(archived?.reason).toMatch(/will\.pdf/);
+  });
 });
 
 describe("reconcileSectionValues — whole orphaned records", () => {

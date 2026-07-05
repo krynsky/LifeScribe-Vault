@@ -299,12 +299,24 @@ export function reconcileSectionValues(
   // Pass 2: field-level reconciliation within kept records.
   const reconciledRecords = keptRecords.map((record) => {
     let changed = false;
+    const droppedAttachmentIds = new Set<string>();
     const keptValues: Record<string, string> = {};
     for (const [systemKey, value] of Object.entries(record.values)) {
       const current = fieldIndex.get(systemKey);
       if (!current) {
         if (value.length > 0) {
-          archiveValue(record, systemKey, value, "This field was removed from the form definition.");
+          const droppedRef = record.attachments?.find((a) => a.id === value);
+          if (droppedRef) {
+            archiveValue(
+              record,
+              systemKey,
+              value,
+              `This file field was removed; the attached file "${droppedRef.fileName}" was deleted from the vault.`,
+            );
+            droppedAttachmentIds.add(value);
+          } else {
+            archiveValue(record, systemKey, value, "This field was removed from the form definition.");
+          }
         }
         changed = true;
         continue;
@@ -327,7 +339,13 @@ export function reconcileSectionValues(
       }
       keptValues[systemKey] = value;
     }
-    return changed ? { ...record, values: keptValues } : record;
+    if (!changed && droppedAttachmentIds.size === 0) return record;
+    const nextAttachments = record.attachments?.filter((a) => !droppedAttachmentIds.has(a.id));
+    return {
+      ...record,
+      values: keptValues,
+      ...(nextAttachments !== undefined ? { attachments: nextAttachments } : {}),
+    };
   });
 
   if (newlyArchived.length === 0 && reconciledRecords.length === sectionValues.records.length) {

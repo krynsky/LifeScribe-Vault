@@ -253,6 +253,41 @@ describe("buildRecoveryKit", () => {
     expect(plan?.blocks[0].recordLabel).toBeNull();
   });
 
+  it("shows the fileName for a file field in the Recovery Kit", () => {
+    const pack = makePack({
+      sections: [
+        makeSection({
+          sectionKey: "docs",
+          title: "Documents",
+          order: 1,
+          groups: [
+            makeGroup({
+              groupKey: "main",
+              fields: [
+                makeField({ systemKey: "willPdf", label: "Will", type: "file", order: 1 }),
+              ],
+            }),
+          ],
+          kitMapping: { entries: [{ heading: "Files", fields: ["willPdf"] }] },
+        }),
+      ],
+    });
+    const values = makeVaultValues([
+      makeSectionValues("docs", [
+        makeRecord({
+          id: "r1",
+          values: { willPdf: "att1" },
+          attachments: [{ id: "att1", fileName: "will.pdf", sizeBytes: 10 }],
+        }),
+      ]),
+    ]);
+
+    const kit = buildRecoveryKit(pack.sections, values);
+    const strings = allKitStrings(kit);
+    expect(strings.some((s) => s.includes("will.pdf"))).toBe(true);
+    expect(strings.some((s) => s === "att1")).toBe(false);
+  });
+
   it("never includes archived answers", () => {
     const values = kitPackValues();
     values.docs.archivedAnswers = [
