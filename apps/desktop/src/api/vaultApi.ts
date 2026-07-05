@@ -158,6 +158,25 @@ export function deleteAttachment(attachmentId: string): Promise<void> {
   return invoke("delete_attachment", { attachmentId });
 }
 
+/** Decrypt an attachment into memory and return its bytes for inline preview. */
+export function readAttachment(attachmentId: string): Promise<Uint8Array> {
+  return invoke<number[]>("read_attachment", { attachmentId }).then(
+    (bytes) => new Uint8Array(bytes),
+  );
+}
+
+/**
+ * Decrypt an attachment to a temporary plaintext file and open it in the OS
+ * default app. The caller MUST confirm with the user first — this writes
+ * decrypted plaintext to disk.
+ */
+export function openAttachmentExternal(
+  attachmentId: string,
+  fileName: string,
+): Promise<void> {
+  return invoke("open_attachment_external", { attachmentId, fileName });
+}
+
 /**
  * Sweep orphaned attachment files not in `referencedIds`. Call once after
  * unlock + snapshot load. Returns number of files swept.
