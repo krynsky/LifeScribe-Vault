@@ -2,25 +2,34 @@ import { useEffect, useMemo, useState } from "react";
 import { buildCredentialPack } from "../scripts/lib/credential-pack.mjs";
 import {
   addOptionalField,
-  moveField,
   removeField,
   updateField,
-  updateGroup,
 } from "../src/creator/packEdits";
-import type { FormPack } from "../src/domain/formModel";
-import { mergePackWithOverlay } from "../src/domain/packMerge";
+import type { FieldType, FormPack } from "../src/domain/formModel";
 import { validatePack } from "../src/domain/packValidation";
-import { createSectionValues } from "../src/domain/valuesStore";
-import { FormRenderer } from "../src/forms/FormRenderer";
+import { FieldList } from "./FieldList";
+import { FieldPropertyPanel } from "./FieldPropertyPanel";
+import { duplicateField, reorderFields } from "./fieldOps";
 import { getPack, savePack } from "./api";
 
 type Status = "loading" | "ready" | "error";
+
+function hintSystemKeys(pack: FormPack): Set<string> {
+  const keys = new Set<string>();
+  for (const section of pack.sections) {
+    for (const group of section.groups) {
+      for (const field of group.fields) keys.add(field.systemKey);
+    }
+  }
+  return keys;
+}
 
 export function PackEditorApp() {
   const [status, setStatus] = useState<Status>("loading");
   const [hintPack, setHintPack] = useState<FormPack | null>(null);
   const [pack, setPack] = useState<FormPack | null>(null);
   const [activeSection, setActiveSection] = useState<string>("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string>("");
@@ -47,10 +56,7 @@ export function PackEditorApp() {
     };
   }, []);
 
-  const resolvedSections = useMemo(
-    () => (pack ? mergePackWithOverlay(pack, null, {}).resolved.sections : []),
-    [pack],
-  );
+  const hintKeys = useMemo(() => (hintPack ? hintSystemKeys(hintPack) : new Set<string>()), [hintPack]);
 
   if (status === "loading") {
     return <main className="centered-screen">Loading the credential form…</main>;
@@ -65,17 +71,11 @@ export function PackEditorApp() {
     );
   }
 
-  const section = resolvedSections.find((s) => s.sectionKey === activeSection);
-  const rawSection = pack.sections.find((s) => s.sectionKey === activeSection);
-
-  // The overlay can only ADD fields, never remove one that exists in the hint
-  // pack, so removing a shared hint field would silently reappear on reload.
-  // Only added (non-hint) fields may be removed.
-  function isHintField(systemKey: string): boolean {
-    return (hintPack?.sections ?? []).some((s) =>
-      s.groups.some((g) => g.fields.some((f) => f.systemKey === systemKey)),
-    );
-  }
+  const section = pack.sections.find((s) => s.sectionKey === activeSection);
+  const selectedField =
+    section?.groups.flatMap((g) => g.fields).find((f) => f.systemKey === selectedKey) ?? null;
+  const selectedGroupKey =
+    section?.groups.find((g) => g.fields.some((f) => f.systemKey === selectedKey))?.groupKey ?? null;
 
   async function handleSave() {
     if (!pack) return;
@@ -90,7 +90,6 @@ export function PackEditorApp() {
     setSaveMessage("");
     try {
       await savePack(pack);
-      // Reload so the editor reflects the regenerated pack.
       const { hintPack: hint, overlay } = await getPack();
       setHintPack(hint);
       setPack(buildCredentialPack(hint, overlay) as FormPack);
@@ -110,7 +109,10 @@ export function PackEditorApp() {
             key={s.sectionKey}
             type="button"
             aria-current={s.sectionKey === activeSection ? "page" : undefined}
-            onClick={() => setActiveSection(s.sectionKey)}
+            onClick={() => {
+              setActiveSection(s.sectionKey);
+              setSelectedKey(null);
+            }}
           >
             {s.title}
           </button>
@@ -118,55 +120,35 @@ export function PackEditorApp() {
       </nav>
 
       <main className="pack-editor__main">
-        {section && rawSection ? (
-          <>
-            <section className="pack-editor__edit" aria-label="Edit">
-              <h2>{section.title}</h2>
-              <FormRenderer
-                section={section}
-                values={createSectionValues(section.sectionKey)}
-                schemaVersion={pack.schemaVersion}
-                onChange={() => {}}
-                editing
-                packSection={rawSection}
-                onEditField={(sk, gk, updated) =>
-                  setPack((p) =>
-                    p ? updateField(p, sk, gk, updated.systemKey, () => updated) : p,
-                  )
-                }
-                onRemoveField={(sk, gk, key) => {
-                  if (isHintField(key)) {
-                    setSaveError(
-                      "Only added fields can be removed. Shared fields come from the safe form.",
-                    );
-                    return;
-                  }
-                  setPack((p) => (p ? removeField(p, sk, gk, key) : p));
-                }}
-                onMoveField={(sk, gk, key, dir) =>
-                  setPack((p) => (p ? moveField(p, sk, gk, key, dir) : p))
-                }
-                onAddField={(sk, gk) =>
-                  setPack((p) => (p ? addOptionalField(p, sk, gk) : p))
-                }
-                onEditGroupTitle={(sk, gk, title) =>
-                  setPack((p) =>
-                    p ? updateGroup(p, sk, gk, (g) => ({ ...g, title })) : p,
-                  )
-                }
-              />
-            </section>
-
-            <section className="pack-editor__preview" aria-label="Preview">
-              <h2>Preview</h2>
-              <FormRenderer
-                section={section}
-                values={createSectionValues(section.sectionKey)}
-                schemaVersion={pack.schemaVersion}
-                onChange={() => {}}
-              />
-            </section>
-          </>
+        {section ? (
+          <div className="pack-editor__design">
+            <FieldList
+              groups={section.groups}
+              selectedKey={selectedKey}
+              hintKeys={hintKeys}
+              onSelect={setSelectedKey}
+              onDuplicate={(gk, key) => setPack((p) => (p ? duplicateField(p, section.sectionKey, gk, key) : p))}
+              onDelete={(gk, key) => {
+                setPack((p) => (p ? removeField(p, section.sectionKey, gk, key) : p));
+                setSelectedKey((cur) => (cur === key ? null : cur));
+              }}
+              onReorder={(gk, from, to) =>
+                setPack((p) => (p ? reorderFields(p, section.sectionKey, gk, from, to) : p))
+              }
+              onAdd={(gk, type: FieldType) =>
+                setPack((p) => (p ? addOptionalField(p, section.sectionKey, gk, type) : p))
+              }
+            />
+            <FieldPropertyPanel
+              field={selectedField}
+              onChange={(updated) => {
+                if (!selectedGroupKey) return;
+                setPack((p) =>
+                  p ? updateField(p, section.sectionKey, selectedGroupKey, updated.systemKey, () => updated) : p,
+                );
+              }}
+            />
+          </div>
         ) : null}
 
         <div className="pack-editor__savebar">

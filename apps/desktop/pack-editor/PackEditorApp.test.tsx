@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import defaultPack from "../src-tauri/resources/packs/default-pack.json";
@@ -17,64 +17,56 @@ beforeEach(() => {
   mocked.getPack.mockResolvedValue({ hintPack, overlay });
 });
 
+async function openPasswordManager() {
+  render(<PackEditorApp />);
+  await userEvent.click(await screen.findByRole("button", { name: /password manager plan/i }));
+}
+
 describe("PackEditorApp", () => {
-  it("loads the credential form and shows a credential-only field", async () => {
-    render(<PackEditorApp />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: /password manager/i }),
-    );
-    const preview = await screen.findByRole("region", { name: "Preview" });
-    expect(within(preview).getByText("Master password")).toBeInTheDocument();
+  it("lists the credential-only field row after loading", async () => {
+    await openPasswordManager();
+    expect(
+      await screen.findByRole("button", { name: /edit field Master password/i }),
+    ).toBeInTheDocument();
   });
 
-  it("edits a field label and saves the edited pack", async () => {
+  it("selecting a field edits it in the property panel and saves", async () => {
     mocked.savePack.mockResolvedValue(undefined);
-    render(<PackEditorApp />);
+    await openPasswordManager();
+    await userEvent.click(await screen.findByRole("button", { name: /edit field Master password/i }));
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: /password manager/i }),
-    );
-    const labelInput = await screen.findByDisplayValue("Master password");
-    await userEvent.clear(labelInput);
-    await userEvent.type(labelInput, "Vault master password");
-
+    const label = screen.getByLabelText("Label");
+    await userEvent.clear(label);
+    await userEvent.type(label, "Vault master password");
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(mocked.savePack).toHaveBeenCalledTimes(1);
-    const savedPack = mocked.savePack.mock.calls[0]![0];
-    const pm = savedPack.sections.find((s) => s.sectionKey === "password-manager")!;
-    const field = pm.groups
-      .flatMap((g) => g.fields)
+    const saved = mocked.savePack.mock.calls[0]![0];
+    const field = saved.sections
+      .find((s) => s.sectionKey === "password-manager")!
+      .groups.flatMap((g) => g.fields)
       .find((f) => f.systemKey === "passwordManagerMasterPassword")!;
     expect(field.label).toBe("Vault master password");
   });
 
-  it("blocks save and shows an error when the pack is invalid", async () => {
+  it("blocks save with an alert when a label is emptied", async () => {
     mocked.savePack.mockResolvedValue(undefined);
-    render(<PackEditorApp />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: /password manager/i }),
-    );
-    const labelInput = await screen.findByDisplayValue("Master password");
-    await userEvent.clear(labelInput); // empty label -> validatePack fails
-
+    await openPasswordManager();
+    await userEvent.click(await screen.findByRole("button", { name: /edit field Master password/i }));
+    await userEvent.clear(screen.getByLabelText("Label"));
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(mocked.savePack).not.toHaveBeenCalled();
   });
 
-  it("removes an added field (the master password) from the form", async () => {
-    render(<PackEditorApp />);
+  it("removes an added field", async () => {
+    await openPasswordManager();
     await userEvent.click(
-      await screen.findByRole("button", { name: /password manager/i }),
+      screen.getByRole("button", { name: /remove field Master password/i }),
     );
-    const labelInput = await screen.findByDisplayValue("Master password");
-    const editor = labelInput.closest(".inline-field-editor") as HTMLElement;
-    await userEvent.click(
-      within(editor).getByRole("button", { name: /remove field/i }),
-    );
-
-    expect(screen.queryByDisplayValue("Master password")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /edit field Master password/i }),
+    ).not.toBeInTheDocument();
   });
 });
