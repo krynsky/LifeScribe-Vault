@@ -1,13 +1,13 @@
-import { updateGroup } from "../src/creator/packEdits";
-import type { FieldGroup, FormPack } from "../src/domain/formModel";
-import { isCustomFieldKey } from "../src/domain/formModel";
+import { updateGroup } from "../../creator/packEdits";
+import type { FieldGroup, FormPack } from "../../domain/formModel";
+import { isCustomFieldKey } from "../../domain/formModel";
 
 function renumbered(fields: FieldGroup["fields"]): FieldGroup["fields"] {
   return fields.map((field, index) => ({ ...field, order: index + 1 }));
 }
 
 function uniqueFieldKey(existing: Set<string>): string {
-  let key = "";
+  let key: string;
   do {
     key = `field_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   } while (existing.has(key) || isCustomFieldKey(key));

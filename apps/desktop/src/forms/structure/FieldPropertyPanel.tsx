@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { FieldDefinition, FieldOption, FieldType } from "../src/domain/formModel";
-import { FIELD_TYPES } from "../src/domain/formModel";
+import type { FieldDefinition, FieldOption, FieldType } from "../../domain/formModel";
+import { FIELD_TYPES } from "../../domain/formModel";
 
 export interface FieldPropertyPanelProps {
   field: FieldDefinition | null;

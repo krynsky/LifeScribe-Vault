@@ -455,7 +455,7 @@ describe("Inline form editor", () => {
   });
 });
 
-describe("Inline editor — end-to-end", () => {
+describe("Form structure editor — end-to-end", () => {
   beforeEach(() => {
     localStorage.setItem("lifescribe.packEditorEnabled", "true");
   });
@@ -464,26 +464,16 @@ describe("Inline editor — end-to-end", () => {
     localStorage.clear();
   });
 
-  /** Helper: render, wait for welcome, navigate to Digital Executors, enter editing. */
+  /**
+   * Helper: render, wait for welcome, navigate to Digital Executors, enter
+   * editing. The master-detail structure editor is section-level and renders
+   * every field regardless of whether any records exist, so no record needs to
+   * be added first.
+   */
   async function openSectionInEditMode(user: ReturnType<typeof userEvent.setup>) {
     renderDashboard();
     await screen.findByText("Welcome, Dana");
     await user.click(sidebarSectionButton());
-    const editBtn = await screen.findByRole("button", { name: "Edit this form" });
-    await user.click(editBtn);
-  }
-
-  /**
-   * Helper: add one executor record (auto-expands) then enter edit mode.
-   * This ensures InlineFieldEditor instances are visible (repeatable group).
-   */
-  async function addRecordThenEnterEditMode(user: ReturnType<typeof userEvent.setup>) {
-    renderDashboard();
-    await screen.findByText("Welcome, Dana");
-    await user.click(sidebarSectionButton());
-    // "Add Executor" creates a record and auto-expands it.
-    await user.click(screen.getByRole("button", { name: "Add Executor" }));
-    // Now enter edit mode — the expanded record's fields get InlineFieldEditors.
     const editBtn = await screen.findByRole("button", { name: "Edit this form" });
     await user.click(editBtn);
   }
@@ -493,18 +483,14 @@ describe("Inline editor — end-to-end", () => {
   // ---------------------------------------------------------------------------
   it("label change is persisted in customPack after Save form changes", async () => {
     const user = userEvent.setup();
-    await addRecordThenEnterEditMode(user);
+    await openSectionInEditMode(user);
 
-    // The "Full name" field is protected — its InlineFieldEditor has a Label
-    // input pre-filled with "Full name". Find it via its current value.
-    // All label inputs inside .inline-field-editor have type="text".
-    // We look for one whose value is "Full name".
-    const labelInputs = screen
-      .getAllByDisplayValue("Full name")
-      // Filter to those inside an .inline-field-editor container.
-      .filter((el) => el.closest(".inline-field-editor") !== null);
-    expect(labelInputs.length).toBeGreaterThan(0);
-    const labelInput = labelInputs[0];
+    // Select the protected "Full name" field so it loads into the property panel.
+    await user.click(screen.getByRole("button", { name: "Edit field Full name" }));
+
+    // The panel's Label input is pre-filled with the field's current label.
+    const labelInput = screen.getByLabelText("Label");
+    expect((labelInput as HTMLInputElement).value).toBe("Full name");
 
     await user.clear(labelInput);
     await user.type(labelInput, "Legal full name");
@@ -534,14 +520,11 @@ describe("Inline editor — end-to-end", () => {
   // ---------------------------------------------------------------------------
   it("added field appears in customPack after Save form changes", async () => {
     const user = userEvent.setup();
-    // Enter edit mode — no records needed since InlineGroupControls shows regardless.
     await openSectionInEditMode(user);
 
-    // InlineGroupControls renders "Add field to Executor" button for the repeatable group.
-    const addFieldBtn = await screen.findByRole("button", {
-      name: /Add field to Executor/i,
-    });
-    await user.click(addFieldBtn);
+    // Each group offers a type-picker <select> labeled "Add field to <group>".
+    const addSelect = screen.getByLabelText(/Add field to Executor/i);
+    await user.selectOptions(addSelect, "text");
 
     await user.click(screen.getByRole("button", { name: "Save form changes" }));
     expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
@@ -568,34 +551,16 @@ describe("Inline editor — end-to-end", () => {
   // ---------------------------------------------------------------------------
   it("protected fields have no Remove field button while in editing state", async () => {
     const user = userEvent.setup();
-    await addRecordThenEnterEditMode(user);
+    await openSectionInEditMode(user);
 
-    // Both "Full name" (executorName) and "Role" (executorRole) are protected.
-    // InlineFieldEditor renders null for the remove button when field.protected is true.
-    // Get all visible InlineFieldEditors and confirm that protected fields
-    // (identified by having no Remove field button beside them) are handled correctly.
-    //
-    // Strategy: find all .inline-field-editor elements and check whether the
-    // protected ones lack a "Remove field" button.
-    const fieldEditors = document.querySelectorAll(".inline-field-editor");
-    expect(fieldEditors.length).toBeGreaterThan(0);
-
-    // Collect all "Remove field" buttons.
-    const removeButtons = screen.queryAllByRole("button", { name: "Remove field" });
-
-    // For each remove button, verify it does NOT belong to a protected field's editor.
-    // The editor for a protected field will have its Label input set to the field's
-    // current label. We check that none of the remove buttons sit inside an editor
-    // whose label input value is "Full name" or "Role" (the two protected fields).
-    for (const btn of removeButtons) {
-      const parentEditor = btn.closest(".inline-field-editor");
-      if (!parentEditor) continue;
-      const labelInput = parentEditor.querySelector<HTMLInputElement>(
-        '.inline-field-editor__controls input[type="text"]',
-      );
-      if (!labelInput) continue;
-      expect(["Full name", "Role"]).not.toContain(labelInput.value);
-    }
+    // "Full name" (executorName) and "Role" (executorRole) are protected — the
+    // FieldList omits their delete adorner. A non-protected field ("Relationship")
+    // still exposes one, confirming the mechanism is active.
+    expect(screen.queryByRole("button", { name: "Remove field Full name" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove field Role" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Remove field Relationship" }),
+    ).toBeInTheDocument();
   });
 
   // ---------------------------------------------------------------------------
@@ -603,31 +568,13 @@ describe("Inline editor — end-to-end", () => {
   // ---------------------------------------------------------------------------
   it("changing a non-protected field type emits a retypeField migration step in customPack", async () => {
     const user = userEvent.setup();
-    await addRecordThenEnterEditMode(user);
+    await openSectionInEditMode(user);
 
-    // Find the type <select> for a non-protected field (e.g. "Relationship",
-    // systemKey executorRelationship, default type "text").
-    // Each InlineFieldEditor renders a <select> inside .inline-field-editor__controls.
-    // We find the one whose sibling Label input value is "Relationship".
-    const fieldEditors = Array.from(document.querySelectorAll(".inline-field-editor"));
-    let typeSelect: HTMLSelectElement | null = null;
-
-    for (const editor of fieldEditors) {
-      const labelInput = editor.querySelector<HTMLInputElement>(
-        '.inline-field-editor__controls input[type="text"]',
-      );
-      // The first text input in the controls is the Label input (the label for the field).
-      if (labelInput && labelInput.value === "Relationship") {
-        typeSelect = editor.querySelector<HTMLSelectElement>(
-          ".inline-field-editor__controls select",
-        );
-        break;
-      }
-    }
-
-    expect(typeSelect).not.toBeNull();
-    // Change type from "text" to "textarea"
-    await user.selectOptions(typeSelect!, "textarea");
+    // Select "Relationship" (systemKey executorRelationship, default type "text")
+    // to load it into the property panel, then change its Type to "textarea".
+    await user.click(screen.getByRole("button", { name: "Edit field Relationship" }));
+    const typeSelect = screen.getByLabelText("Type");
+    await user.selectOptions(typeSelect, "textarea");
 
     await user.click(screen.getByRole("button", { name: "Save form changes" }));
     expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
@@ -657,14 +604,14 @@ describe("Inline editor — end-to-end", () => {
   // ---------------------------------------------------------------------------
   // Scenario 5: Turning the toggle off hides ALL editing affordances (R1)
   // ---------------------------------------------------------------------------
-  it("turning the Form Editor toggle off hides all editing affordances including InlineFieldEditors", async () => {
+  it("turning the Form Editor toggle off hides all editing affordances", async () => {
     const user = userEvent.setup();
-    await addRecordThenEnterEditMode(user);
+    await openSectionInEditMode(user);
 
-    // Confirm we are in editing state with InlineFieldEditor visible.
+    // Confirm we are in editing state with the structure editor visible.
     expect(screen.getByRole("button", { name: "Save form changes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Done editing" })).toBeInTheDocument();
-    expect(document.querySelector(".inline-field-editor")).toBeInTheDocument();
+    expect(document.querySelector(".section-structure-editor")).toBeInTheDocument();
 
     // Turn the Form Editor toggle off.
     const toggle = screen.getByRole("checkbox", { name: /form editor/i });
@@ -674,10 +621,10 @@ describe("Inline editor — end-to-end", () => {
     expect(screen.queryByRole("button", { name: "Save form changes" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Done editing" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit this form" })).not.toBeInTheDocument();
-    // InlineFieldEditor elements should be absent.
-    expect(document.querySelector(".inline-field-editor")).not.toBeInTheDocument();
+    // The structure editor must be unmounted.
+    expect(document.querySelector(".section-structure-editor")).not.toBeInTheDocument();
     // Group-level add-field controls should also be absent.
-    expect(screen.queryByRole("button", { name: /Add field to/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Add field to/i)).not.toBeInTheDocument();
   });
 });
 

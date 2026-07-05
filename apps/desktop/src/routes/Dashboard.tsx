@@ -25,12 +25,11 @@ import { StatusBadge } from "../components/StatusBadge";
 import {
   addOptionalField,
   addSection,
-  moveField,
   removeField,
-  updateGroup,
   updateSection,
   updateField,
 } from "../creator/packEdits";
+import { duplicateField, reorderFields } from "../forms/structure/fieldOps";
 import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
@@ -764,24 +763,33 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     });
   }
 
-  function handleMoveField(sectionKey: string, groupKey: string, systemKey: string, direction: "up" | "down") {
+  function handleDuplicateField(sectionKey: string, groupKey: string, systemKey: string) {
     setWorkingPack((prev) => {
       if (!prev) return prev;
-      return moveField(prev, sectionKey, groupKey, systemKey, direction);
+      return duplicateField(prev, sectionKey, groupKey, systemKey);
     });
   }
 
-  function handleAddField(sectionKey: string, groupKey: string) {
+  function handleReorderField(
+    sectionKey: string,
+    groupKey: string,
+    fromIndex: number,
+    toIndex: number,
+  ) {
     setWorkingPack((prev) => {
       if (!prev) return prev;
-      return addOptionalField(prev, sectionKey, groupKey);
+      return reorderFields(prev, sectionKey, groupKey, fromIndex, toIndex);
     });
   }
 
-  function handleEditGroupTitle(sectionKey: string, groupKey: string, title: string) {
+  function handleAddField(
+    sectionKey: string,
+    groupKey: string,
+    type: import("../domain/formModel").FieldType,
+  ) {
     setWorkingPack((prev) => {
       if (!prev) return prev;
-      return updateGroup(prev, sectionKey, groupKey, (g) => ({ ...g, title }));
+      return addOptionalField(prev, sectionKey, groupKey, type);
     });
   }
 
@@ -1202,9 +1210,9 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
             packSection={packSectionForEdit}
             onEditField={(sk, gk, field) => handleEditField(sk, gk, field)}
             onRemoveField={(sk, gk, key) => handleRemoveField(sk, gk, key)}
-            onMoveField={(sk, gk, key, dir) => handleMoveField(sk, gk, key, dir)}
-            onAddField={(sk, gk) => handleAddField(sk, gk)}
-            onEditGroupTitle={(sk, gk, title) => handleEditGroupTitle(sk, gk, title)}
+            onDuplicateField={(sk, gk, key) => handleDuplicateField(sk, gk, key)}
+            onReorderField={(sk, gk, from, to) => handleReorderField(sk, gk, from, to)}
+            onAddField={(sk, gk, type) => handleAddField(sk, gk, type)}
           />
         </>
       );

@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { FieldGroup } from "../src/domain/formModel";
+import type { FieldGroup } from "../../domain/formModel";
 import { FieldList } from "./FieldList";
 
 const groups: FieldGroup[] = [
@@ -21,7 +21,7 @@ function renderList(overrides = {}) {
   const props = {
     groups,
     selectedKey: null as string | null,
-    hintKeys: new Set(["hintOne"]),
+    lockedKeys: new Set(["hintOne"]),
     onSelect: vi.fn(),
     onDuplicate: vi.fn(),
     onDelete: vi.fn(),

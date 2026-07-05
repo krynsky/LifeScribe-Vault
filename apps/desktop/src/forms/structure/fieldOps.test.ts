@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import hintPack from "../src-tauri/resources/packs/default-pack.json";
-import overlay from "../scripts/credential-overlay.json";
-import { buildCredentialPack } from "../scripts/lib/credential-pack.mjs";
-import { deriveOverlay } from "../scripts/lib/derive-overlay.mjs";
-import type { FormPack } from "../src/domain/formModel";
+import hintPack from "../../../src-tauri/resources/packs/default-pack.json";
+import overlay from "../../../scripts/credential-overlay.json";
+import { buildCredentialPack } from "../../../scripts/lib/credential-pack.mjs";
+import { deriveOverlay } from "../../../scripts/lib/derive-overlay.mjs";
+import type { FormPack } from "../../domain/formModel";
 import { duplicateField, reorderFields } from "./fieldOps";
 
 const hint = hintPack as unknown as Record<string, unknown>;

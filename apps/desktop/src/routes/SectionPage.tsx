@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { RecordList } from "../components/RecordList";
 import { StatusBadge } from "../components/StatusBadge";
-import type { FieldDefinition, PackSection, ResolvedSection } from "../domain/formModel";
+import { SectionStructureEditor } from "../forms/structure/SectionStructureEditor";
+import type { FieldDefinition, FieldType, PackSection, ResolvedSection } from "../domain/formModel";
 import type { SectionStatus } from "../domain/readiness";
 import type { SectionMeta } from "../domain/snapshot";
 import type { SectionValidationIssue } from "../domain/sectionValidation";
@@ -35,18 +36,18 @@ export interface SectionPageProps {
   onSetNa: (na: boolean) => void;
   /** Whether form-structure editing is active for this section. */
   editing?: boolean;
-  /** Raw PackSection needed to map resolved fields back to their editable definitions. */
+  /** Raw PackSection edited by the structure editor when `editing`. */
   packSection?: PackSection;
-  /** Called when a field's definition is changed inline. */
+  /** Called when a field's definition is changed. */
   onEditField?: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
   /** Called when a field is removed. */
   onRemoveField?: (sectionKey: string, groupKey: string, systemKey: string) => void;
-  /** Called when a field is moved up or down. */
-  onMoveField?: (sectionKey: string, groupKey: string, systemKey: string, direction: "up" | "down") => void;
-  /** Called when a new field should be added to a group. */
-  onAddField?: (sectionKey: string, groupKey: string) => void;
-  /** Called when a group's title changes. */
-  onEditGroupTitle?: (sectionKey: string, groupKey: string, title: string) => void;
+  /** Called when a field is duplicated. */
+  onDuplicateField?: (sectionKey: string, groupKey: string, systemKey: string) => void;
+  /** Called when a field is reordered within its group by drag-and-drop. */
+  onReorderField?: (sectionKey: string, groupKey: string, fromIndex: number, toIndex: number) => void;
+  /** Called when a new field of the chosen type should be added to a group. */
+  onAddField?: (sectionKey: string, groupKey: string, type: FieldType) => void;
 }
 
 function formatStashTime(iso: string | null): string {
@@ -86,9 +87,9 @@ export function SectionPage({
   packSection,
   onEditField,
   onRemoveField,
-  onMoveField,
+  onDuplicateField,
+  onReorderField,
   onAddField,
-  onEditGroupTitle,
 }: SectionPageProps) {
   const [confirmingNa, setConfirmingNa] = useState(false);
 
@@ -172,22 +173,26 @@ export function SectionPage({
       ) : null}
 
       <div className="section-page__form">
-        <RecordList
-          section={section}
-          values={values}
-          schemaVersion={schemaVersion}
-          onChange={onChange}
-          editing={editing}
-          packSection={packSection}
-          onEditField={onEditField}
-          onRemoveField={onRemoveField}
-          onMoveField={onMoveField}
-          onAddField={onAddField}
-          onEditGroupTitle={onEditGroupTitle}
-        />
+        {editing && packSection ? (
+          <SectionStructureEditor
+            section={packSection}
+            onEditField={(sk, gk, field) => onEditField?.(sk, gk, field)}
+            onRemoveField={(sk, gk, key) => onRemoveField?.(sk, gk, key)}
+            onDuplicateField={(sk, gk, key) => onDuplicateField?.(sk, gk, key)}
+            onReorderField={(sk, gk, from, to) => onReorderField?.(sk, gk, from, to)}
+            onAddField={(sk, gk, type) => onAddField?.(sk, gk, type)}
+          />
+        ) : (
+          <RecordList
+            section={section}
+            values={values}
+            schemaVersion={schemaVersion}
+            onChange={onChange}
+          />
+        )}
       </div>
 
-      <footer className="section-page__actions">
+      {editing ? null : <footer className="section-page__actions">
         <button
           className="button button--primary"
           disabled={saving}
@@ -239,7 +244,7 @@ export function SectionPage({
             )
           ) : null}
         </div>
-      </footer>
+      </footer>}
     </article>
   );
 }

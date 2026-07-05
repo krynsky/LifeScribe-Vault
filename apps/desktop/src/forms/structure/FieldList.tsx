@@ -14,14 +14,17 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { FieldDefinition, FieldGroup, FieldType } from "../src/domain/formModel";
-import { FIELD_TYPES } from "../src/domain/formModel";
+import type { FieldDefinition, FieldGroup, FieldType } from "../../domain/formModel";
+import { FIELD_TYPES } from "../../domain/formModel";
 
 export interface FieldListProps {
   groups: FieldGroup[];
   selectedKey: string | null;
-  /** systemKeys present in the hint pack — these cannot be deleted. */
-  hintKeys: Set<string>;
+  /**
+   * systemKeys that cannot be deleted (e.g. hint-pack fields in the pack
+   * editor). `protected` fields are always locked in addition to these.
+   */
+  lockedKeys: Set<string>;
   onSelect: (systemKey: string) => void;
   onDuplicate: (groupKey: string, systemKey: string) => void;
   onDelete: (groupKey: string, systemKey: string) => void;
@@ -97,7 +100,7 @@ function FieldRow({ field, groupKey, selected, deletable, onSelect, onDuplicate,
 export function FieldList({
   groups,
   selectedKey,
-  hintKeys,
+  lockedKeys,
   onSelect,
   onDuplicate,
   onDelete,
@@ -133,7 +136,7 @@ export function FieldList({
                       field={field}
                       groupKey={group.groupKey}
                       selected={field.systemKey === selectedKey}
-                      deletable={!hintKeys.has(field.systemKey)}
+                      deletable={!lockedKeys.has(field.systemKey) && !field.protected}
                       onSelect={onSelect}
                       onDuplicate={onDuplicate}
                       onDelete={onDelete}

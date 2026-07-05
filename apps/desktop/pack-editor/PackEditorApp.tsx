@@ -11,9 +11,9 @@ import { deriveOverlay } from "../scripts/lib/derive-overlay.mjs";
 import { mergePackWithOverlay } from "../src/domain/packMerge";
 import { createSectionValues } from "../src/domain/valuesStore";
 import { FormRenderer } from "../src/forms/FormRenderer";
-import { FieldList } from "./FieldList";
-import { FieldPropertyPanel } from "./FieldPropertyPanel";
-import { duplicateField, reorderFields } from "./fieldOps";
+import { FieldList } from "../src/forms/structure/FieldList";
+import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
+import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
 import { getPack, savePack, type PackName } from "./api";
 
 type Status = "loading" | "ready" | "error";
@@ -176,7 +176,7 @@ export function PackEditorApp() {
             <FieldList
               groups={section.groups}
               selectedKey={selectedKey}
-              hintKeys={hintKeys}
+              lockedKeys={hintKeys}
               onSelect={setSelectedKey}
               onDuplicate={(gk, key) => setPack((p) => (p ? duplicateField(p, section.sectionKey, gk, key) : p))}
               onDelete={(gk, key) => {

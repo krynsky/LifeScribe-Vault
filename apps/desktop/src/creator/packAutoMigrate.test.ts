@@ -137,7 +137,7 @@ describe("deriveAutoMigration", () => {
 
   it("collects two breaking edits into a single MigrationStep", () => {
     const prev = minimalPack();
-    let next = retypeNoteToDate(prev);
+    const next = retypeNoteToDate(prev);
     next.sections[0]!.groups[0]!.repeatable = false;
     const result = deriveAutoMigration(prev, next);
     expect(result.ok).toBe(true);

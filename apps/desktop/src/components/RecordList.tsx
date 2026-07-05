@@ -15,7 +15,7 @@
  */
 
 import { useState } from "react";
-import type { FieldDefinition, PackSection, ResolvedField, ResolvedSection } from "../domain/formModel";
+import type { ResolvedField, ResolvedSection } from "../domain/formModel";
 import type { SectionRecord, SectionValues } from "../domain/valuesStore";
 import { FormRenderer } from "../forms/FormRenderer";
 import { createRecordId, recordSummaryLabel } from "../forms/recordUtils";
@@ -31,20 +31,6 @@ export interface RecordListProps {
   onSave?: (values: SectionValues) => void;
   /** External errors keyed by systemKey, forwarded to the active form. */
   validationErrors?: Record<string, string>;
-  /** Whether form-structure editing is active for this section. */
-  editing?: boolean;
-  /** Raw PackSection needed to map resolved fields back to their editable definitions. */
-  packSection?: PackSection;
-  /** Called when a field's definition is changed inline. */
-  onEditField?: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
-  /** Called when a field is removed. */
-  onRemoveField?: (sectionKey: string, groupKey: string, systemKey: string) => void;
-  /** Called when a field is moved up or down. */
-  onMoveField?: (sectionKey: string, groupKey: string, systemKey: string, direction: "up" | "down") => void;
-  /** Called when a new field should be added to a group. */
-  onAddField?: (sectionKey: string, groupKey: string) => void;
-  /** Called when a group's title changes. */
-  onEditGroupTitle?: (sectionKey: string, groupKey: string, title: string) => void;
 }
 
 export function RecordList({
@@ -54,13 +40,6 @@ export function RecordList({
   onChange,
   onSave,
   validationErrors,
-  editing,
-  packSection,
-  onEditField,
-  onRemoveField,
-  onMoveField,
-  onAddField,
-  onEditGroupTitle,
 }: RecordListProps) {
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -90,13 +69,6 @@ export function RecordList({
           onChange={onChange}
           onSave={onSave}
           validationErrors={validationErrors}
-          editing={editing}
-          packSection={packSection}
-          onEditField={onEditField}
-          onRemoveField={onRemoveField}
-          onMoveField={onMoveField}
-          onAddField={onAddField}
-          onEditGroupTitle={onEditGroupTitle}
         />
         {archived}
       </div>
@@ -201,13 +173,6 @@ export function RecordList({
                         onChange={onChange}
                         onSave={onSave}
                         validationErrors={validationErrors}
-                        editing={editing}
-                        packSection={packSection}
-                        onEditField={onEditField}
-                        onRemoveField={onRemoveField}
-                        onMoveField={onMoveField}
-                        onAddField={onAddField}
-                        onEditGroupTitle={onEditGroupTitle}
                       />
                     </div>
                   ) : null}
