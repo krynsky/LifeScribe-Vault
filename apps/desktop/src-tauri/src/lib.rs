@@ -36,6 +36,7 @@ pub fn run() {
             commands::copy_vault_value,
             commands::add_attachment,
             commands::delete_attachment,
+            commands::read_attachment,
             commands::sweep_orphaned_attachments,
             commands::create_backup,
             commands::restore_backup,

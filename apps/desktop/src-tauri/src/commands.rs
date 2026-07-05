@@ -574,6 +574,24 @@ pub fn delete_attachment(
         .map_err(command_error_code)
 }
 
+/// Decrypt an attachment INTO MEMORY and return its plaintext bytes for the
+/// in-app viewer. Plaintext never touches disk. Requires an unlocked session.
+#[tauri::command]
+pub fn read_attachment(
+    attachment_id: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<Vec<u8>, String> {
+    let session = lock_state(&session)?;
+    let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let vault_id = session
+        .vault_id
+        .as_deref()
+        .ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    crate::attachments::decrypt_attachment(&att_dir, &attachment_id, key, vault_id)
+        .map_err(command_error_code)
+}
+
 /// Sweep orphaned attachment files (present on disk but absent from
 /// `referenced_ids`). Called once after unlock + snapshot load. Returns the
 /// count of swept files. No-op while a restore marker is present.

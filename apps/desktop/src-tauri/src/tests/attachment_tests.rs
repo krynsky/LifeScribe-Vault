@@ -129,6 +129,41 @@ fn sweep_skips_files_within_grace_period() {
 }
 
 #[test]
+fn read_attachment_returns_the_decrypted_bytes() {
+    let dir = tempdir().unwrap();
+    let key = generate_data_key();
+    let vault_id = "vault-abc";
+    let att_dir = dir.path().join("attachments");
+
+    let meta = crate::attachments::encrypt_attachment_bytes(
+        b"hello attachment",
+        "note.txt",
+        &att_dir,
+        &key,
+        vault_id,
+    )
+    .unwrap();
+
+    let bytes = decrypt_attachment(&att_dir, &meta.id, &key, vault_id).unwrap();
+    assert_eq!(bytes, b"hello attachment");
+}
+
+#[test]
+fn read_attachment_fails_under_a_different_vault_identity() {
+    let dir = tempdir().unwrap();
+    let key = generate_data_key();
+    let att_dir = dir.path().join("attachments");
+
+    let meta = crate::attachments::encrypt_attachment_bytes(
+        b"secret", "s.txt", &att_dir, &key, "vault-one",
+    )
+    .unwrap();
+    // Same key, different vault_id → AAD mismatch → decrypt fails.
+    let result = decrypt_attachment(&att_dir, &meta.id, &key, "vault-two");
+    assert!(result.is_err());
+}
+
+#[test]
 fn sweep_nonexistent_dir_is_ok() {
     let dir = tempdir().unwrap();
     let att_dir = dir.path().join("attachments");
