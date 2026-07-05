@@ -98,9 +98,12 @@ An in-app modal `AttachmentViewer`:
   by `reconcileSectionValues`. Per the owner's decision the underlying file is
   **deleted**, reconciled with the "never silently drop field data" law as
   follows:
-  - An **archived answer** is created recording the field's original label and
-    the **fileName** (a human-readable note that a file was attached), so the
-    audit trail is not silently dropped.
+  - An **archived answer** is created keeping the attachment **id** as its value
+    (so the existing "no value is ever discarded" invariant in
+    `collectAllStoredValues` holds) with the **fileName** in the human-readable
+    `reason` (e.g. `This file field was removed; the attached file
+    "will-2026.pdf" was deleted from the vault.`). The audit trail is not
+    silently dropped.
   - The attachment **ref is removed from `record.attachments`**, so the existing
     orphan sweep reclaims the ciphertext on the next load. Detection: an orphaned
     value whose string matches an id in `record.attachments` is a file-field
