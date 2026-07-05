@@ -62,6 +62,15 @@ export function deriveOverlay(hintPack, credentialPack) {
         .map((f) => f.systemKey);
       const reordered = JSON.stringify(credShared) !== JSON.stringify(hintShared);
 
+      // Gap-relative position for added fields: the generator inserts each added
+      // field at `order - 0.5`, i.e. into the gap right after `order - 1` hint
+      // fields. Absolute index breaks when two added fields share one gap (a hint
+      // field that follows both would sit between their `.5` slots on rebuild), so
+      // an added field's stored order is the count of shared fields preceding it,
+      // plus one — consecutive added fields in the same gap share that order and
+      // reproduce their edited sequence exactly.
+      let precedingShared = 0;
+
       credSorted.forEach((field, index) => {
         const finalPosition = index + 1;
         const hintField = hintFieldByKey.get(field.systemKey);
@@ -71,11 +80,13 @@ export function deriveOverlay(hintPack, credentialPack) {
           addedFields.push({
             sectionKey: credSection.sectionKey,
             groupKey: credGroup.groupKey,
-            order: finalPosition,
+            order: precedingShared + 1,
             field: rest,
           });
           return;
         }
+
+        precedingShared += 1;
 
         const override = {};
         for (const prop of FIELD_PROPS) {
