@@ -2,6 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+vi.mock("../api/vaultApi", () => ({
+  addAttachment: vi.fn(),
+  deleteAttachment: vi.fn(),
+  readAttachment: vi.fn(),
+  openAttachmentExternal: vi.fn(),
+}));
 import type { FieldDefinition, FormPack, PackSection, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { mergePackWithOverlay } from "../domain/packMerge";
 import {
@@ -298,6 +306,38 @@ describe("FormRenderer", () => {
     expect(screen.getByText(/Previous answer/)).toHaveTextContent("LegacyPass");
     // The select itself shows no current choice; the stored value is intact.
     expect(screen.getByLabelText("Provider")).toHaveValue("");
+  });
+
+  it("renders a file field and attaching updates values + record attachments", async () => {
+    const { addAttachment } = await import("../api/vaultApi");
+    const { open: mockedOpen } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(mockedOpen).mockResolvedValue("/tmp/will.pdf");
+    vi.mocked(addAttachment).mockResolvedValue({ id: "att1", fileName: "will.pdf", sizeBytes: 10 });
+
+    const pack = makePack({
+      sections: [
+        makeSection({
+          sectionKey: "docs",
+          groups: [
+            makeGroup({
+              groupKey: "main",
+              fields: [makeField({ systemKey: "willPdf", label: "Will", type: "file", order: 1 })],
+            }),
+          ],
+        }),
+      ],
+    });
+    const section = resolveSection(pack, "docs");
+    const captureRef: { current: SectionValues | null } = { current: null };
+    render(<Harness section={section} captureRef={captureRef} />);
+
+    expect(screen.getByRole("button", { name: /attach file/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /attach file/i }));
+
+    const record = captureRef.current?.records[0];
+    expect(record?.values["willPdf"]).toBe("att1");
+    expect(record?.attachments).toEqual([{ id: "att1", fileName: "will.pdf", sizeBytes: 10 }]);
   });
 
   it("supports add/duplicate/delete for repeatable groups inside a section form", async () => {

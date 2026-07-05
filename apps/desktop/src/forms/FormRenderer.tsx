@@ -28,10 +28,12 @@ import {
   type ResolvedSection,
 } from "../domain/formModel";
 import {
+  type AttachmentRef,
   type SectionRecord,
   type SectionValues,
   upsertSectionRecord,
 } from "../domain/valuesStore";
+import { FileField } from "./FileField";
 import { InlineFieldEditor } from "./inline/InlineFieldEditor";
 import { InlineGroupControls } from "./inline/InlineGroupControls";
 import { createRecordId, recordSummaryLabel } from "./recordUtils";
@@ -222,6 +224,29 @@ export function FormRenderer({
   const fieldDomId = (record: SectionRecord, systemKey: string): string =>
     `${section.sectionKey}--${record.id}--${systemKey}`;
 
+  const attachFileToRecord = (record: SectionRecord, systemKey: string, ref: AttachmentRef) => {
+    const previousId = record.values[systemKey];
+    const withoutOld = (record.attachments ?? []).filter((a) => a.id !== previousId);
+    onChange(
+      upsertSectionRecord(values, {
+        ...record,
+        values: { ...record.values, [systemKey]: ref.id },
+        attachments: [...withoutOld, ref],
+      }),
+    );
+  };
+
+  const removeFileFromRecord = (record: SectionRecord, systemKey: string) => {
+    const id = record.values[systemKey];
+    onChange(
+      upsertSectionRecord(values, {
+        ...record,
+        values: { ...record.values, [systemKey]: "" },
+        attachments: (record.attachments ?? []).filter((a) => a.id !== id),
+      }),
+    );
+  };
+
   const renderField = (field: ResolvedField, record: SectionRecord, group: ResolvedGroup) => {
     const fieldId = fieldDomId(record, field.systemKey);
     const storedValue = record.values[field.systemKey] ?? "";
@@ -235,6 +260,44 @@ export function FormRenderer({
     // Resolve the raw FieldDefinition for inline editing (pack fields only).
     const rawFieldDef: FieldDefinition | undefined =
       editing && packSection ? findSectionField(packSection, field.systemKey) : undefined;
+
+    if (field.type === "file") {
+      const attachmentRef: AttachmentRef | null =
+        record.attachments?.find((a) => a.id === storedValue) ?? null;
+      return (
+        <Field
+          key={field.systemKey}
+          fieldId={fieldId}
+          label={field.label}
+          helperText={field.helperText}
+          error={error}
+        >
+          <FileField
+            fieldId={fieldId}
+            attachment={attachmentRef}
+            onAttach={(ref) => attachFileToRecord(record, field.systemKey, ref)}
+            onRemove={() => removeFileFromRecord(record, field.systemKey)}
+          />
+          {editing && rawFieldDef ? (
+            <InlineFieldEditor
+              field={rawFieldDef}
+              onChange={(updated) =>
+                onEditField?.(section.sectionKey, group.groupKey, updated)
+              }
+              onRemove={() =>
+                onRemoveField?.(section.sectionKey, group.groupKey, field.systemKey)
+              }
+              onMoveUp={() =>
+                onMoveField?.(section.sectionKey, group.groupKey, field.systemKey, "up")
+              }
+              onMoveDown={() =>
+                onMoveField?.(section.sectionKey, group.groupKey, field.systemKey, "down")
+              }
+            />
+          ) : null}
+        </Field>
+      );
+    }
 
     return (
       <Field
