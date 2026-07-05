@@ -124,6 +124,30 @@ pub fn decrypt_attachment(
     decrypt_bytes(&encrypted, key, &aad)
 }
 
+/// Decrypt an attachment to a fresh plaintext file inside a random temp
+/// subdirectory, preserving the original file name (so the OS default app sees
+/// the right extension). Returns the temp file path for the caller to open and
+/// later clean up. This is the ONLY sanctioned plaintext-to-disk path and MUST
+/// be gated behind explicit user confirmation at the UI layer.
+pub fn decrypt_to_temp(
+    dir: &Path,
+    attachment_id: &str,
+    file_name: &str,
+    key: &Zeroizing<[u8; KEY_LEN]>,
+    vault_id: &str,
+) -> VaultResult<PathBuf> {
+    let plaintext = decrypt_attachment(dir, attachment_id, key, vault_id)?;
+    let sub = std::env::temp_dir().join(format!("lifescribe-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&sub).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let safe_name = Path::new(file_name)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("attachment");
+    let path = sub.join(safe_name);
+    fs::write(&path, &plaintext).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    Ok(path)
+}
+
 /// Delete the ciphertext file for `attachment_id`. A missing file is treated
 /// as success (already gone) — the snapshot reference should be removed
 /// unconditionally regardless.

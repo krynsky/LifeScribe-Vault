@@ -592,6 +592,34 @@ pub fn read_attachment(
         .map_err(command_error_code)
 }
 
+/// Decrypt an attachment to a temporary plaintext file and open it in the OS
+/// default application. WARNING: this writes decrypted plaintext to disk — the
+/// UI MUST confirm with the user before calling it. Best-effort cleanup removes
+/// the temp file after launching; a file still held open by the external app is
+/// an accepted limitation.
+#[tauri::command]
+pub fn open_attachment_external(
+    attachment_id: String,
+    file_name: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let vault_id = session
+        .vault_id
+        .as_deref()
+        .ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    let path =
+        crate::attachments::decrypt_to_temp(&att_dir, &attachment_id, &file_name, key, vault_id)
+            .map_err(command_error_code)?;
+    open::that(&path).map_err(|e| command_error_code(VaultError::FileOperation(e.to_string())))?;
+    // Best-effort cleanup: the OS app has typically read the file by now.
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_dir(path.parent().unwrap_or(&att_dir));
+    Ok(())
+}
+
 /// Sweep orphaned attachment files (present on disk but absent from
 /// `referenced_ids`). Called once after unlock + snapshot load. Returns the
 /// count of swept files. No-op while a restore marker is present.

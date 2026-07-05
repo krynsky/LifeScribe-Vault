@@ -37,6 +37,7 @@ pub fn run() {
             commands::add_attachment,
             commands::delete_attachment,
             commands::read_attachment,
+            commands::open_attachment_external,
             commands::sweep_orphaned_attachments,
             commands::create_backup,
             commands::restore_backup,

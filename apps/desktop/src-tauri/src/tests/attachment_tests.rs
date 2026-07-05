@@ -3,7 +3,7 @@ use std::fs;
 use tempfile::tempdir;
 
 use crate::attachments::{
-    attachment_dir, decrypt_attachment, delete_attachment_file, encrypt_attachment,
+    attachment_dir, decrypt_attachment, decrypt_to_temp, delete_attachment_file, encrypt_attachment,
     sweep_orphaned_attachments,
 };
 use crate::crypto::generate_data_key;
@@ -126,6 +126,26 @@ fn sweep_skips_files_within_grace_period() {
     let swept = sweep_orphaned_attachments(&att_dir, &[]).unwrap();
     assert_eq!(swept, 0, "fresh unreferenced file must not be swept");
     assert!(fresh.exists());
+}
+
+#[test]
+fn decrypt_to_temp_writes_plaintext_and_path_is_removable() {
+    let dir = tempdir().unwrap();
+    let key = generate_data_key();
+    let vault_id = "vault-x";
+    let att_dir = dir.path().join("attachments");
+
+    let meta = crate::attachments::encrypt_attachment_bytes(
+        b"external bytes", "doc.pdf", &att_dir, &key, vault_id,
+    )
+    .unwrap();
+
+    let temp_path =
+        decrypt_to_temp(&att_dir, &meta.id, &meta.file_name, &key, vault_id).unwrap();
+
+    assert_eq!(std::fs::read(&temp_path).unwrap(), b"external bytes");
+    assert!(temp_path.file_name().unwrap().to_str().unwrap().ends_with("doc.pdf"));
+    std::fs::remove_file(&temp_path).unwrap();
 }
 
 #[test]
