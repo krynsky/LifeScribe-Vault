@@ -173,6 +173,26 @@ describe("removeField", () => {
     // Same sections reference since nothing changed.
     expect(result).toBe(MINIMAL_PACK);
   });
+
+  it("prunes the removed key from the section's kit mapping and readiness rule", () => {
+    // A pack where the removable field is also referenced by the kit mapping
+    // (and, defensively, the readiness rule). Leaving either reference dangling
+    // makes validatePack reject the save with "references unknown field".
+    const packWithRefs: FormPack = {
+      ...MINIMAL_PACK,
+      sections: MINIMAL_PACK.sections.map((s) => ({
+        ...s,
+        readinessRule: { requiredKeys: ["full_name", "nickname"] },
+        kitMapping: { entries: [{ heading: "Basics", fields: ["full_name", "nickname"] }] },
+      })),
+    };
+
+    const updated = removeField(packWithRefs, "personal", "basics", "nickname");
+    const section = updated.sections.find((s) => s.sectionKey === "personal")!;
+
+    expect(section.kitMapping.entries[0]!.fields).toEqual(["full_name"]);
+    expect(section.readinessRule.requiredKeys).toEqual(["full_name"]);
+  });
 });
 
 describe("addGroup", () => {

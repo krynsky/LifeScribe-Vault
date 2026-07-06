@@ -192,9 +192,28 @@ export function removeField(
     throw new Error("Cannot remove a protected field");
   }
 
-  return updateGroup(pack, sectionKey, groupKey, (g) => ({
-    ...g,
-    fields: g.fields.filter((f) => f.systemKey !== systemKey),
+  // Drop the field AND any lingering references to its systemKey in the
+  // section's kit mapping and readiness rule — otherwise validatePack rejects
+  // the save with "references unknown field". (requiredKeys only ever holds
+  // protected keys, which are never removable, so that prune is defensive.)
+  return updateSection(pack, sectionKey, (s) => ({
+    ...s,
+    groups: s.groups.map((g) =>
+      g.groupKey === groupKey
+        ? { ...g, fields: g.fields.filter((f) => f.systemKey !== systemKey) }
+        : g,
+    ),
+    kitMapping: {
+      ...s.kitMapping,
+      entries: s.kitMapping.entries.map((entry) => ({
+        ...entry,
+        fields: entry.fields.filter((key) => key !== systemKey),
+      })),
+    },
+    readinessRule: {
+      ...s.readinessRule,
+      requiredKeys: s.readinessRule.requiredKeys.filter((key) => key !== systemKey),
+    },
   }));
 }
 
