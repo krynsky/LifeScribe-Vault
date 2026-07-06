@@ -32,8 +32,9 @@ describe("FileField", () => {
     expect(onAttach).toHaveBeenCalledWith({ id: "att1", fileName: "will.pdf", sizeBytes: 10 });
   });
 
-  it("removes an attached file (deletes ciphertext + clears)", async () => {
-    mocked.deleteAttachment.mockResolvedValue(undefined);
+  it("remove clears the ref WITHOUT deleting the ciphertext file", async () => {
+    // The saved snapshot may still reference the file; deletion happens only
+    // after a save commits (Dashboard) or via the unlock-time orphan sweep.
     const onRemove = vi.fn();
     render(
       <FileField
@@ -45,8 +46,25 @@ describe("FileField", () => {
     );
     expect(screen.getByText("will.pdf")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /remove/i }));
-    expect(mocked.deleteAttachment).toHaveBeenCalledWith("att1");
+    expect(mocked.deleteAttachment).not.toHaveBeenCalled();
     expect(onRemove).toHaveBeenCalled();
+  });
+
+  it("replace attaches the new file WITHOUT deleting the previous ciphertext", async () => {
+    mockedPicker.mockResolvedValue("/tmp/new-will.pdf");
+    mocked.addAttachment.mockResolvedValue({ id: "att2", fileName: "new-will.pdf", sizeBytes: 20 });
+    const onAttach = vi.fn();
+    render(
+      <FileField
+        fieldId="f1"
+        attachment={{ id: "att1", fileName: "will.pdf", sizeBytes: 10 }}
+        onAttach={onAttach}
+        onRemove={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /replace/i }));
+    expect(mocked.deleteAttachment).not.toHaveBeenCalled();
+    expect(onAttach).toHaveBeenCalledWith({ id: "att2", fileName: "new-will.pdf", sizeBytes: 20 });
   });
 
   it("shows the viewer when View is clicked", async () => {

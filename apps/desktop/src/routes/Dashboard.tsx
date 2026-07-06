@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  deleteAttachment,
   discardDraft,
   loadVaultSnapshot,
   lockVault,
@@ -20,6 +21,7 @@ import {
   takeDraft,
   type VaultSnapshot,
 } from "../api/vaultApi";
+import { collectAttachmentIds, droppedAttachmentIds } from "../domain/attachmentRefs";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import {
@@ -175,18 +177,6 @@ function buildLoadedVault(
   };
 }
 
-function collectAttachmentIds(values: VaultValues): string[] {
-  const ids: string[] = [];
-  for (const sectionValues of Object.values(values)) {
-    for (const record of sectionValues.records) {
-      for (const att of record.attachments ?? []) {
-        ids.push(att.id);
-      }
-    }
-  }
-  return ids;
-}
-
 export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked }: DashboardProps) {
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked" | "error">("loading");
   const [blockedMessage, setBlockedMessage] = useState("");
@@ -278,13 +268,11 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       setLoaded(result);
       setPhase("ready");
 
-      // Orphan sweep: remove ciphertext files no longer referenced by any
-      // snapshot record. Runs once here — after unlock + load — never while
-      // locked (the reference set doesn't exist while locked).
-      const allAttachmentIds = collectAttachmentIds(result.vault.savedValues);
-      void sweepOrphanedAttachments(allAttachmentIds).catch(() => undefined);
-
-      // Restore a stashed draft (corrupt stashes surface, never vanish).
+      // Restore a stashed draft FIRST (corrupt stashes surface, never
+      // vanish), so the orphan sweep below also sees attachments that are
+      // referenced only by the draft — sweeping them here would leave the
+      // restored draft pointing at a deleted file.
+      const draftAttachmentIds: string[] = [];
       try {
         const taken = await takeDraft();
         if (!isCurrent) {
@@ -294,14 +282,15 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
           setCorruptDraftNotice(true);
           // Surfaced this session; discard so it does not re-surface forever.
           void discardDraft().catch(() => undefined);
-          return;
-        }
-        if (taken.draft) {
+        } else if (taken.draft) {
           const parsedDraft = parseDraftPayload(taken.draft);
           const known = parsedDraft.sections.filter((entry) =>
             result.sections.some((section) => section.sectionKey === entry.sectionKey),
           );
           if (known.length > 0) {
+            draftAttachmentIds.push(
+              ...collectAttachmentIds(known.map((entry) => entry.values)),
+            );
             setWorkingValues((previous) => {
               const next = { ...previous };
               for (const entry of known) {
@@ -320,6 +309,16 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       } catch {
         // Draft restore is best-effort; the vault itself loaded fine.
       }
+
+      // Orphan sweep: remove ciphertext files referenced neither by any
+      // snapshot record nor by the restored draft. Runs once here — after
+      // unlock + load — never while locked (the reference set doesn't exist
+      // while locked).
+      const referencedIds = [
+        ...collectAttachmentIds(Object.values(result.vault.savedValues)),
+        ...draftAttachmentIds,
+      ];
+      void sweepOrphanedAttachments(referencedIds).catch(() => undefined);
     }
 
     void load();
@@ -436,6 +435,12 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     saveInFlightRef.current = promise;
     try {
       const { generation } = await promise;
+      // The save has committed: attachment files the previous saved snapshot
+      // referenced but this one no longer does are now safe to delete. (UI
+      // remove/replace never deletes eagerly — see attachmentRefs.ts.)
+      for (const id of droppedAttachmentIds(base.vault.savedValues, nextValues)) {
+        void deleteAttachment(id).catch(() => undefined);
+      }
       setLoaded({
         ...base,
         vault: {
@@ -500,36 +505,27 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       setPendingModeSwitch(null);
       return;
     }
-    // Build a new vault state with the new mode and no customPack.
-    const nextVault: VaultState = {
-      ...loaded.vault,
-      profile: { ...loaded.vault.profile, formMode: newMode },
-      customPack: null,
+    // New mode, customPack cleared; saved through the common `persist` path
+    // so the save registers in saveInFlightRef (the lock flow awaits it) and
+    // purges any stashed draft like every other committed save.
+    const nextLoaded: LoadedVault = {
+      ...loaded,
+      vault: {
+        ...loaded.vault,
+        profile: { ...loaded.vault.profile, formMode: newMode },
+        customPack: null,
+      },
     };
-    const nextLoaded: LoadedVault = { ...loaded, vault: nextVault };
-    const snapshot = buildSnapshot({
-      snapshotFormat: SNAPSHOT_FORMAT,
-      schemaVersion: loaded.schemaVersion,
-      profile: nextVault.profile,
-      values: loaded.vault.savedValues,
-      sectionMeta: loaded.vault.sectionMeta,
-      overlay: loaded.vault.overlay,
-      kitMeta: loaded.vault.kitMeta,
-      extra: loaded.vault.extra,
-      customPack: undefined, // cleared
-    });
-    setSaving(true);
-    setSaveError("");
-    try {
-      await saveVaultSnapshot(snapshot, loaded.vault.generation);
-      setLoaded(nextLoaded);
+    const ok = await persist(
+      nextLoaded,
+      loaded.vault.savedValues,
+      loaded.vault.sectionMeta,
+      null,
+    );
+    if (ok) {
       // Reload so sections rebuild from the new mode's pack.
       setPhase("loading");
       setLoadKey((k) => k + 1);
-    } catch {
-      setSaveError("Mode switch could not be saved. Please try again.");
-    } finally {
-      setSaving(false);
     }
     setPendingModeSwitch(null);
   }
@@ -752,15 +748,15 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   }
 
   function handleRemoveField(sectionKey: string, groupKey: string, systemKey: string) {
-    setWorkingPack((prev) => {
-      if (!prev) return prev;
-      try {
-        return removeField(prev, sectionKey, groupKey, systemKey);
-      } catch (err) {
-        setPackEditError(err instanceof Error ? err.message : String(err));
-        return prev;
-      }
-    });
+    // Computed outside the setState updater: updaters must stay pure
+    // (StrictMode double-invokes them), and removeField can throw.
+    if (!workingPack) return;
+    try {
+      setWorkingPack(removeField(workingPack, sectionKey, groupKey, systemKey));
+      setPackEditError(null);
+    } catch (err) {
+      setPackEditError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   function handleDuplicateField(sectionKey: string, groupKey: string, systemKey: string) {

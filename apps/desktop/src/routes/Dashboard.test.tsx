@@ -746,8 +746,10 @@ describe("Dashboard mode switch", () => {
     await userEvent.click(screen.getByRole("button", { name: "Switch to store actual secrets" }));
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
+    // Mode switch saves through the shared persist path, so it surfaces the
+    // common save-error banner.
     expect(
-      await screen.findByText("Mode switch could not be saved. Please try again."),
+      await screen.findByText("Your changes could not be saved. Please try again."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Confirm form detail change" })).not.toBeInTheDocument();
   });

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { open as openFilePicker } from "@tauri-apps/plugin-dialog";
 import { AttachmentViewer } from "../components/AttachmentViewer";
-import { addAttachment, deleteAttachment, openAttachmentExternal } from "../api/vaultApi";
+import { addAttachment, openAttachmentExternal } from "../api/vaultApi";
 import type { AttachmentRef } from "../domain/valuesStore";
 
 export interface FileFieldProps {
@@ -12,6 +12,12 @@ export interface FileFieldProps {
   /** Called after the current file is removed (value cleared, ref pulled). */
   onRemove: () => void;
 }
+
+// Remove/Replace never delete the ciphertext file here — the ref change lives
+// only in unsaved working values at this point, and the SAVED snapshot may
+// still point at the file (deleting now would break it if the user discards
+// or the save conflicts). The Dashboard deletes dropped files after the save
+// commits; never-saved files are cleaned by the unlock-time orphan sweep.
 
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -25,14 +31,13 @@ export function FileField({ fieldId, attachment, onAttach, onRemove }: FileField
   const [viewing, setViewing] = useState(false);
   const [confirmExternal, setConfirmExternal] = useState(false);
 
-  async function pickAndAttach(previousId?: string) {
+  async function pickAndAttach() {
     setError("");
     const picked = await openFilePicker({ multiple: false, directory: false });
     if (typeof picked !== "string") return;
     setBusy(true);
     try {
       const ref = await addAttachment(picked);
-      if (previousId) await deleteAttachment(previousId);
       onAttach(ref);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -41,18 +46,10 @@ export function FileField({ fieldId, attachment, onAttach, onRemove }: FileField
     }
   }
 
-  async function remove() {
+  function remove() {
     if (!attachment) return;
-    setBusy(true);
     setError("");
-    try {
-      await deleteAttachment(attachment.id);
-      onRemove();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
+    onRemove();
   }
 
   if (!attachment) {
@@ -84,10 +81,10 @@ export function FileField({ fieldId, attachment, onAttach, onRemove }: FileField
         <button type="button" className="button button--ghost button--small" onClick={() => setConfirmExternal(true)}>
           Open externally
         </button>
-        <button type="button" className="button button--ghost button--small" disabled={busy} onClick={() => void pickAndAttach(attachment.id)}>
+        <button type="button" className="button button--ghost button--small" disabled={busy} onClick={() => void pickAndAttach()}>
           Replace
         </button>
-        <button type="button" className="button button--ghost button--small" disabled={busy} onClick={() => void remove()}>
+        <button type="button" className="button button--ghost button--small" disabled={busy} onClick={remove}>
           Remove
         </button>
       </div>
