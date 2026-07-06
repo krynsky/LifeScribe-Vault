@@ -9,7 +9,7 @@
  * move a badge until they are persisted.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   deleteAttachment,
   discardDraft,
@@ -50,6 +50,7 @@ import {
   SNAPSHOT_FORMAT,
   type FormMode,
   type KitMeta,
+  type ParsedSnapshot,
   type SectionMetaMap,
   type VaultProfile,
 } from "../domain/snapshot";
@@ -114,24 +115,33 @@ function errorCode(error: unknown): string {
 }
 
 /**
- * The full load pipeline: normalize -> merge pack+overlay -> re-key renamed
- * custom fields -> migrate-on-read (in memory only) -> reconcile records
- * against the resolved definition. Pure; persists nothing.
+ * Resolve the base FormPack for a parsed snapshot: the user's personal pack
+ * if saved, else the bundled default for the snapshot's formMode.
+ */
+function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
+  return parsed.customPack
+    ? Promise.resolve(parsed.customPack)
+    : loadDefaultPack(parsed.profile.formMode);
+}
+
+/**
+ * The load pipeline after normalization: merge pack+overlay -> re-key
+ * renamed custom fields -> migrate-on-read (in memory only) -> reconcile
+ * records against the resolved definition. Pure; persists nothing.
+ *
+ * Callers produce `parsed` via `normalizeSnapshot(raw, ownerNameHint,
+ * formModeHint)` — the hints seed the profile only for a fresh vault (raw
+ * null, or a snapshot with no persisted formMode); an existing snapshot
+ * keeps its own values. Without the formMode hint the onboarding choice
+ * would never reach the profile and the first save would persist "hint",
+ * silently discarding it.
  */
 function buildLoadedVault(
   pack: FormPack,
-  raw: VaultSnapshot | null,
+  parsed: ParsedSnapshot,
   generation: number,
   recovered: boolean,
-  ownerNameHint: string,
-  formModeHint: FormMode,
 ): LoadedVault | { blocked: string } {
-  // formModeHint seeds the profile only for a fresh vault (raw null, or a
-  // snapshot with no persisted formMode). An existing snapshot keeps its own
-  // formMode — normalizeSnapshot ignores the fallback when a valid one is
-  // present. Without this the onboarding choice never reaches the profile and
-  // the first save persists "hint", silently discarding it.
-  const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
   const merge = mergePackWithOverlay(pack, parsed.overlay, parsed.values);
   let values = applyKeyRenames(parsed.values, merge.keyRenames);
 
@@ -210,17 +220,6 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   const saveInFlightRef = useRef<Promise<unknown> | null>(null);
   const lockingRef = useRef(false);
 
-  // Resolve the base FormPack for a given raw snapshot, honouring the
-  // formMode stored in the snapshot (or the hint from props when the vault
-  // is new and the snapshot is null).
-  const resolveBasePack = useCallback(
-    async (raw: VaultSnapshot | null): Promise<FormPack> => {
-      const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
-      return parsed.customPack ?? (await loadDefaultPack(parsed.profile.formMode));
-    },
-    [ownerNameHint, formModeHint],
-  );
-
   // -------------------------------------------------------------------------
   // Initial load: snapshot, merge pipeline, then the stashed draft (if any).
   // -------------------------------------------------------------------------
@@ -248,15 +247,16 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       // Use the user's personal pack if saved, else fall back to the bundled
       // default for the mode stored in the snapshot (or the prop hint when
       // the vault is new).
+      const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
       let pack: FormPack;
       try {
-        pack = await resolveBasePack(raw);
+        pack = await resolveBasePack(parsed);
       } catch {
         if (isCurrent) setPhase("error");
         return;
       }
 
-      const result = buildLoadedVault(pack, raw, generation, recovered, ownerNameHint, formModeHint);
+      const result = buildLoadedVault(pack, parsed, generation, recovered);
       if (!isCurrent) {
         return;
       }
@@ -325,7 +325,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     return () => {
       isCurrent = false;
     };
-  }, [ownerNameHint, formModeHint, loadKey, resolveBasePack]);
+  }, [ownerNameHint, formModeHint, loadKey]);
 
   // -------------------------------------------------------------------------
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
@@ -572,15 +572,9 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     let fresh: LoadedVault;
     try {
       const response = await loadVaultSnapshot();
-      const pack = await resolveBasePack(response.snapshot);
-      const result = buildLoadedVault(
-        pack,
-        response.snapshot,
-        response.generation,
-        response.recovered,
-        ownerNameHint,
-        formModeHint,
-      );
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, formModeHint);
+      const pack = await resolveBasePack(parsed);
+      const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {
         setBlockedMessage(result.blocked);
         setPhase("blocked");
@@ -614,15 +608,9 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   async function handleDiscardConflict(sectionKey: string) {
     try {
       const response = await loadVaultSnapshot();
-      const pack = await resolveBasePack(response.snapshot);
-      const result = buildLoadedVault(
-        pack,
-        response.snapshot,
-        response.generation,
-        response.recovered,
-        ownerNameHint,
-        formModeHint,
-      );
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, formModeHint);
+      const pack = await resolveBasePack(parsed);
+      const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {
         setBlockedMessage(result.blocked);
         setPhase("blocked");
