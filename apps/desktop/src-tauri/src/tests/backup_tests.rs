@@ -300,3 +300,31 @@ fn restore_in_progress_reflects_marker() {
     assert!(!restore_in_progress(app_data_dir));
 }
 
+// ---------------------------------------------------------------------------
+// Security: attachment names from a backup payload must be single plain path
+// components — a crafted backup can never write outside the attachment dir.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn attachment_name_component_guard_rejects_traversal() {
+    use crate::backup::is_safe_file_component;
+
+    // Legitimate names pass.
+    assert!(is_safe_file_component(
+        "0b6de292-9f9c-4dbb-8bd5-2e1e59b3a6a5.bin"
+    ));
+    assert!(is_safe_file_component("plain.bin"));
+
+    // Traversal / separator / drive forms fail closed.
+    assert!(!is_safe_file_component(""));
+    assert!(!is_safe_file_component("."));
+    assert!(!is_safe_file_component(".."));
+    assert!(!is_safe_file_component("../evil.bin"));
+    assert!(!is_safe_file_component("..\\evil.bin"));
+    assert!(!is_safe_file_component("sub/evil.bin"));
+    assert!(!is_safe_file_component("sub\\evil.bin"));
+    assert!(!is_safe_file_component("C:evil.bin"));
+    assert!(!is_safe_file_component("C:\\evil.bin"));
+    assert!(!is_safe_file_component("..\\..\\Startup\\evil.exe"));
+}
+

@@ -69,7 +69,7 @@ pub fn copy_vault_value_with_auto_clear(
 #[cfg(windows)]
 mod platform {
     use windows::core::PCWSTR;
-    use windows::Win32::Foundation::{HANDLE, HGLOBAL};
+    use windows::Win32::Foundation::{GlobalFree, HANDLE, HGLOBAL};
     use windows::Win32::System::DataExchange::{
         CloseClipboard, EmptyClipboard, GetClipboardData, OpenClipboard,
         RegisterClipboardFormatW, SetClipboardData,
@@ -114,12 +114,17 @@ mod platform {
             GlobalAlloc(GMEM_MOVEABLE, bytes.len()).map_err(|error| error.to_string())?;
         let pointer = GlobalLock(global);
         if pointer.is_null() {
+            // Ownership never transferred to the system — free the buffer.
+            let _ = GlobalFree(Some(global));
             return Err("Clipboard memory could not be locked.".to_string());
         }
         std::ptr::copy_nonoverlapping(bytes.as_ptr(), pointer.cast::<u8>(), bytes.len());
         let _ = GlobalUnlock(global);
-        SetClipboardData(format, Some(HANDLE(global.0)))
-            .map_err(|error| error.to_string())?;
+        if let Err(error) = SetClipboardData(format, Some(HANDLE(global.0))) {
+            // SetClipboardData failed: ownership stays with us — free it.
+            let _ = GlobalFree(Some(global));
+            return Err(error.to_string());
+        }
         Ok(())
     }
 

@@ -429,7 +429,27 @@ fn restore_vault_db(vault_path: &Path, vault_db: &[u8]) -> VaultResult<()> {
     write_atomically(&tmp_path, vault_path, vault_db)
 }
 
+/// True when `name` is a single plain path component — no separators, no
+/// `..`, no drive prefix. Attachment names in a legitimate backup are always
+/// `{uuid}.bin`; anything else fails closed as a corrupt/crafted backup so a
+/// restored payload can never write outside the attachment directory.
+pub(crate) fn is_safe_file_component(name: &str) -> bool {
+    !name.is_empty()
+        && !name.contains(['/', '\\', ':'])
+        && name != "."
+        && name != ".."
+        && Path::new(name)
+            .file_name()
+            .is_some_and(|n| n == std::ffi::OsStr::new(name))
+}
+
 fn restore_attachments(attachment_dir: &Path, attachments: &[BackupAttachment]) -> VaultResult<()> {
+    // Fail closed BEFORE deleting anything if any name could escape the dir.
+    for att in attachments {
+        if !is_safe_file_component(&att.file_name) || !is_safe_file_component(&att.id) {
+            return Err(VaultError::CorruptVault);
+        }
+    }
     // Remove existing attachment dir and recreate from backup.
     if attachment_dir.exists() {
         fs::remove_dir_all(attachment_dir)
