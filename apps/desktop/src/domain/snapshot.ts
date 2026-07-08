@@ -47,6 +47,14 @@ export interface VaultProfile {
   ownerName: string;
   reviewCadenceMonths: number;
   formMode: FormMode;
+  /**
+   * packId of the base pack this vault resolves from (advisory metadata,
+   * re-stamped from the loaded pack on every save). Absent on snapshots
+   * written before this field existed. Recorded now so a future
+   * multi-template registry can key off it without a snapshot migration —
+   * template family = basePackId, posture = formMode.
+   */
+  basePackId?: string;
 }
 
 export interface SectionMeta {
@@ -216,6 +224,9 @@ export function normalizeSnapshot(
       ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
       reviewCadenceMonths,
       formMode: asFormMode(profileRaw.formMode, fallbackFormMode),
+      ...(typeof profileRaw.basePackId === "string" && profileRaw.basePackId.length > 0
+        ? { basePackId: profileRaw.basePackId }
+        : {}),
     },
     values: normalizeValues(raw.values),
     sectionMeta: normalizeSectionMeta(raw.sectionMeta),

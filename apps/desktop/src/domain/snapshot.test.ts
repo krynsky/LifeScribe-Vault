@@ -47,6 +47,36 @@ describe("formMode", () => {
   });
 });
 
+describe("basePackId", () => {
+  it("reads a persisted basePackId", () => {
+    const parsed = normalizeSnapshot({
+      profile: { ownerName: "A", basePackId: "lifescribe-default" },
+    });
+    expect(parsed.profile.basePackId).toBe("lifescribe-default");
+  });
+
+  it("is absent when missing, empty, or malformed", () => {
+    expect(
+      normalizeSnapshot({ profile: { ownerName: "A" } }).profile.basePackId,
+    ).toBeUndefined();
+    expect(
+      normalizeSnapshot({ profile: { ownerName: "A", basePackId: "" } }).profile.basePackId,
+    ).toBeUndefined();
+    expect(
+      normalizeSnapshot({ profile: { ownerName: "A", basePackId: 7 } }).profile.basePackId,
+    ).toBeUndefined();
+  });
+
+  it("round-trips through build + normalize", () => {
+    const parsed = emptySnapshot("A");
+    parsed.profile.basePackId = "lifescribe-default-credential";
+    const built = buildSnapshot(parsed);
+    expect(normalizeSnapshot(built).profile.basePackId).toBe(
+      "lifescribe-default-credential",
+    );
+  });
+});
+
 describe("customPack round-trip", () => {
   it("preserves customPack through buildSnapshot → normalizeSnapshot", () => {
     const wire = buildSnapshot({

@@ -1,4 +1,6 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import type { FormPack } from "../domain/formModel";
+import { loadDefaultPack } from "../domain/loadDefaultPack";
 import type { FormMode } from "../domain/snapshot";
 
 export interface SetupScreenProps {
@@ -45,6 +47,86 @@ function RevealToggle({
     >
       <EyeIcon off={shown} />
     </button>
+  );
+}
+
+/**
+ * Collapsible outline of what the selected mode's pack will ask about:
+ * section titles, ledes, and field counts, read from the validated bundled
+ * pack. Loaded lazily on first expand; a load failure degrades to a short
+ * notice (the preview is informative only — setup still works without it).
+ */
+function PackPreview({ formMode }: { formMode: FormMode }) {
+  const [open, setOpen] = useState(false);
+  // Per-mode cache; "failed" is cached too so the effect never needs a
+  // synchronous state reset (react-hooks/set-state-in-effect).
+  const [packs, setPacks] = useState<Partial<Record<FormMode, FormPack | "failed">>>({});
+
+  useEffect(() => {
+    if (!open || packs[formMode]) {
+      return;
+    }
+    let isCurrent = true;
+    loadDefaultPack(formMode)
+      .then((pack) => {
+        if (isCurrent) {
+          setPacks((previous) => ({ ...previous, [formMode]: pack }));
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setPacks((previous) => ({ ...previous, [formMode]: "failed" }));
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [open, formMode, packs]);
+
+  const entry = packs[formMode];
+  const failed = entry === "failed";
+  const pack = failed ? undefined : entry;
+  const sections = pack
+    ? [...pack.sections].sort((a, b) => a.order - b.order)
+    : [];
+
+  return (
+    <details
+      className="setup-preview"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="setup-preview__summary">See what this vault covers</summary>
+      {pack ? (
+        <ul className="setup-preview__sections">
+          {sections.map((section) => {
+            const fieldCount = section.groups.reduce(
+              (count, group) => count + group.fields.length,
+              0,
+            );
+            return (
+              <li key={section.sectionKey} className="setup-preview__section">
+                <span className="setup-preview__section-title">
+                  {section.title}
+                  <span className="setup-preview__count">
+                    {fieldCount} {fieldCount === 1 ? "field" : "fields"}
+                  </span>
+                </span>
+                {section.lede ? (
+                  <span className="setup-preview__lede">{section.lede}</span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="setup-preview__status">
+          {failed
+            ? "The preview could not be loaded — you can still create your vault."
+            : "Loading…"}
+        </p>
+      )}
+    </details>
   );
 }
 
@@ -233,6 +315,8 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
               </span>
             </label>
           </fieldset>
+
+          <PackPreview formMode={formMode} />
 
           {error ? (
             <p className="form-error" id={ERROR_ID} role="alert">

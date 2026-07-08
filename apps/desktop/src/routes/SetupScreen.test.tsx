@@ -86,4 +86,34 @@ describe("SetupScreen", () => {
 
     expect(onCreate).toHaveBeenCalledWith(STRONG_PASSWORD, "Dana", "credential");
   });
+
+  it("expands the pack preview and lists the selected mode's sections", async () => {
+    // Vitest has no Tauri invoke, so loadDefaultPack serves the static
+    // bundled pack — the same content the real onboarding previews.
+    render(<SetupScreen onCreate={vi.fn()} />);
+    const user = userEvent.setup();
+
+    // Collapsed by default: no section titles shown.
+    expect(screen.queryByText("Digital Executors")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("See what this vault covers"));
+
+    expect(await screen.findByText("Digital Executors")).toBeInTheDocument();
+    expect(screen.getByText("Password Manager Plan")).toBeInTheDocument();
+    expect(screen.getByText("Backups & Storage")).toBeInTheDocument();
+  });
+
+  it("preview follows the selected mode (credential pack adds secret fields)", async () => {
+    render(<SetupScreen onCreate={vi.fn()} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByText("See what this vault covers"));
+    // Hint pack: Password Manager Plan has 10 fields (no master password slot).
+    await screen.findByText("10 fields");
+    expect(screen.queryByText("11 fields")).not.toBeInTheDocument();
+
+    // Credential pack adds the master-password field: 10 -> 11.
+    await user.click(screen.getByLabelText(/store the actual secrets/i));
+    expect(await screen.findByText("11 fields")).toBeInTheDocument();
+  });
 });

@@ -176,7 +176,9 @@ function buildLoadedVault(
     vault: {
       generation,
       recovered,
-      profile: parsed.profile,
+      // Stamp the resolved pack's id so every save records which base pack
+      // this vault derives from (see VaultProfile.basePackId).
+      profile: { ...parsed.profile, basePackId: pack.packId },
       sectionMeta: parsed.sectionMeta,
       savedValues: reconciled,
       overlay: merge.overlay.sections.length > 0 ? merge.overlay : null,
@@ -508,11 +510,19 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     // New mode, customPack cleared; saved through the common `persist` path
     // so the save registers in saveInFlightRef (the lock flow awaits it) and
     // purges any stashed draft like every other committed save.
+    // Best-effort: stamp the new mode's default pack id; if the pack can't
+    // be loaded the id is dropped and the post-reload save re-stamps it.
+    let nextBasePackId: string | undefined;
+    try {
+      nextBasePackId = (await loadDefaultPack(newMode)).packId;
+    } catch {
+      nextBasePackId = undefined;
+    }
     const nextLoaded: LoadedVault = {
       ...loaded,
       vault: {
         ...loaded.vault,
-        profile: { ...loaded.vault.profile, formMode: newMode },
+        profile: { ...loaded.vault.profile, formMode: newMode, basePackId: nextBasePackId },
         customPack: null,
       },
     };
