@@ -10,7 +10,7 @@ import { PackEditorApp } from "./PackEditorApp";
 
 const hintPack = defaultPack as unknown as FormPack;
 
-vi.mock("./api", () => ({ getPack: vi.fn(), savePack: vi.fn() }));
+vi.mock("./api", () => ({ getPack: vi.fn(), savePack: vi.fn(), backupPacks: vi.fn() }));
 const mocked = vi.mocked(api);
 
 beforeEach(() => {
@@ -27,11 +27,15 @@ async function openPasswordManager() {
 }
 
 describe("PackEditorApp", () => {
-  it("shows Credential Pack and Hint Pack selector buttons", async () => {
+  it("shows pack selector buttons using the app's form-detail wording", async () => {
     render(<PackEditorApp />);
-    expect(await screen.findByRole("button", { name: /credential pack/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /hint pack/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /credential pack/i })).toHaveAttribute("aria-current", "page");
+    expect(
+      await screen.findByRole("button", { name: /stores secrets \(credential\)/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /locations only \(hint\)/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /stores secrets \(credential\)/i }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("lists the credential-only field row after loading", async () => {
@@ -41,10 +45,10 @@ describe("PackEditorApp", () => {
     ).toBeInTheDocument();
   });
 
-  it("switching to Hint Pack reloads without credential-only fields", async () => {
+  it("switching to the hint pack reloads without credential-only fields", async () => {
     render(<PackEditorApp />);
-    await userEvent.click(await screen.findByRole("button", { name: /hint pack/i }));
-    expect(screen.getByRole("button", { name: /hint pack/i })).toHaveAttribute("aria-current", "page");
+    await userEvent.click(await screen.findByRole("button", { name: /locations only \(hint\)/i }));
+    expect(screen.getByRole("button", { name: /locations only \(hint\)/i })).toHaveAttribute("aria-current", "page");
     // "Master password" is a credential-only field added by the overlay — not present in hint mode
     await screen.findByRole("button", { name: /password manager plan/i });
     await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
@@ -73,10 +77,30 @@ describe("PackEditorApp", () => {
   it("save passes packName to savePack", async () => {
     mocked.savePack.mockResolvedValue(undefined);
     render(<PackEditorApp />);
-    await userEvent.click(await screen.findByRole("button", { name: /hint pack/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /locations only \(hint\)/i }));
     await screen.findByRole("button", { name: /password manager plan/i });
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
     expect(mocked.savePack).toHaveBeenCalledWith(expect.anything(), "hint");
+  });
+
+  it("backs up the pack files and reports the backup folder", async () => {
+    mocked.backupPacks.mockResolvedValue("scripts/pack-backups/2026-07-05T00-00-00-000Z");
+    await openPasswordManager();
+    await userEvent.click(screen.getByRole("button", { name: /back up packs/i }));
+
+    expect(mocked.backupPacks).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByText(/Backed up to scripts\/pack-backups\/2026-07-05T00-00-00-000Z/),
+    ).toBeInTheDocument();
+    // Backup never writes the edited pack — it copies the on-disk originals.
+    expect(mocked.savePack).not.toHaveBeenCalled();
+  });
+
+  it("shows an alert when the backup fails", async () => {
+    mocked.backupPacks.mockRejectedValue(new Error("disk full"));
+    await openPasswordManager();
+    await userEvent.click(screen.getByRole("button", { name: /back up packs/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("disk full");
   });
 
   it("blocks save with an alert when a label is emptied", async () => {

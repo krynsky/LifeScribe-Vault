@@ -14,7 +14,7 @@ import { FormRenderer } from "../src/forms/FormRenderer";
 import { FieldList } from "../src/forms/structure/FieldList";
 import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
 import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
-import { getPack, savePack, type PackName } from "./api";
+import { backupPacks, getPack, savePack, type PackName } from "./api";
 
 type Status = "loading" | "ready" | "error";
 
@@ -73,13 +73,13 @@ export function PackEditorApp() {
   );
 
   if (status === "loading") {
-    return <main className="centered-screen">Loading the credential form…</main>;
+    return <main className="centered-screen">Loading the form pack…</main>;
   }
   if (status === "error" || !pack || !hintPack) {
     return (
       <main className="centered-screen">
         <p className="form-error" role="alert">
-          {loadError || "The credential form could not be loaded."}
+          {loadError || "The form pack could not be loaded."}
         </p>
       </main>
     );
@@ -99,6 +99,20 @@ export function PackEditorApp() {
     packName === "hint"
       ? JSON.stringify(pack, null, 2)
       : JSON.stringify(deriveOverlay(hintPack, pack), null, 2);
+
+  async function handleBackup() {
+    setSaving(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const dir = await backupPacks();
+      setSaveMessage(`Backed up to ${dir}`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSave() {
     if (!pack) return;
@@ -126,20 +140,22 @@ export function PackEditorApp() {
 
   return (
     <div className="pack-editor">
+      {/* Labels match the app's form-detail wording (sidebar: "Stores
+          secrets" / "Locations only"); the pack name stays for dev clarity. */}
       <nav className="pack-editor__pack-selector" aria-label="Pack">
         <button
           type="button"
           aria-current={packName === "credential" ? "page" : undefined}
           onClick={() => setPackName("credential")}
         >
-          Credential Pack
+          Stores secrets (credential)
         </button>
         <button
           type="button"
           aria-current={packName === "hint" ? "page" : undefined}
           onClick={() => setPackName("hint")}
         >
-          Hint Pack
+          Locations only (hint)
         </button>
       </nav>
       <nav className="pack-editor__nav" aria-label="Sections">
@@ -227,6 +243,14 @@ export function PackEditorApp() {
             onClick={() => void handleSave()}
           >
             {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={saving}
+            onClick={() => void handleBackup()}
+          >
+            Back up packs
           </button>
           {saveMessage ? <span>{saveMessage}</span> : null}
           {saveError ? (

@@ -4,3 +4,4 @@ target/
 *.local
 .DS_Store
 .claude/worktrees/
+apps/desktop/scripts/pack-backups/
