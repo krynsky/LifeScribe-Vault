@@ -121,10 +121,12 @@ apps/desktop/
 
 ---
 
-## Design Docs
+## Documentation
 
+- `docs/user-guide.md` — user-facing guide for people who download the app
+- `docs/development.md` — developer documentation (architecture, data flows, conventions)
 - `docs/plans/2026-06-10-001-feat-lifescribe-vault-v2-rebuild-plan.md` — authoritative v2 rebuild plan
 - `docs/superpowers/specs/` — feature design specs
 - `docs/superpowers/plans/` — implementation plans
 - `docs/release/windows-packaging.md` — build and release process
-- `docs/testing/v1-acceptance.md` — acceptance checklist
+- `docs/testing/v2-acceptance.md` — acceptance checklist
