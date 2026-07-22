@@ -297,7 +297,7 @@ button {
 }
 
 .app-frame__sidebar {
-  width: 19rem;
+  width: 22rem;
   flex-shrink: 0;
   background: var(--color-surface-sunken);
   border-right: 1px solid var(--color-border);
@@ -310,7 +310,7 @@ button {
 }
 
 .main-pane {
-  max-width: 46rem;
+  max-width: 58rem;
   padding: var(--space-7) var(--space-7) var(--space-8);
   display: flex;
   flex-direction: column;
@@ -1039,7 +1039,7 @@ button {
 
 .section-structure-editor {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -1089,6 +1089,7 @@ button {
 
 .field-row__label {
   flex: 1;
+  min-width: 0;
   text-align: left;
   border: none;
   background: transparent;
