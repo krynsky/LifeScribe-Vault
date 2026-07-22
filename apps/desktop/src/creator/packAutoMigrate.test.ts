@@ -90,6 +90,13 @@ function makeGroupSingle(pack: FormPack): FormPack {
   return next;
 }
 
+/** A pack whose only section is multi-record (records at the section level). */
+function multiRecordPack(): FormPack {
+  const pack = minimalPack();
+  pack.sections[0]!.multiRecord = true;
+  return pack;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -133,6 +140,32 @@ describe("deriveAutoMigration", () => {
       sectionKey: "sec",
       groupKey: "grp",
     });
+  });
+
+  it("emits a section-level reduceCardinality op when a section stops being multi-record", () => {
+    const prev = multiRecordPack();
+    const next = clone(prev);
+    next.sections[0]!.multiRecord = false;
+    const result = deriveAutoMigration(prev, next);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toBe(true);
+    const step = result.pack.migrations.find((s) => s.fromVersion === 1)!;
+    expect(step.operations).toContainEqual({
+      op: "reduceCardinality",
+      sectionKey: "sec",
+    });
+  });
+
+  it("emits nothing when a section becomes multi-record (turning it on is non-breaking)", () => {
+    const prev = minimalPack(); // multiRecord: false
+    const next = multiRecordPack(); // multiRecord: true
+    const result = deriveAutoMigration(prev, next);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toBe(false);
+    expect(result.pack.schemaVersion).toBe(1);
+    expect(result.pack.migrations).toEqual([]);
   });
 
   it("collects two breaking edits into a single MigrationStep", () => {

@@ -455,6 +455,59 @@ describe("Inline form editor", () => {
   });
 });
 
+describe("Section multi-record toggle", () => {
+  beforeEach(() => {
+    localStorage.setItem("lifescribe.packEditorEnabled", "true");
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  // Password Manager Plan is a true single-record section (no multiRecord,
+  // no repeatable group) — the clean case for turning "add individual
+  // entries" on the way Financial Accounts already works.
+  async function editPasswordManagerSection(user: ReturnType<typeof userEvent.setup>) {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    await user.click(screen.getByRole("button", { name: /^Password Manager Plan/ }));
+    await user.click(await screen.findByRole("button", { name: "Edit this form" }));
+  }
+
+  it("shows an unchecked 'allow multiple entries' toggle for a single-record section", async () => {
+    const user = userEvent.setup();
+    await editPasswordManagerSection(user);
+    const toggle = screen.getByRole("checkbox", { name: /allow multiple entries/i });
+    expect(toggle).not.toBeChecked();
+    // The entry-name input only appears once multi-record is on.
+    expect(screen.queryByLabelText(/entry name/i)).not.toBeInTheDocument();
+  });
+
+  it("turns the section multi-record with a custom entry name, persisted in customPack", async () => {
+    const user = userEvent.setup();
+    await editPasswordManagerSection(user);
+
+    await user.click(screen.getByRole("checkbox", { name: /allow multiple entries/i }));
+
+    const entryName = await screen.findByLabelText(/entry name/i);
+    await user.clear(entryName);
+    await user.type(entryName, "Login");
+
+    await user.click(screen.getByRole("button", { name: "Save form changes" }));
+
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
+    const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
+    const customPack = (snapshot as Record<string, unknown>).customPack as
+      | import("../domain/formModel").FormPack
+      | undefined;
+    expect(customPack).toBeDefined();
+    const section = customPack!.sections.find((s) => s.sectionKey === "password-manager")!;
+    expect(section.multiRecord).toBe(true);
+    // RecordList reads groups[0].title for the "Add …" button.
+    expect(section.groups[0]!.title).toBe("Login");
+  });
+});
+
 describe("Form structure editor — end-to-end", () => {
   beforeEach(() => {
     localStorage.setItem("lifescribe.packEditorEnabled", "true");

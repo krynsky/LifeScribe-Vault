@@ -80,7 +80,15 @@ function deriveOperations(prevPack: FormPack, nextPack: FormPack): MigrationOper
       }
     }
 
-    // Cardinality reductions (repeatable: true -> false).
+    // Section-level cardinality reduction (multiRecord: true -> false).
+    if (prevSection.multiRecord && !nextSection.multiRecord) {
+      operations.push({
+        op: "reduceCardinality",
+        sectionKey: nextSection.sectionKey,
+      });
+    }
+
+    // Group-level cardinality reductions (repeatable: true -> false).
     const prevGroups = new Map(prevSection.groups.map((g) => [g.groupKey, g]));
     for (const group of nextSection.groups) {
       const before = prevGroups.get(group.groupKey);

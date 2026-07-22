@@ -140,6 +140,36 @@ export function addSection(pack: FormPack, title = "New Section"): FormPack {
 }
 
 /**
+ * Sets whether a section holds many records (like Financial Accounts) or a
+ * single record. Turning it on (false -> true) is always non-breaking. Turning
+ * it off is breaking and is authorized by an auto-derived section-level
+ * `reduceCardinality` op (see packAutoMigrate.ts) at save time.
+ */
+export function setSectionMultiRecord(
+  pack: FormPack,
+  sectionKey: string,
+  multiRecord: boolean,
+): FormPack {
+  return updateSection(pack, sectionKey, (s) => ({ ...s, multiRecord }));
+}
+
+/**
+ * Renames a multi-record section's first group, whose title RecordList reads as
+ * the per-entry / "Add …" button label. No-op (referential identity) when the
+ * section is missing or has no groups.
+ */
+export function setSectionEntryLabel(
+  pack: FormPack,
+  sectionKey: string,
+  label: string,
+): FormPack {
+  const section = pack.sections.find((s) => s.sectionKey === sectionKey);
+  if (!section || section.groups.length === 0) return pack;
+  const firstGroupKey = section.groups[0]!.groupKey;
+  return updateGroup(pack, sectionKey, firstGroupKey, (g) => ({ ...g, title: label }));
+}
+
+/**
  * Heals a section that was persisted with zero groups (older `addSection`
  * created groupless sections that fail validation and can't be saved). Seeds a
  * group+field so the section becomes editable and savable. No-op if the section

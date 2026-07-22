@@ -29,6 +29,8 @@ import {
   addSection,
   ensureSectionHasGroup,
   removeField,
+  setSectionEntryLabel,
+  setSectionMultiRecord,
   updateSection,
   updateField,
 } from "../creator/packEdits";
@@ -804,6 +806,20 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     });
   }
 
+  function handleToggleMultiRecord(sectionKey: string, multiRecord: boolean) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return setSectionMultiRecord(prev, sectionKey, multiRecord);
+    });
+  }
+
+  function handleEditEntryLabel(sectionKey: string, label: string) {
+    setWorkingPack((prev) => {
+      if (!prev) return prev;
+      return setSectionEntryLabel(prev, sectionKey, label);
+    });
+  }
+
   async function handleAddSection() {
     if (!loaded) return;
     const newPack = addSection(loaded.pack);
@@ -1158,6 +1174,51 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
                   aria-label="Section description"
                   placeholder="A short intro shown under the section title"
                 />
+              </div>
+              <div className="section-editor-bar__cardinality-row">
+                {(() => {
+                  const workingSection = workingPack?.sections.find(
+                    (s) => s.sectionKey === section.sectionKey,
+                  );
+                  const isMulti = workingSection?.multiRecord ?? section.multiRecord;
+                  const entryLabel = workingSection?.groups[0]?.title ?? "";
+                  return (
+                    <>
+                      <label className="section-editor-bar__checkbox">
+                        <input
+                          type="checkbox"
+                          checked={isMulti}
+                          onChange={(e) =>
+                            handleToggleMultiRecord(section.sectionKey, e.target.checked)
+                          }
+                          aria-label="Allow multiple entries"
+                        />
+                        <span>Allow multiple entries (add items individually)</span>
+                      </label>
+                      {isMulti && (
+                        <div className="section-editor-bar__entry-name-row">
+                          <label
+                            className="section-editor-bar__label"
+                            htmlFor="section-entry-name-edit"
+                          >
+                            Entry name
+                          </label>
+                          <input
+                            id="section-entry-name-edit"
+                            className="section-editor-bar__input"
+                            type="text"
+                            value={entryLabel}
+                            onChange={(e) =>
+                              handleEditEntryLabel(section.sectionKey, e.target.value)
+                            }
+                            aria-label="Entry name"
+                            placeholder="e.g. Subscription — used on the “Add …” button"
+                          />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
               <div className="section-editor-bar__actions">
                 <button

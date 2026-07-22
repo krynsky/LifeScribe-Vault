@@ -7,6 +7,8 @@ import {
   addGroup,
   addSection,
   ensureSectionHasGroup,
+  setSectionMultiRecord,
+  setSectionEntryLabel,
   maxOrder,
 } from "./packEdits";
 import type { FormPack } from "../domain/formModel";
@@ -288,5 +290,59 @@ describe("ensureSectionHasGroup", () => {
   it("leaves a section that already has a group untouched (referential identity)", () => {
     const result = ensureSectionHasGroup(MINIMAL_PACK, MINIMAL_PACK.sections[0]!.sectionKey);
     expect(result).toBe(MINIMAL_PACK);
+  });
+});
+
+describe("setSectionMultiRecord", () => {
+  it("turns a single-record section into a multi-record one", () => {
+    const updated = setSectionMultiRecord(MINIMAL_PACK, "personal", true);
+    const section = updated.sections.find((s) => s.sectionKey === "personal")!;
+    expect(section.multiRecord).toBe(true);
+  });
+
+  it("turns a multi-record section back into a single-record one", () => {
+    const on = setSectionMultiRecord(MINIMAL_PACK, "personal", true);
+    const off = setSectionMultiRecord(on, "personal", false);
+    expect(off.sections.find((s) => s.sectionKey === "personal")!.multiRecord).toBe(false);
+  });
+
+  it("is immutable and leaves the input pack unchanged", () => {
+    const updated = setSectionMultiRecord(MINIMAL_PACK, "personal", true);
+    expect(updated).not.toBe(MINIMAL_PACK);
+    expect(MINIMAL_PACK.sections[0]!.multiRecord).toBe(false);
+  });
+
+  it("returns the same pack when the section key is unknown", () => {
+    const result = setSectionMultiRecord(MINIMAL_PACK, "does-not-exist", true);
+    expect(result.sections.map((s) => s.multiRecord)).toEqual(
+      MINIMAL_PACK.sections.map((s) => s.multiRecord),
+    );
+  });
+
+  it("keeps the toggled pack valid", () => {
+    expect(validatePack(setSectionMultiRecord(MINIMAL_PACK, "personal", true)).ok).toBe(true);
+  });
+});
+
+describe("setSectionEntryLabel", () => {
+  it("renames the section's first group (which drives the 'Add …' button label)", () => {
+    const updated = setSectionEntryLabel(MINIMAL_PACK, "personal", "Subscription");
+    const section = updated.sections.find((s) => s.sectionKey === "personal")!;
+    // RecordList reads section.groups[0].title for the record/add label.
+    expect(section.groups[0]!.title).toBe("Subscription");
+  });
+
+  it("is immutable and leaves the input pack unchanged", () => {
+    const updated = setSectionEntryLabel(MINIMAL_PACK, "personal", "Subscription");
+    expect(updated).not.toBe(MINIMAL_PACK);
+    expect(MINIMAL_PACK.sections[0]!.groups[0]!.title).toBe("Basics");
+  });
+
+  it("returns the same pack when the section has no groups", () => {
+    const groupless: FormPack = {
+      ...MINIMAL_PACK,
+      sections: [{ ...MINIMAL_PACK.sections[0]!, groups: [] }],
+    };
+    expect(setSectionEntryLabel(groupless, "personal", "Subscription")).toBe(groupless);
   });
 });
