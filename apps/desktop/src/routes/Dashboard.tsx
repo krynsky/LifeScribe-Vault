@@ -27,6 +27,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import {
   addOptionalField,
   addSection,
+  ensureSectionHasGroup,
   removeField,
   updateSection,
   updateField,
@@ -713,7 +714,9 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   function handleEnterSectionEdit(sectionKey: string) {
     if (!loaded) return;
     setEditingSectionKey(sectionKey);
-    setWorkingPack(loaded.pack);
+    // Heal any section previously persisted without a group so it becomes
+    // editable and savable (older addSection created groupless sections).
+    setWorkingPack(ensureSectionHasGroup(loaded.pack, sectionKey));
     setPackEditError(null);
   }
 
@@ -1145,14 +1148,15 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
               </div>
               <div className="section-editor-bar__lede-row">
                 <label className="section-editor-bar__label" htmlFor="section-lede-edit">
-                  Section lede
+                  Section description
                 </label>
                 <textarea
                   id="section-lede-edit"
                   className="section-editor-bar__input"
                   value={workingPack?.sections.find((s) => s.sectionKey === section.sectionKey)?.lede ?? section.lede}
                   onChange={(e) => handleEditSectionLede(section.sectionKey, e.target.value)}
-                  aria-label="Section lede"
+                  aria-label="Section description"
+                  placeholder="A short intro shown under the section title"
                 />
               </div>
               <div className="section-editor-bar__actions">

@@ -6,9 +6,12 @@ import {
   removeField,
   addGroup,
   addSection,
+  ensureSectionHasGroup,
   maxOrder,
 } from "./packEdits";
 import type { FormPack } from "../domain/formModel";
+import { isCustomFieldKey } from "../domain/formModel";
+import { validatePack } from "../domain/packValidation";
 
 // ---------------------------------------------------------------------------
 // Minimal fixture
@@ -234,12 +237,56 @@ describe("addSection", () => {
     );
   });
 
-  it("appends section with empty groups, readinessRule, and kitMapping", () => {
+  it("seeds the new section with one group + field, and empty readinessRule/kitMapping", () => {
     const updated = addSection(MINIMAL_PACK, "My New Section");
     const newSection = updated.sections.find((s) => s.title === "My New Section")!;
     expect(newSection).toBeDefined();
-    expect(newSection.groups).toEqual([]);
+    // A groupless section (or a fieldless group) fails validatePack, so a new
+    // section must be born with a real group + field.
+    expect(newSection.groups).toHaveLength(1);
+    expect(newSection.groups[0]!.fields).toHaveLength(1);
+    expect(newSection.groups[0]!.fields[0]!.protected).toBe(false);
+    expect(isCustomFieldKey(newSection.groups[0]!.fields[0]!.systemKey)).toBe(false);
     expect(newSection.readinessRule).toEqual({ requiredKeys: [] });
     expect(newSection.kitMapping).toEqual({ entries: [] });
+  });
+
+  it("produces a pack that passes validatePack (regression: groupless section was unsavable)", () => {
+    const updated = addSection(MINIMAL_PACK, "My New Section");
+    expect(validatePack(updated).ok).toBe(true);
+  });
+});
+
+describe("ensureSectionHasGroup", () => {
+  it("seeds a group + field into a section persisted without any group", () => {
+    // Simulate a legacy groupless section (older addSection produced these).
+    const broken: FormPack = {
+      ...MINIMAL_PACK,
+      sections: [
+        ...MINIMAL_PACK.sections,
+        {
+          sectionKey: "section_legacy_broken",
+          title: "Subscriptions",
+          lede: "",
+          multiRecord: false,
+          order: 99,
+          groups: [],
+          readinessRule: { requiredKeys: [] },
+          kitMapping: { entries: [] },
+        },
+      ],
+    };
+    expect(validatePack(broken).ok).toBe(false);
+
+    const healed = ensureSectionHasGroup(broken, "section_legacy_broken");
+    const section = healed.sections.find((s) => s.sectionKey === "section_legacy_broken")!;
+    expect(section.groups).toHaveLength(1);
+    expect(section.groups[0]!.fields).toHaveLength(1);
+    expect(validatePack(healed).ok).toBe(true);
+  });
+
+  it("leaves a section that already has a group untouched (referential identity)", () => {
+    const result = ensureSectionHasGroup(MINIMAL_PACK, MINIMAL_PACK.sections[0]!.sectionKey);
+    expect(result).toBe(MINIMAL_PACK);
   });
 });

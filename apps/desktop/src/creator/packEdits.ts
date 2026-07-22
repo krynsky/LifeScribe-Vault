@@ -83,7 +83,41 @@ function uniqueKey(prefix: string): string {
 // Add helpers
 // ---------------------------------------------------------------------------
 
-/** Appends a new empty section with a unique sectionKey. */
+/**
+ * Builds a fresh group holding one optional text field.
+ *
+ * A section with zero groups — or a group with zero fields — fails
+ * `validatePack` ("must contain at least one group / field"), so a new section
+ * MUST be seeded with a real group+field or it can never be saved. The inline
+ * editor also only renders "Add field" controls inside existing groups, so a
+ * groupless section would be an unsavable dead end with no UI path forward.
+ */
+function seededGroup(): FieldGroup {
+  const groupKey = uniqueKey("group");
+  let fieldKey = uniqueKey("field");
+  // Ensure the field key is never in the custom.* namespace (guard per spec).
+  while (isCustomFieldKey(fieldKey)) {
+    fieldKey = uniqueKey("field");
+  }
+  return {
+    groupKey,
+    title: "Details",
+    repeatable: false,
+    order: 1,
+    fields: [
+      {
+        systemKey: fieldKey,
+        label: "New Field",
+        type: "text",
+        required: false,
+        protected: false,
+        order: 1,
+      },
+    ],
+  };
+}
+
+/** Appends a new section, seeded with one group + field so it is valid on save. */
 export function addSection(pack: FormPack, title = "New Section"): FormPack {
   const order = maxOrder(pack.sections) + 1;
   const existingKeys = new Set(pack.sections.map((s) => s.sectionKey));
@@ -98,11 +132,26 @@ export function addSection(pack: FormPack, title = "New Section"): FormPack {
     lede: "",
     multiRecord: false,
     order,
-    groups: [],
+    groups: [seededGroup()],
     readinessRule: { requiredKeys: [] },
     kitMapping: { entries: [] },
   };
   return { ...pack, sections: [...pack.sections, newSection] };
+}
+
+/**
+ * Heals a section that was persisted with zero groups (older `addSection`
+ * created groupless sections that fail validation and can't be saved). Seeds a
+ * group+field so the section becomes editable and savable. No-op if the section
+ * already has at least one group.
+ */
+export function ensureSectionHasGroup(pack: FormPack, sectionKey: string): FormPack {
+  const section = pack.sections.find((s) => s.sectionKey === sectionKey);
+  if (!section || section.groups.length > 0) return pack;
+  return updateSection(pack, sectionKey, (s) => ({
+    ...s,
+    groups: [seededGroup()],
+  }));
 }
 
 /** Appends a new empty non-repeatable group to the section with a unique groupKey. */
