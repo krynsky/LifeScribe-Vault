@@ -159,9 +159,9 @@ function validateField(
       );
     }
   }
-  if (candidate.type === "file" && candidate.options !== undefined) {
+  if ((candidate.type === "file" || candidate.type === "path") && candidate.options !== undefined) {
     errors.push(
-      `Section ${sectionKey}: file field ${label} must not declare options.`,
+      `Section ${sectionKey}: ${candidate.type} field ${label} must not declare options.`,
     );
   }
   if (candidate.visibleWhen !== undefined) {

@@ -31,6 +31,7 @@ import {
   upsertSectionRecord,
 } from "../domain/valuesStore";
 import { FileField } from "./FileField";
+import { PathField } from "./PathField";
 import { createRecordId, recordSummaryLabel } from "./recordUtils";
 
 export interface FormRendererProps {
@@ -247,6 +248,25 @@ export function FormRenderer({
             attachment={attachmentRef}
             onAttach={(ref) => attachFileToRecord(record, field.systemKey, ref)}
             onRemove={() => removeFileFromRecord(record, field.systemKey)}
+          />
+        </Field>
+      );
+    }
+
+    if (field.type === "path") {
+      return (
+        <Field
+          key={field.systemKey}
+          fieldId={fieldId}
+          label={field.label}
+          helperText={field.helperText}
+          error={error}
+        >
+          <PathField
+            fieldId={fieldId}
+            value={storedValue}
+            describedBy={field.helperText ? `${fieldId}-hint` : undefined}
+            onChange={(value) => updateRecordValue(record, field.systemKey, value)}
           />
         </Field>
       );

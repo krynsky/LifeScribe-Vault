@@ -94,6 +94,9 @@ describe("valueConformsToField", () => {
     expect(valueConformsToField("dana@example.com", { type: "email" })).toBe(true);
     expect(valueConformsToField("no-at-sign", { type: "email" })).toBe(false);
     expect(valueConformsToField("anything", { type: "text" })).toBe(true);
+    // A path is a free-form string: any value conforms (folder or file path).
+    expect(valueConformsToField("C:\\Users\\Dana\\Estate", { type: "path" })).toBe(true);
+    expect(valueConformsToField("", { type: "path" })).toBe(true);
   });
 });
 

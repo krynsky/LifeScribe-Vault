@@ -200,6 +200,24 @@ button {
   box-shadow: 0 0 0 3px var(--color-accent-tint);
 }
 
+.path-field__row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.path-field__row .field__control {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.path-field__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .checkbox-control {
   display: flex;
   align-items: flex-start;

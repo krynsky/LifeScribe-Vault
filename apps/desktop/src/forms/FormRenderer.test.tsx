@@ -340,6 +340,35 @@ describe("FormRenderer", () => {
     expect(record?.attachments).toEqual([{ id: "att1", fileName: "will.pdf", sizeBytes: 10 }]);
   });
 
+  it("renders a path field and choosing a folder populates the value", async () => {
+    const { open: mockedOpen } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(mockedOpen).mockResolvedValue("C:\\Users\\Dana\\Estate");
+
+    const pack = makePack({
+      sections: [
+        makeSection({
+          sectionKey: "docs",
+          groups: [
+            makeGroup({
+              groupKey: "main",
+              fields: [
+                makeField({ systemKey: "digitalLocation", label: "Digital location", type: "path", order: 1 }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+    const section = resolveSection(pack, "docs");
+    const captureRef: { current: SectionValues | null } = { current: null };
+    render(<Harness section={section} captureRef={captureRef} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /choose folder/i }));
+
+    const record = captureRef.current?.records[0];
+    expect(record?.values["digitalLocation"]).toBe("C:\\Users\\Dana\\Estate");
+  });
+
   it("supports add/duplicate/delete for repeatable groups inside a section form", async () => {
     const user = userEvent.setup();
     const section = resolveSection(makePlanPack(), "plan");
