@@ -76,6 +76,8 @@ function addSection(pack: FormPack, add: ModuleAddSection): void {
   pack.sections.push({ ...add.section, order: add.order - 0.5 });
 }
 
+// Unlike field renumber(), this renumbers the whole section list instead of
+// tracking a touched set — sections are few, so it's cheaper/simpler.
 function renumberSections(pack: FormPack): void {
   pack.sections.sort((left, right) => left.order - right.order);
   pack.sections.forEach((section, index) => {

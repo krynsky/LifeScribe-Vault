@@ -359,4 +359,29 @@ describe("composePack — sections", () => {
     const crypto = out.sections.find((s) => s.sectionKey === "crypto")!;
     expect(crypto.groups[0]!.fields.map((f) => f.systemKey)).toEqual(["walletName", "walletSeedLocation"]);
   });
+
+  it("treats removeSectionKeys for a non-existent section as a no-op", () => {
+    const mod: FormModule = {
+      moduleId: "trim", title: "Trim", question: "?", order: 1, defaultOptionId: "keep",
+      options: [{ optionId: "keep" }, { optionId: "drop", removeSectionKeys: ["ghost"] }],
+    };
+    const out = composePack(twoSectionBase(), [mod], { trim: "drop" });
+    expect(out.sections.map((s) => s.sectionKey)).toEqual(["devices", "notes"]);
+    expect(out.sections.map((s) => s.order)).toEqual([1, 2]);
+  });
+
+  it("adds two sections in one option, each landing at its requested slot", () => {
+    const secB: PackSection = { ...cryptoSection, sectionKey: "second", title: "Second" };
+    const mod: FormModule = {
+      moduleId: "multi", title: "Multi", question: "?", order: 1, defaultOptionId: "off",
+      options: [
+        { optionId: "off" },
+        { optionId: "on", addSections: [{ order: 3, section: cryptoSection }, { order: 4, section: secB }] },
+      ],
+    };
+    const out = composePack(twoSectionBase(), [mod], { multi: "on" });
+    // devices(1), notes(2), then the two added sections at slots 3 and 4.
+    expect(out.sections.map((s) => s.sectionKey)).toEqual(["devices", "notes", "crypto", "second"]);
+    expect(out.sections.map((s) => s.order)).toEqual([1, 2, 3, 4]);
+  });
 });
