@@ -25,6 +25,8 @@ function selectedOption(
   const optionId = selections[module.moduleId] ?? module.defaultOptionId;
   return (
     module.options.find((option) => option.optionId === optionId) ??
+    // Deliberate fallback: a stale/unknown optionId (e.g. from an older pack
+    // version) resolves to the module's default rather than throwing.
     module.options.find((option) => option.optionId === module.defaultOptionId)
   );
 }
@@ -70,6 +72,8 @@ function applyKitAdditions(pack: FormPack, kitAdditions: Record<string, string[]
     if (!section) {
       throw new Error(`module kitAdditions references unknown section "${sectionKey}"`);
     }
+    // Optional chaining here is a deliberate runtime guard against malformed
+    // pack data — the FormPack types declare kitMapping/entries as required.
     const entry = section.kitMapping?.entries?.[0];
     if (!entry) {
       throw new Error(`section "${sectionKey}" has no kitMapping entry to extend`);
