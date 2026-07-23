@@ -623,6 +623,34 @@ describe("validateModules", () => {
     };
     expect(validateModules({ ...moduleBasePack(), modules: [mod] }, composePack).errors).toEqual([]);
   });
+
+  it("does not raise a protected-field error when a module removes a whole section", () => {
+    const mod: FormModule = {
+      moduleId: "simple", title: "Simple", question: "?", order: 1, defaultOptionId: "keep",
+      options: [{ optionId: "keep" }, { optionId: "drop", removeSectionKeys: ["devices"] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [mod] }, composePack);
+    // (removing the only section will fail validatePack for emptiness — that's fine;
+    //  the point is that NO "protected" error is raised for the removal itself.)
+    expect(errors.join(" ")).not.toMatch(/protected/i);
+  });
+
+  it("allows an option to replace a section (remove + re-add the same key)", () => {
+    const mod: FormModule = {
+      moduleId: "replace", title: "Replace", question: "?", order: 1, defaultOptionId: "keep",
+      options: [
+        { optionId: "keep" },
+        { optionId: "on", removeSectionKeys: ["devices"], addSections: [{ order: 1, section: {
+          sectionKey: "devices", title: "Devices v2", lede: "", multiRecord: false, order: 1,
+          readinessRule: { requiredKeys: [] }, kitMapping: { entries: [{ heading: "x", fields: [] }] },
+          groups: [{ groupKey: "g", title: "G", repeatable: false, order: 1, fields: [
+            { systemKey: "dv2", label: "DV2", type: "text", required: false, protected: false, order: 1 },
+          ] }],
+        } }] },
+      ],
+    };
+    expect(validateModules({ ...moduleBasePack(), modules: [mod] }, composePack).errors).toEqual([]);
+  });
 });
 
 describe("validatePack wiring for modules", () => {

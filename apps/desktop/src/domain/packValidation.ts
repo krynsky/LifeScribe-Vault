@@ -472,14 +472,22 @@ export function validateModules(
         }
         addedBy.set(add.field.systemKey, module.moduleId);
       }
+      // Unlike removeKeys (which forbids removing a protected field to avoid a
+      // dangling readiness reference), removing a WHOLE section is
+      // intentionally allowed even if it contains protected fields — the
+      // section's readinessRule/kitMapping/data are removed with it, so no
+      // dangling reference results. Forbidding it would make section removal
+      // useless: every base section has a protected readiness field by
+      // convention.
       for (const key of option.removeSectionKeys ?? []) {
         if (!baseSectionKeys.has(key)) {
           errors.push(`${label} option "${option.optionId}" removeSectionKeys references unknown section "${key}".`);
         }
       }
+      const removedThisOption = new Set(option.removeSectionKeys ?? []);
       for (const add of option.addSections ?? []) {
         const key = add.section.sectionKey;
-        if (baseSectionKeys.has(key)) {
+        if (baseSectionKeys.has(key) && !removedThisOption.has(key)) {
           errors.push(`${label} option "${option.optionId}" added section "${key}" collides with a base section.`);
         }
         const priorModule = sectionAddedBy.get(key);
