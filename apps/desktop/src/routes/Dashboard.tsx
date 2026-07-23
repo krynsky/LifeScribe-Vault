@@ -39,6 +39,7 @@ import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
+import { composePack } from "../domain/composePack";
 import { migrateVaultValues } from "../domain/packMigrations";
 import { mergePackWithOverlay } from "../domain/packMerge";
 import {
@@ -118,13 +119,14 @@ function errorCode(error: unknown): string {
 }
 
 /**
- * Resolve the base FormPack for a parsed snapshot: the user's personal pack
- * if saved, else the bundled default for the snapshot's formMode.
+ * The pack this vault renders from: the saved customPack (form-editor edits) or
+ * the bundled base pack, composed with the profile's module selections. Legacy
+ * customPacks predate modules (base.modules undefined) so compose is a no-op for
+ * them — they already baked in their mode's fields.
  */
-function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
-  return parsed.customPack
-    ? Promise.resolve(parsed.customPack)
-    : loadDefaultPack(parsed.profile.formMode);
+async function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
+  const base = parsed.customPack ?? (await loadDefaultPack());
+  return composePack(base, base.modules ?? [], parsed.profile.moduleSelections);
 }
 
 /**
@@ -525,7 +527,12 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       ...loaded,
       vault: {
         ...loaded.vault,
-        profile: { ...loaded.vault.profile, formMode: newMode, basePackId: nextBasePackId },
+        profile: {
+          ...loaded.vault.profile,
+          formMode: newMode,
+          moduleSelections: { ...loaded.vault.profile.moduleSelections, secrets: newMode === "credential" ? "on" : "off" },
+          basePackId: nextBasePackId,
+        },
         customPack: null,
       },
     };

@@ -1,6 +1,12 @@
 /**
  * Default-pack loading seam (U6).
  *
+ * There is now a single bundled base ("hint") pack; per-module fields (e.g.
+ * secrets, file-method) are declared on it as `FormModule`s and composed in
+ * at load time via `composePack(base, base.modules, profile.moduleSelections)`
+ * — see `resolveBasePack` in Dashboard.tsx. This loader only resolves the
+ * base pack itself; it does not know about modules or selections.
+ *
  * Primary source: the bundled Tauri resource, read through the Rust
  * `read_default_pack` command (the frontend has no fs scope; dev builds
  * read the source resources/ dir for hot-reload). Fallback: the build-time
@@ -12,45 +18,39 @@
  */
 
 import type { FormMode } from "./snapshot";
-import hintPackJson from "../../src-tauri/resources/packs/default-pack.json";
-import credentialPackJson from "../../src-tauri/resources/packs/default-pack-credential.json";
+import basePackJson from "../../src-tauri/resources/packs/default-pack.json";
 import { readDefaultPack } from "../api/vaultApi";
 import type { FormPack } from "./formModel";
 import { validatePack } from "./packValidation";
 
-function staticPackFor(mode: FormMode): unknown {
-  return mode === "credential" ? credentialPackJson : hintPackJson;
-}
-
-function validateCandidate(candidate: unknown): FormPack | null {
-  const result = validatePack(candidate);
-  return result.ok ? result.pack : null;
-}
-
-function loadStaticDefaultPack(mode: FormMode): FormPack {
-  const result = validatePack(staticPackFor(mode));
+function loadStaticBasePack(): FormPack {
+  const result = validatePack(basePackJson);
   if (!result.ok) {
-    throw new Error(`The bundled ${mode} pack failed validation: ${result.errors.join("; ")}`);
+    throw new Error(`The bundled base pack failed validation: ${result.errors.join("; ")}`);
   }
   return result.pack;
 }
 
+// `_mode` is retained (ignored) so existing call sites compile without
+// churn; there is only one base pack now, composed with module selections
+// by the caller.
 export async function loadDefaultPack(mode: FormMode = "hint"): Promise<FormPack> {
+  void mode; // vestigial: retained only so existing call sites compile.
   let raw: unknown;
   try {
-    raw = await readDefaultPack(mode);
+    raw = await readDefaultPack();
   } catch {
     raw = null; // invoke unavailable (tests) or resource read failed.
   }
   if (typeof raw === "string") {
     try {
-      const pack = validateCandidate(JSON.parse(raw));
-      if (pack) {
-        return pack;
+      const result = validatePack(JSON.parse(raw));
+      if (result.ok) {
+        return result.pack;
       }
     } catch {
       // Malformed resource JSON: fall through to the static copy.
     }
   }
-  return loadStaticDefaultPack(mode);
+  return loadStaticBasePack();
 }
