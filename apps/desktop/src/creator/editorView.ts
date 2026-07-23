@@ -8,6 +8,16 @@
  * layer it comes from (`base` or a specific module option). It never renumbers;
  * ordering is for display only.
  *
+ * Notes:
+ * - `kitAdditions` is intentionally NOT reflected here — this is a structural
+ *   field/section view; kit membership affects the Recovery Kit, not layout.
+ * - An `addFields` op whose target section/group isn't in the current view is
+ *   skipped and recorded in `warnings` (its owning module may not be overlaid).
+ * - Added fields sort by their raw `order`, so on an exact `order` tie the
+ *   pre-existing field wins — this can differ from composePack's `order-0.5`
+ *   tie-break (added field wins there); acceptable because this ordering is
+ *   display-only.
+ *
  * Pure — no React, no IPC.
  */
 
@@ -35,6 +45,7 @@ export interface EditorViewSection extends Omit<PackSection, "groups"> {
 }
 export interface EditorView {
   sections: EditorViewSection[];
+  warnings: string[];
 }
 
 const BASE: ViewSource = { kind: "base" };
@@ -76,7 +87,12 @@ function addField(
 ): void {
   const section = findSection(view, add.sectionKey);
   const group = section?.groups.find((candidate) => candidate.groupKey === add.groupKey);
-  if (!group) return; // targets a section/group not in the current view — skip in the view
+  if (!group) {
+    view.warnings.push(
+      `Field "${add.field.systemKey}" could not be placed: section/group "${add.sectionKey}/${add.groupKey}" is not in the current view (its owning module may not be overlaid).`,
+    );
+    return;
+  }
   group.fields.push({ ...add.field, order: add.order, source, removed: false });
 }
 
@@ -95,6 +111,7 @@ export function buildEditorView(
 ): EditorView {
   const view: EditorView = {
     sections: base.sections.map((section) => tagSection(section, BASE)),
+    warnings: [],
   };
   const modules = [...(base.modules ?? [])].sort((left, right) => left.order - right.order);
   for (const module of modules) {

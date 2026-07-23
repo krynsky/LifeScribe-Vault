@@ -49,8 +49,8 @@ function base(): FormPack {
 
 function field(view: ReturnType<typeof buildEditorView>, sectionKey: string, systemKey: string) {
   return view.sections
-    .find((s) => s.sectionKey === sectionKey)!
-    .groups.flatMap((g) => g.fields)
+    .find((s) => s.sectionKey === sectionKey)
+    ?.groups.flatMap((g) => g.fields)
     .find((f) => f.systemKey === systemKey);
 }
 
@@ -94,5 +94,39 @@ describe("buildEditorView", () => {
     const view = buildEditorView(base(), { secrets: null });
     expect(field(view, "devices", "devicePin")).toBeUndefined();
     expect(field(view, "devices", "unlockHint")!.removed).toBe(false);
+  });
+
+  it("records a warning when an addField targets a section not in the current view", () => {
+    const p = base();
+    p.modules!.push({
+      moduleId: "cryptoExtra", title: "X", question: "?", order: 3, defaultOptionId: "off",
+      options: [{ optionId: "off" }, { optionId: "on", addFields: [{
+        sectionKey: "crypto", groupKey: "wallet", order: 2,
+        field: { systemKey: "walletNote", label: "Note", type: "text", required: false, protected: false, order: 2 } }] }],
+    });
+    const view = buildEditorView(p, { cryptoExtra: "on" }); // crypto section NOT overlaid
+    expect(view.warnings.join(" ")).toMatch(/walletNote/);
+    expect(field(view, "crypto", "walletNote")).toBeUndefined();
+  });
+
+  it("keeps both a removed base field and a module re-added field of the same systemKey", () => {
+    const p = base();
+    p.modules!.push({
+      moduleId: "readd", title: "R", question: "?", order: 3, defaultOptionId: "off",
+      options: [{ optionId: "off" }, { optionId: "on", addFields: [{
+        sectionKey: "devices", groupKey: "device", order: 5,
+        field: { systemKey: "unlockHint", label: "Unlock hint v2", type: "text", required: false, protected: false, order: 5 } }] }],
+    });
+    const view = buildEditorView(p, { secrets: "on", readd: "on" }); // secrets removes unlockHint; readd re-adds it
+    const hints = view.sections.find((s) => s.sectionKey === "devices")!.groups[0]!.fields.filter((f) => f.systemKey === "unlockHint");
+    expect(hints).toHaveLength(2);
+    expect(hints.some((f) => f.removed && f.source.kind === "base")).toBe(true);
+    expect(hints.some((f) => !f.removed && f.source.kind === "module")).toBe(true);
+  });
+
+  it("tags a field inside an added section with the module source", () => {
+    const view = buildEditorView(base(), { crypto: "on" });
+    const wallet = field(view, "crypto", "walletName")!;
+    expect(wallet.source).toEqual({ kind: "module", moduleId: "crypto", optionId: "on" });
   });
 });
