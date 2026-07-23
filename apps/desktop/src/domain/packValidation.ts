@@ -437,6 +437,8 @@ export function validateModules(
   const modules = pack.modules ?? [];
   const baseFields = indexModuleBaseFields(pack);
   const addedBy = new Map<string, string>(); // systemKey -> moduleId
+  const baseSectionKeys = new Set(pack.sections.map((section) => section.sectionKey));
+  const sectionAddedBy = new Map<string, string>(); // sectionKey -> moduleId
 
   for (const module of modules) {
     const label = `module "${module.moduleId}"`;
@@ -469,6 +471,35 @@ export function validateModules(
           errors.push(`Field "${add.field.systemKey}" is added by more than one module ("${priorModule}" and "${module.moduleId}").`);
         }
         addedBy.set(add.field.systemKey, module.moduleId);
+      }
+      for (const key of option.removeSectionKeys ?? []) {
+        if (!baseSectionKeys.has(key)) {
+          errors.push(`${label} option "${option.optionId}" removeSectionKeys references unknown section "${key}".`);
+        }
+      }
+      for (const add of option.addSections ?? []) {
+        const key = add.section.sectionKey;
+        if (baseSectionKeys.has(key)) {
+          errors.push(`${label} option "${option.optionId}" added section "${key}" collides with a base section.`);
+        }
+        const priorModule = sectionAddedBy.get(key);
+        if (priorModule && priorModule !== module.moduleId) {
+          errors.push(`Section "${key}" is added by more than one module ("${priorModule}" and "${module.moduleId}").`);
+        }
+        sectionAddedBy.set(key, module.moduleId);
+        // A whole added section is self-contained: it legitimately carries its
+        // own protected readiness field(s), so protected fields here are NOT
+        // forbidden (unlike addFields into an existing section). We still
+        // enforce cross-module systemKey uniqueness via the shared addedBy map.
+        for (const group of add.section.groups) {
+          for (const field of group.fields) {
+            const priorFieldModule = addedBy.get(field.systemKey);
+            if (priorFieldModule && priorFieldModule !== module.moduleId) {
+              errors.push(`Field "${field.systemKey}" (in module-added section "${key}") is added by more than one module ("${priorFieldModule}" and "${module.moduleId}").`);
+            }
+            addedBy.set(field.systemKey, module.moduleId);
+          }
+        }
       }
     }
   }
