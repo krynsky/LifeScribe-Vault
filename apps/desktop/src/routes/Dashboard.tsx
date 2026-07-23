@@ -519,7 +519,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     // be loaded the id is dropped and the post-reload save re-stamps it.
     let nextBasePackId: string | undefined;
     try {
-      nextBasePackId = (await loadDefaultPack(newMode)).packId;
+      nextBasePackId = (await loadDefaultPack()).packId;
     } catch {
       nextBasePackId = undefined;
     }
@@ -530,7 +530,10 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         profile: {
           ...loaded.vault.profile,
           formMode: newMode,
-          moduleSelections: { ...loaded.vault.profile.moduleSelections, secrets: newMode === "credential" ? "on" : "off" },
+          moduleSelections: {
+            ...loaded.vault.profile.moduleSelections,
+            secrets: newMode === "credential" ? "on" : "off",
+          },
           basePackId: nextBasePackId,
         },
         customPack: null,

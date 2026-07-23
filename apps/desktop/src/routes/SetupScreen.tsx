@@ -2,17 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { composePack } from "../domain/composePack";
 import type { FormPack } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
-import type { FormMode } from "../domain/snapshot";
-
-/**
- * Map the onboarding mode toggle to the module selections `composePack`
- * expects. Mirrors `moduleSelectionsFromFormMode` in domain/snapshot.ts —
- * the onboarding preview has no persisted profile yet, so it derives the
- * same selections from the in-progress mode choice.
- */
-function moduleSelectionsForPreview(formMode: FormMode): Record<string, string> {
-  return { secrets: formMode === "credential" ? "on" : "off" };
-}
+import { moduleSelectionsFromFormMode, type FormMode } from "../domain/snapshot";
 
 export interface SetupScreenProps {
   onCreate: (masterPassword: string, ownerName: string, formMode: FormMode) => Promise<void>;
@@ -98,7 +88,7 @@ function PackPreview({ formMode }: { formMode: FormMode }) {
   const failed = base === "failed";
   const pack =
     base && !failed
-      ? composePack(base, base.modules ?? [], moduleSelectionsForPreview(formMode))
+      ? composePack(base, base.modules ?? [], moduleSelectionsFromFormMode(formMode))
       : undefined;
   const sections = pack
     ? [...pack.sections].sort((a, b) => a.order - b.order)

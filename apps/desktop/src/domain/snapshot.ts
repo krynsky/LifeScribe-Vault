@@ -115,7 +115,7 @@ function asFormMode(value: unknown, fallback: FormMode): FormMode {
 }
 
 /** Map a legacy formMode to its equivalent module selection. */
-function moduleSelectionsFromFormMode(formMode: FormMode): Record<string, string> {
+export function moduleSelectionsFromFormMode(formMode: FormMode): Record<string, string> {
   return { secrets: formMode === "credential" ? "on" : "off" };
 }
 
