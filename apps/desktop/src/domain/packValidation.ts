@@ -384,10 +384,17 @@ export function validatePack(candidate: unknown): PackValidationResult {
     }
   }
 
-  if (Array.isArray(candidate.modules) && candidate.modules.length > 0) {
-    errors.push(...validateModules(candidate as unknown as FormPack, composePack).errors);
-  } else if (candidate.modules !== undefined && !Array.isArray(candidate.modules)) {
+  if (candidate.modules !== undefined && !Array.isArray(candidate.modules)) {
     errors.push("Pack modules must be an array when present.");
+  } else if (errors.length === 0 && Array.isArray(candidate.modules) && candidate.modules.length > 0) {
+    // Only validate modules against a structurally-sound base (sections/groups
+    // are then guaranteed well-formed). Wrapped so untrusted input can never
+    // throw out of validatePack — it always becomes a validation error.
+    try {
+      errors.push(...validateModules(candidate as unknown as FormPack, composePack).errors);
+    } catch (error) {
+      errors.push(`Pack modules could not be validated: ${String((error as Error).message ?? error)}`);
+    }
   }
 
   if (errors.length > 0) {
@@ -397,9 +404,11 @@ export function validatePack(candidate: unknown): PackValidationResult {
 }
 
 /**
- * Build a pack-wide flat systemKey -> { protected } map. Assumes systemKeys
- * are unique across sections (validateSection enforces uniqueness per
- * section; module addFields further enforce global uniqueness of added keys).
+ * Build a pack-wide flat systemKey -> { protected } map. `validateSection`
+ * only enforces systemKey uniqueness within a single section, not across
+ * sections — this map does not itself enforce cross-section uniqueness
+ * either; if a key were reused across sections, the last section's
+ * `protected` flag would silently win.
  */
 function indexModuleBaseFields(pack: FormPack): Map<string, { protected: boolean }> {
   const index = new Map<string, { protected: boolean }>();

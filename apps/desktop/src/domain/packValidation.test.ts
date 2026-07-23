@@ -566,4 +566,10 @@ describe("validatePack wiring for modules", () => {
   it("still accepts a plain pack with no modules", () => {
     expect(validatePack(moduleBasePack()).ok).toBe(true);
   });
+
+  it("does not throw when a malformed base pack carries modules", () => {
+    const malformed = { ...moduleBasePack(), sections: "nope", modules: [addFieldModule("x")] } as never;
+    expect(() => validatePack(malformed)).not.toThrow();
+    expect(validatePack(malformed).ok).toBe(false);
+  });
 });
