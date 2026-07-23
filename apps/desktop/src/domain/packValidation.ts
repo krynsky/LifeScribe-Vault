@@ -10,10 +10,12 @@
 import {
   FIELD_TYPES,
   type FieldDefinition,
+  type FormModule,
   type FormPack,
   type MigrationOperation,
   isCustomFieldKey,
 } from "./formModel";
+import { composePack } from "./composePack";
 
 export type PackValidationResult =
   | { ok: true; pack: FormPack; errors: [] }
@@ -382,10 +384,99 @@ export function validatePack(candidate: unknown): PackValidationResult {
     }
   }
 
+  if (Array.isArray(candidate.modules) && candidate.modules.length > 0) {
+    errors.push(...validateModules(candidate as unknown as FormPack, composePack).errors);
+  }
+
   if (errors.length > 0) {
     return { ok: false, pack: null, errors };
   }
   return { ok: true, pack: candidate as unknown as FormPack, errors: [] };
+}
+
+/** Index every field in a pack: systemKey -> { protected }. */
+function indexModuleBaseFields(pack: FormPack): Map<string, { protected: boolean }> {
+  const index = new Map<string, { protected: boolean }>();
+  for (const section of pack.sections) {
+    for (const group of section.groups) {
+      for (const field of group.fields) {
+        index.set(field.systemKey, { protected: field.protected });
+      }
+    }
+  }
+  return index;
+}
+
+/**
+ * Validate a pack's optional `modules`. Modules may only add or remove
+ * UNPROTECTED fields; added keys must be globally unique, outside the custom.*
+ * namespace, and never contributed by two modules; each option must compose to
+ * a pack that passes validatePack. `compose` is injected to keep this decoupled
+ * from composePack.ts.
+ */
+export function validateModules(
+  pack: FormPack,
+  compose: (base: FormPack, modules: FormModule[], selections: Record<string, string>) => FormPack,
+): { errors: string[] } {
+  const errors: string[] = [];
+  const modules = pack.modules ?? [];
+  const baseFields = indexModuleBaseFields(pack);
+  const addedBy = new Map<string, string>(); // systemKey -> moduleId
+
+  for (const module of modules) {
+    const label = `module "${module.moduleId}"`;
+    if (module.options.length < 2) {
+      errors.push(`${label} must offer at least two options.`);
+    }
+    const optionIds = new Set(module.options.map((option) => option.optionId));
+    if (!optionIds.has(module.defaultOptionId)) {
+      errors.push(`${label} defaultOptionId "${module.defaultOptionId}" is not one of its options.`);
+    }
+
+    for (const option of module.options) {
+      for (const key of option.removeKeys ?? []) {
+        const existing = baseFields.get(key);
+        if (!existing) {
+          errors.push(`${label} option "${option.optionId}" removeKeys references unknown field "${key}".`);
+        } else if (existing.protected) {
+          errors.push(`${label} option "${option.optionId}" may not remove the protected field "${key}".`);
+        }
+      }
+      for (const add of option.addFields ?? []) {
+        if (add.field.protected) {
+          errors.push(`${label} option "${option.optionId}" may not add a protected field "${add.field.systemKey}".`);
+        }
+        if (isCustomFieldKey(add.field.systemKey)) {
+          errors.push(`${label} option "${option.optionId}" added field "${add.field.systemKey}" must not use the custom.* namespace.`);
+        }
+        const priorModule = addedBy.get(add.field.systemKey);
+        if (priorModule && priorModule !== module.moduleId) {
+          errors.push(`Field "${add.field.systemKey}" is added by more than one module ("${priorModule}" and "${module.moduleId}").`);
+        }
+        addedBy.set(add.field.systemKey, module.moduleId);
+      }
+    }
+  }
+
+  for (const module of modules) {
+    for (const option of module.options) {
+      let composed: FormPack;
+      try {
+        composed = compose(pack, [module], { [module.moduleId]: option.optionId });
+      } catch (error) {
+        errors.push(`module "${module.moduleId}" option "${option.optionId}" failed to compose: ${String((error as Error).message ?? error)}`);
+        continue;
+      }
+      const result = validatePack({ ...composed, modules: undefined });
+      if (!result.ok) {
+        errors.push(
+          `module "${module.moduleId}" option "${option.optionId}" produces an invalid pack: ${result.errors.join("; ")}`,
+        );
+      }
+    }
+  }
+
+  return { errors };
 }
 
 interface FieldRecordInfo {
