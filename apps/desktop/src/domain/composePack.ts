@@ -110,5 +110,9 @@ export function composePack(
     renumber(touched);
     applyKitAdditions(pack, option.kitAdditions ?? {});
   }
+  // A composed pack is a resolved artifact — module definitions are consumed
+  // here and must not ride along on the output, or a re-compose (e.g. of a
+  // saved customPack) would re-apply the same addFields and duplicate them.
+  delete pack.modules;
   return pack;
 }
