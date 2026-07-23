@@ -239,22 +239,21 @@ export function normalizeSnapshot(
     }
   }
 
+  const formMode = asFormMode(profileRaw.formMode, fallbackFormMode);
+
   return {
     snapshotFormat:
       typeof raw.snapshotFormat === "number" ? raw.snapshotFormat : SNAPSHOT_FORMAT,
     schemaVersion: typeof raw.schemaVersion === "number" ? raw.schemaVersion : 0,
-    profile: (() => {
-      const formMode = asFormMode(profileRaw.formMode, fallbackFormMode);
-      return {
-        ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
-        reviewCadenceMonths,
-        formMode,
-        moduleSelections: asModuleSelections(profileRaw.moduleSelections, formMode),
-        ...(typeof profileRaw.basePackId === "string" && profileRaw.basePackId.length > 0
-          ? { basePackId: profileRaw.basePackId }
-          : {}),
-      };
-    })(),
+    profile: {
+      ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
+      reviewCadenceMonths,
+      formMode,
+      moduleSelections: asModuleSelections(profileRaw.moduleSelections, formMode),
+      ...(typeof profileRaw.basePackId === "string" && profileRaw.basePackId.length > 0
+        ? { basePackId: profileRaw.basePackId }
+        : {}),
+    },
     values: normalizeValues(raw.values),
     sectionMeta: normalizeSectionMeta(raw.sectionMeta),
     overlay: isRecord(raw.overlay) ? (raw.overlay as unknown as UserOverlay) : null,

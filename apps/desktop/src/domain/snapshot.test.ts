@@ -160,4 +160,11 @@ describe("moduleSelections migration", () => {
     expect(emptySnapshot("Dana", "credential").profile.moduleSelections).toEqual({ secrets: "on" });
     expect(emptySnapshot("Dana", "hint").profile.moduleSelections).toEqual({ secrets: "off" });
   });
+
+  it("ignores a moduleSelections map with a non-string value", () => {
+    const parsed = normalizeSnapshot({
+      profile: { ownerName: "Dana", formMode: "hint", moduleSelections: { secrets: "on", extra: 1 } },
+    });
+    expect(parsed.profile.moduleSelections).toEqual({ secrets: "off" });
+  });
 });
