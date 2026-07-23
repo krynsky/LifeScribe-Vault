@@ -48,6 +48,12 @@ export interface VaultProfile {
   reviewCadenceMonths: number;
   formMode: FormMode;
   /**
+   * moduleId -> selected optionId for composable form modules. Seeded from the
+   * legacy `formMode` on read when absent. `formMode` is retained for now and
+   * removed in a later change once onboarding/switch UI drives selections.
+   */
+  moduleSelections: Record<string, string>;
+  /**
    * packId of the base pack this vault resolves from (advisory metadata,
    * re-stamped from the loaded pack on every save). Absent on snapshots
    * written before this field existed. Recorded now so a future
@@ -106,6 +112,18 @@ function asString(value: unknown, fallback: string): string {
 
 function asFormMode(value: unknown, fallback: FormMode): FormMode {
   return value === "hint" || value === "credential" ? value : fallback;
+}
+
+/** Map a legacy formMode to its equivalent module selection. */
+function moduleSelectionsFromFormMode(formMode: FormMode): Record<string, string> {
+  return { secrets: formMode === "credential" ? "on" : "off" };
+}
+
+function asModuleSelections(value: unknown, formMode: FormMode): Record<string, string> {
+  if (isRecord(value) && Object.values(value).every((entry) => typeof entry === "string")) {
+    return value as Record<string, string>;
+  }
+  return moduleSelectionsFromFormMode(formMode);
 }
 
 function asOptionalIso(value: unknown): string | undefined {
@@ -180,7 +198,12 @@ export function emptySnapshot(
   return {
     snapshotFormat: SNAPSHOT_FORMAT,
     schemaVersion: 0,
-    profile: { ownerName, reviewCadenceMonths: DEFAULT_REVIEW_CADENCE_MONTHS, formMode },
+    profile: {
+      ownerName,
+      reviewCadenceMonths: DEFAULT_REVIEW_CADENCE_MONTHS,
+      formMode,
+      moduleSelections: moduleSelectionsFromFormMode(formMode),
+    },
     values: {},
     sectionMeta: {},
     overlay: null,
@@ -220,14 +243,18 @@ export function normalizeSnapshot(
     snapshotFormat:
       typeof raw.snapshotFormat === "number" ? raw.snapshotFormat : SNAPSHOT_FORMAT,
     schemaVersion: typeof raw.schemaVersion === "number" ? raw.schemaVersion : 0,
-    profile: {
-      ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
-      reviewCadenceMonths,
-      formMode: asFormMode(profileRaw.formMode, fallbackFormMode),
-      ...(typeof profileRaw.basePackId === "string" && profileRaw.basePackId.length > 0
-        ? { basePackId: profileRaw.basePackId }
-        : {}),
-    },
+    profile: (() => {
+      const formMode = asFormMode(profileRaw.formMode, fallbackFormMode);
+      return {
+        ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
+        reviewCadenceMonths,
+        formMode,
+        moduleSelections: asModuleSelections(profileRaw.moduleSelections, formMode),
+        ...(typeof profileRaw.basePackId === "string" && profileRaw.basePackId.length > 0
+          ? { basePackId: profileRaw.basePackId }
+          : {}),
+      };
+    })(),
     values: normalizeValues(raw.values),
     sectionMeta: normalizeSectionMeta(raw.sectionMeta),
     overlay: isRecord(raw.overlay) ? (raw.overlay as unknown as UserOverlay) : null,
