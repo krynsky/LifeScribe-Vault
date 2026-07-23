@@ -41,6 +41,12 @@ function removeFields(pack: FormPack, keys: Set<string>, touched: Set<FieldGroup
         touched.add(group);
       }
     }
+    // A removed field must not leave a dangling reference in this section's
+    // kit mapping — otherwise the composed pack fails validatePack's
+    // "kit mapping references unknown field" check.
+    for (const entry of section.kitMapping?.entries ?? []) {
+      entry.fields = entry.fields.filter((key) => !keys.has(key));
+    }
   }
 }
 

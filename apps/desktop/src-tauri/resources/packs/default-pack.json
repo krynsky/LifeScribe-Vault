@@ -835,5 +835,89 @@
       }
     }
   ],
+  "modules": [
+    {
+      "moduleId": "secrets",
+      "title": "Store secrets",
+      "question": "Do you want to store the actual secrets (passwords, PINs) in your vault, or only where to find them?",
+      "helperText": "Secrets are encrypted in this vault. Choose \"Only locations\" to keep this vault free of live credentials.",
+      "order": 1,
+      "defaultOptionId": "off",
+      "options": [
+        { "optionId": "off", "label": "Only locations (safer)" },
+        {
+          "optionId": "on",
+          "label": "Store the actual secrets",
+          "addFields": [
+            {
+              "sectionKey": "password-manager",
+              "groupKey": "plan",
+              "order": 4,
+              "field": {
+                "systemKey": "passwordManagerMasterPassword",
+                "label": "Master password",
+                "helperText": "The actual master password for your password manager. It is stored encrypted in this vault.",
+                "type": "text",
+                "required": false,
+                "protected": false,
+                "order": 4
+              }
+            },
+            {
+              "sectionKey": "devices",
+              "groupKey": "device",
+              "order": 4,
+              "field": {
+                "systemKey": "devicePin",
+                "label": "PIN or passcode",
+                "helperText": "The actual unlock PIN or passcode for this device. It is stored encrypted in this vault.",
+                "type": "text",
+                "required": false,
+                "protected": false,
+                "order": 4
+              }
+            }
+          ],
+          "kitAdditions": {
+            "password-manager": ["passwordManagerMasterPassword"],
+            "devices": ["devicePin"]
+          }
+        }
+      ]
+    },
+    {
+      "moduleId": "file-method",
+      "title": "File handling",
+      "question": "For documents, do you want to point to where a file lives, or attach the file into your vault?",
+      "helperText": "\"Point to a location\" stores only a path. \"Attach the file\" encrypts a copy into this vault.",
+      "order": 2,
+      "defaultOptionId": "path",
+      "options": [
+        { "optionId": "path", "label": "Point to a location on disk" },
+        {
+          "optionId": "attach",
+          "label": "Attach the file into the vault",
+          "removeKeys": ["documentDigitalLocation"],
+          "addFields": [
+            {
+              "sectionKey": "documents",
+              "groupKey": "document",
+              "order": 4,
+              "field": {
+                "systemKey": "documentDigitalFile",
+                "label": "Attached copy",
+                "helperText": "Attach a scanned or digital copy. It is stored encrypted in this vault.",
+                "type": "file",
+                "required": false,
+                "protected": false,
+                "order": 4
+              }
+            }
+          ],
+          "kitAdditions": { "documents": ["documentDigitalFile"] }
+        }
+      ]
+    }
+  ],
   "migrations": []
 }
