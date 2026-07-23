@@ -1192,6 +1192,11 @@ button {
   gap: 6px;
 }
 
+.field-panel__option-value {
+  color: var(--color-ink-secondary);
+  font-size: var(--text-sm);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

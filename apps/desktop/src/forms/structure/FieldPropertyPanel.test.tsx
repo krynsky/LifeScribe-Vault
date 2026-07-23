@@ -38,15 +38,39 @@ describe("FieldPropertyPanel", () => {
     );
   });
 
-  it("adds an option for a select field", async () => {
+  it("adds an option from a single Value input, auto-generating the stored value", async () => {
     const onChange = vi.fn();
     const selectField: FieldDefinition = { ...field, type: "select", options: [] };
     render(<FieldPropertyPanel field={selectField} onChange={onChange} />);
-    await userEvent.type(screen.getByLabelText("Option value"), "yes");
-    await userEvent.type(screen.getByLabelText("Option label"), "Yes");
+    // The creator types only the human-readable text (labeled "Value"); there
+    // is no separate machine-value input to fill in.
+    expect(screen.queryByLabelText("Option value")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Value"), "Checking Account");
     await userEvent.click(screen.getByRole("button", { name: /add option/i }));
     expect(onChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ options: [{ value: "yes", label: "Yes" }] }),
+      expect.objectContaining({
+        options: [{ value: "checking-account", label: "Checking Account" }],
+      }),
+    );
+  });
+
+  it("auto-generates a unique stored value when a new option would collide", async () => {
+    const onChange = vi.fn();
+    const selectField: FieldDefinition = {
+      ...field,
+      type: "select",
+      options: [{ value: "checking-account", label: "Checking Account" }],
+    };
+    render(<FieldPropertyPanel field={selectField} onChange={onChange} />);
+    await userEvent.type(screen.getByLabelText("Value"), "Checking account");
+    await userEvent.click(screen.getByRole("button", { name: /add option/i }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        options: [
+          { value: "checking-account", label: "Checking Account" },
+          { value: "checking-account-2", label: "Checking account" },
+        ],
+      }),
     );
   });
 });

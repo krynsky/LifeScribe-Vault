@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FieldDefinition, FieldOption, FieldType } from "../../domain/formModel";
 import { FIELD_TYPES } from "../../domain/formModel";
+import { uniqueOptionValue } from "./optionValue";
 
 export interface FieldPropertyPanelProps {
   field: FieldDefinition | null;
@@ -8,7 +9,6 @@ export interface FieldPropertyPanelProps {
 }
 
 export function FieldPropertyPanel({ field, onChange }: FieldPropertyPanelProps) {
-  const [optionValue, setOptionValue] = useState("");
   const [optionLabel, setOptionLabel] = useState("");
 
   if (!field) {
@@ -20,12 +20,13 @@ export function FieldPropertyPanel({ field, onChange }: FieldPropertyPanelProps)
   }
 
   function addOption() {
-    const value = optionValue.trim();
     const label = optionLabel.trim();
-    if (!value || !label) return;
-    const next: FieldOption = { value, label };
+    if (!label) return;
+    // The creator types only the display text; the stored value is a slug
+    // generated from it, made unique against the field's existing values.
+    const existingValues = (field!.options ?? []).map((option) => option.value);
+    const next: FieldOption = { value: uniqueOptionValue(label, existingValues), label };
     onChange({ ...field!, options: [...(field!.options ?? []), next] });
-    setOptionValue("");
     setOptionLabel("");
   }
 
@@ -86,7 +87,8 @@ export function FieldPropertyPanel({ field, onChange }: FieldPropertyPanelProps)
               {(field.options ?? []).map((opt, i) => (
                 <li key={opt.value}>
                   <span>
-                    <strong>{opt.value}</strong>: {opt.label}
+                    <strong>{opt.label}</strong>
+                    <span className="field-panel__option-value"> stored as {opt.value}</span>
                   </span>
                   <button
                     type="button"
@@ -108,17 +110,16 @@ export function FieldPropertyPanel({ field, onChange }: FieldPropertyPanelProps)
           <div className="field-panel__option-add">
             <input
               type="text"
-              aria-label="Option value"
-              placeholder="value"
-              value={optionValue}
-              onChange={(e) => setOptionValue(e.target.value)}
-            />
-            <input
-              type="text"
-              aria-label="Option label"
-              placeholder="Display label"
+              aria-label="Value"
+              placeholder="e.g. Checking account"
               value={optionLabel}
               onChange={(e) => setOptionLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addOption();
+                }
+              }}
             />
             <button
               type="button"
