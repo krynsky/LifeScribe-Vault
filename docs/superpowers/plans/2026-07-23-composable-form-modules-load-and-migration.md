@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the composition engine live — compose the base pack + selected modules at load, migrate `formMode` to `moduleSelections`, add the `secrets` and `file-method` modules to the base pack, and retire the pre-built credential pack and its tooling.
+**Goal:** Make the composition engine live — compose the base pack + selected modules at load, migrate `formMode` to `moduleSelections`, and add the `secrets` and `file-method` modules to the base pack.
+
+> **Revision (during execution):** Task 4 — retiring the pre-built credential pack and its build tooling — is **deferred to Plan 3**. Adding `modules` to the base pack breaks the legacy credential generator (`buildCredentialPack`/`deriveOverlay`/`renderSaveArtifacts`) and the pack editor that depends on them; that retirement is entangled with the pack-editor rework, which is Plan 3's authoring-UX scope. To keep the suite green in the meantime, `buildCredentialPack` strips `modules` from its output so the legacy system coexists (done in Task 2). Plan 2 is now **Tasks 1–3**.
 
 **Architecture:** The engine from Plan 1 (`composePack`, `validateModules`, module types) is wired into the load path. `resolveBasePack` now composes `base + base.modules + profile.moduleSelections`. The two shipped packs collapse to one base pack carrying `modules`; the credential variant is reproduced by the `secrets` module. Existing hint/credential vaults migrate to a `moduleSelections` map. UI (onboarding + a general switch surface) stays on `formMode` for now — Plan 3 replaces it and removes `formMode`.
 
