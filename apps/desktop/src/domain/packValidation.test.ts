@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { FormModule, FormPack } from "./formModel";
+import type { FormModule, FormPack, PackSection } from "./formModel";
 import { composePack } from "./composePack";
 import { loadPack, validateModules, validatePack, validatePackUpgrade } from "./packValidation";
 import { makeField, makeGroup, makePack, makePlanPack, makeSection } from "./testing/fixtures";
@@ -540,6 +540,116 @@ describe("validateModules", () => {
     };
     const { errors } = validateModules({ ...moduleBasePack(), modules: [bad] }, composePack);
     expect(errors.join(" ")).toMatch(/produces an invalid pack/i);
+  });
+
+  it("rejects removeSectionKeys that references an unknown section", () => {
+    const mod: FormModule = {
+      moduleId: "trim", title: "Trim", question: "?", order: 1, defaultOptionId: "keep",
+      options: [{ optionId: "keep" }, { optionId: "drop", removeSectionKeys: ["ghost"] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [mod] }, composePack);
+    expect(errors.join(" ")).toMatch(/unknown section/i);
+  });
+
+  it("rejects an added section whose key collides with a base section", () => {
+    const mod: FormModule = {
+      moduleId: "dup", title: "Dup", question: "?", order: 1, defaultOptionId: "off",
+      options: [
+        { optionId: "off" },
+        { optionId: "on", addSections: [{ order: 2, section: {
+          sectionKey: "devices", title: "Dupe", lede: "", multiRecord: false, order: 2,
+          readinessRule: { requiredKeys: [] }, kitMapping: { entries: [{ heading: "x", fields: [] }] },
+          groups: [{ groupKey: "g", title: "G", repeatable: false, order: 1, fields: [
+            { systemKey: "gf", label: "GF", type: "text", required: false, protected: false, order: 1 },
+          ] }],
+        } }] },
+      ],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [mod] }, composePack);
+    expect(errors.join(" ")).toMatch(/collides with a base section|already exists/i);
+  });
+
+  it("rejects the same section key added by two different modules", () => {
+    const makeAdder = (moduleId: string, order: number): FormModule => ({
+      moduleId, title: moduleId, question: "?", order, defaultOptionId: "off",
+      options: [
+        { optionId: "off" },
+        { optionId: "on", addSections: [{ order: 2, section: {
+          sectionKey: "extra", title: "Extra", lede: "", multiRecord: false, order: 2,
+          readinessRule: { requiredKeys: [] }, kitMapping: { entries: [{ heading: "x", fields: [] }] },
+          groups: [{ groupKey: "g", title: "G", repeatable: false, order: 1, fields: [
+            { systemKey: "gf", label: "GF", type: "text", required: false, protected: false, order: 1 },
+          ] }],
+        } }] },
+      ],
+    });
+    const { errors } = validateModules(
+      { ...moduleBasePack(), modules: [makeAdder("a", 1), makeAdder("b", 2)] },
+      composePack,
+    );
+    expect(errors.join(" ")).toMatch(/section .* added by more than one module/i);
+  });
+
+  it("rejects the same field systemKey nested in sections added by two modules", () => {
+    const sectionWith = (sectionKey: string): PackSection => ({
+      sectionKey, title: sectionKey, lede: "", multiRecord: false, order: 2,
+      readinessRule: { requiredKeys: [] }, kitMapping: { entries: [{ heading: "x", fields: [] }] },
+      groups: [{ groupKey: "g", title: "G", repeatable: false, order: 1, fields: [
+        { systemKey: "dupField", label: "Dup", type: "text", required: false, protected: false, order: 1 },
+      ] }],
+    });
+    const modA: FormModule = { moduleId: "a", title: "A", question: "?", order: 1, defaultOptionId: "off",
+      options: [{ optionId: "off" }, { optionId: "on", addSections: [{ order: 2, section: sectionWith("secA") }] }] };
+    const modB: FormModule = { moduleId: "b", title: "B", question: "?", order: 2, defaultOptionId: "off",
+      options: [{ optionId: "off" }, { optionId: "on", addSections: [{ order: 3, section: sectionWith("secB") }] }] };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [modA, modB] }, composePack);
+    expect(errors.join(" ")).toMatch(/added by more than one module/i);
+  });
+
+  it("accepts a well-formed section-adding module (protected readiness field allowed inside an added section)", () => {
+    const mod: FormModule = {
+      moduleId: "crypto", title: "Crypto", question: "?", order: 1, defaultOptionId: "off",
+      options: [
+        { optionId: "off" },
+        { optionId: "on", addSections: [{ order: 2, section: {
+          sectionKey: "crypto", title: "Crypto", lede: "", multiRecord: true, order: 2,
+          readinessRule: { requiredKeys: ["walletName"] },
+          kitMapping: { entries: [{ heading: "Crypto", fields: ["walletName"] }] },
+          groups: [{ groupKey: "wallet", title: "Wallet", repeatable: false, order: 1, fields: [
+            { systemKey: "walletName", label: "Wallet name", type: "text", required: true, protected: true, order: 1 },
+          ] }],
+        } }] },
+      ],
+    };
+    expect(validateModules({ ...moduleBasePack(), modules: [mod] }, composePack).errors).toEqual([]);
+  });
+
+  it("does not raise a protected-field error when a module removes a whole section", () => {
+    const mod: FormModule = {
+      moduleId: "simple", title: "Simple", question: "?", order: 1, defaultOptionId: "keep",
+      options: [{ optionId: "keep" }, { optionId: "drop", removeSectionKeys: ["devices"] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [mod] }, composePack);
+    // (removing the only section will fail validatePack for emptiness — that's fine;
+    //  the point is that NO "protected" error is raised for the removal itself.)
+    expect(errors.join(" ")).not.toMatch(/protected/i);
+  });
+
+  it("allows an option to replace a section (remove + re-add the same key)", () => {
+    const mod: FormModule = {
+      moduleId: "replace", title: "Replace", question: "?", order: 1, defaultOptionId: "keep",
+      options: [
+        { optionId: "keep" },
+        { optionId: "on", removeSectionKeys: ["devices"], addSections: [{ order: 1, section: {
+          sectionKey: "devices", title: "Devices v2", lede: "", multiRecord: false, order: 1,
+          readinessRule: { requiredKeys: [] }, kitMapping: { entries: [{ heading: "x", fields: [] }] },
+          groups: [{ groupKey: "g", title: "G", repeatable: false, order: 1, fields: [
+            { systemKey: "dv2", label: "DV2", type: "text", required: false, protected: false, order: 1 },
+          ] }],
+        } }] },
+      ],
+    };
+    expect(validateModules({ ...moduleBasePack(), modules: [mod] }, composePack).errors).toEqual([]);
   });
 });
 

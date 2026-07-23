@@ -16,6 +16,7 @@ import type {
   FormModuleOption,
   FormPack,
   ModuleAddField,
+  ModuleAddSection,
 } from "./formModel";
 
 function selectedOption(
@@ -63,6 +64,27 @@ function addField(pack: FormPack, add: ModuleAddField, touched: Set<FieldGroup>)
   touched.add(group);
 }
 
+function removeSections(pack: FormPack, keys: Set<string>): boolean {
+  if (keys.size === 0) return false;
+  const before = pack.sections.length;
+  pack.sections = pack.sections.filter((section) => !keys.has(section.sectionKey));
+  return pack.sections.length !== before;
+}
+
+function addSection(pack: FormPack, add: ModuleAddSection): void {
+  // order-0.5 sorts the new section just ahead of whatever holds that slot.
+  pack.sections.push({ ...add.section, order: add.order - 0.5 });
+}
+
+// Unlike field renumber(), this renumbers the whole section list instead of
+// tracking a touched set — sections are few, so it's cheaper/simpler.
+function renumberSections(pack: FormPack): void {
+  pack.sections.sort((left, right) => left.order - right.order);
+  pack.sections.forEach((section, index) => {
+    section.order = index + 1;
+  });
+}
+
 function renumber(touched: Set<FieldGroup>): void {
   for (const group of touched) {
     group.fields.sort((left, right) => left.order - right.order);
@@ -102,6 +124,14 @@ export function composePack(
   for (const module of ordered) {
     const option = selectedOption(module, selections);
     if (!option) continue;
+    // Sections first, so a field op in the same option can target a section this
+    // option just added.
+    let sectionsChanged = removeSections(pack, new Set(option.removeSectionKeys ?? []));
+    for (const add of option.addSections ?? []) {
+      addSection(pack, add);
+      sectionsChanged = true;
+    }
+    if (sectionsChanged) renumberSections(pack);
     const touched = new Set<FieldGroup>();
     removeFields(pack, new Set(option.removeKeys ?? []), touched);
     for (const add of option.addFields ?? []) {

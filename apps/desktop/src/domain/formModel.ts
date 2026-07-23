@@ -123,6 +123,13 @@ export interface ModuleAddField {
   field: FieldDefinition;
 }
 
+/** A whole section a module option inserts, with its placement among sections. */
+export interface ModuleAddSection {
+  /** Desired FINAL slot among sections; inserted at order-0.5 then renumbered. */
+  order: number;
+  section: PackSection;
+}
+
 /** One mutually-exclusive answer to a module's question. */
 export interface FormModuleOption {
   optionId: string;
@@ -134,6 +141,10 @@ export interface FormModuleOption {
   removeKeys?: string[];
   /** sectionKey -> systemKeys appended to the section's first kitMapping entry. */
   kitAdditions?: Record<string, string[]>;
+  /** Whole sections this option inserts into the composed pack. */
+  addSections?: ModuleAddSection[];
+  /** sectionKeys this option removes from the composed pack. */
+  removeSectionKeys?: string[];
 }
 
 /** An onboarding question. A binary toggle is just a 2-option module. */
