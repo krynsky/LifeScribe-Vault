@@ -16,6 +16,7 @@
 
 import { useState } from "react";
 import type { ResolvedField, ResolvedSection } from "../domain/formModel";
+import type { SectionValidationIssue } from "../domain/sectionValidation";
 import type { SectionRecord, SectionValues } from "../domain/valuesStore";
 import { FormRenderer } from "../forms/FormRenderer";
 import { createRecordId, recordSummaryLabel } from "../forms/recordUtils";
@@ -29,8 +30,8 @@ export interface RecordListProps {
   onChange: (values: SectionValues) => void;
   /** Forwarded to FormRenderer; called only when validation passes. */
   onSave?: (values: SectionValues) => void;
-  /** External errors keyed by systemKey, forwarded to the active form. */
-  validationErrors?: Record<string, string>;
+  /** Page-level required-field issues, rendered inline under each field. */
+  validationIssues?: SectionValidationIssue[];
 }
 
 export function RecordList({
@@ -39,9 +40,11 @@ export function RecordList({
   schemaVersion,
   onChange,
   onSave,
-  validationErrors,
+  validationIssues,
 }: RecordListProps) {
-  const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
+  // `undefined` means the user has not yet touched the disclosure, so a record
+  // carrying a validation issue may auto-expand; `null` is an explicit collapse.
+  const [activeRecordId, setActiveRecordId] = useState<string | null | undefined>(undefined);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const handleDeleteArchived = (archivedAnswerId: string) =>
@@ -68,7 +71,7 @@ export function RecordList({
           schemaVersion={schemaVersion}
           onChange={onChange}
           onSave={onSave}
-          validationErrors={validationErrors}
+          externalIssues={validationIssues}
         />
         {archived}
       </div>
@@ -85,6 +88,19 @@ export function RecordList({
   const readinessKeys = section.readinessRule.requiredKeys;
   const recordLabel = section.groups[0]?.title ?? section.title;
   const plainRecords = values.records.filter((record) => record.groupKey === undefined);
+
+  // A record has an unresolved issue when a required field it owns is still
+  // empty. Used to auto-expand the first offender and mark collapsed ones.
+  const hasIssue = (record: SectionRecord): boolean =>
+    (validationIssues ?? []).some(
+      (issue) =>
+        issue.recordId === record.id &&
+        (record.values[issue.systemKey] ?? "").trim().length === 0,
+    );
+  const effectiveActiveId =
+    activeRecordId === undefined
+      ? (plainRecords.find(hasIssue)?.id ?? null)
+      : activeRecordId;
 
   const addRecord = () => {
     const record: SectionRecord = { id: createRecordId(), schemaVersion, values: {} };
@@ -125,7 +141,7 @@ export function RecordList({
           <ul className="record-list__items">
             {plainRecords.map((record) => {
               const label = recordSummaryLabel(record, orderedFields, readinessKeys);
-              const expanded = activeRecordId === record.id;
+              const expanded = effectiveActiveId === record.id;
               return (
                 <li className="record-list__item" key={record.id}>
                   <div className="record-list__row">
@@ -137,6 +153,9 @@ export function RecordList({
                     >
                       {label}
                     </button>
+                    {!expanded && hasIssue(record) ? (
+                      <span className="record-list__row-error">Required info missing</span>
+                    ) : null}
                     <button
                       type="button"
                       className="record-list__action"
@@ -172,7 +191,7 @@ export function RecordList({
                         recordId={record.id}
                         onChange={onChange}
                         onSave={onSave}
-                        validationErrors={validationErrors}
+                        externalIssues={validationIssues}
                       />
                     </div>
                   ) : null}

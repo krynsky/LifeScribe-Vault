@@ -121,7 +121,7 @@ describe("Dashboard checklist and saving", () => {
     expect(screen.getAllByText("13%").length).toBeGreaterThan(0);
   });
 
-  it("blocks a save with missing required fields and lists them", async () => {
+  it("blocks a save with missing required fields and shows errors inline, not as a top list", async () => {
     renderDashboard();
     await screen.findByText("Welcome, Dana");
 
@@ -131,7 +131,23 @@ describe("Dashboard checklist and saving", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mocked.saveVaultSnapshot).not.toHaveBeenCalled();
+    // The error appears inline under its field, not in the old top-of-form list.
     expect(screen.getByText("Full name is required.")).toBeInTheDocument();
+    expect(screen.queryByText("A few required details are missing:")).not.toBeInTheDocument();
+  });
+
+  it("clears an inline required error as soon as the field is filled in", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    await user.click(sidebarSectionButton());
+    await user.click(screen.getByRole("button", { name: "Add Executor" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByText("Full name is required.")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Full name"), "Robert Ramin");
+    expect(screen.queryByText("Full name is required.")).not.toBeInTheDocument();
   });
 });
 

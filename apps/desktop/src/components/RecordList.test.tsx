@@ -59,9 +59,10 @@ interface HarnessProps {
   initial?: SectionValues;
   onSave?: (values: SectionValues) => void;
   captureRef?: { current: SectionValues | null };
+  validationIssues?: import("../domain/sectionValidation").SectionValidationIssue[];
 }
 
-function Harness({ section, initial, onSave, captureRef }: HarnessProps) {
+function Harness({ section, initial, onSave, captureRef, validationIssues }: HarnessProps) {
   const [values, setValues] = useState<SectionValues>(
     initial ?? makeSectionValues(section.sectionKey),
   );
@@ -77,6 +78,7 @@ function Harness({ section, initial, onSave, captureRef }: HarnessProps) {
         }
       }}
       onSave={onSave}
+      validationIssues={validationIssues}
     />
   );
 }
@@ -155,6 +157,35 @@ describe("RecordList", () => {
     await user.selectOptions(screen.getByLabelText("Provider"), "Bitwarden");
     const record = captureRef.current?.records.find((candidate) => candidate.groupKey === undefined);
     expect(record?.values.provider).toBe("Bitwarden");
+  });
+
+  it("auto-expands the first multi-record entry with a required issue and marks the rest", () => {
+    const section = resolveSection(makeDevicesPack(), "devices");
+    const initial: SectionValues = {
+      ...makeSectionValues("devices"),
+      records: [
+        { id: "d1", schemaVersion: 1, values: { deviceName: "Work laptop" } },
+        { id: "d2", schemaVersion: 1, values: { deviceName: "" } },
+        { id: "d3", schemaVersion: 1, values: { deviceName: "" } },
+      ],
+    };
+    render(
+      <Harness
+        section={section}
+        initial={initial}
+        validationIssues={[
+          { systemKey: "deviceName", recordId: "d2", message: "Device name is required." },
+          { systemKey: "deviceName", recordId: "d3", message: "Device name is required." },
+        ]}
+      />,
+    );
+
+    // The first offender auto-expands, surfacing its inline error…
+    expect(screen.getByRole("alert")).toHaveTextContent("Device name is required.");
+    // …the healthy record is untouched, and the other collapsed offender (d3)
+    // is flagged so its hidden error is not lost.
+    expect(screen.getByRole("button", { name: "Work laptop" })).toBeInTheDocument();
+    expect(screen.getByText("Required info missing")).toBeInTheDocument();
   });
 
   it("renders the archived-answers disclosure and deletes an archived answer via onChange", async () => {

@@ -161,17 +161,6 @@ export function SectionPage({
         </div>
       ) : null}
 
-      {validationIssues.length > 0 ? (
-        <div className="banner banner--error" role="alert">
-          <p className="banner__text">A few required details are missing:</p>
-          <ul className="banner__list">
-            {validationIssues.map((issue) => (
-              <li key={`${issue.recordId ?? "section"}:${issue.systemKey}`}>{issue.message}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
       <div className="section-page__form">
         {editing && packSection ? (
           <SectionStructureEditor
@@ -188,6 +177,7 @@ export function SectionPage({
             values={values}
             schemaVersion={schemaVersion}
             onChange={onChange}
+            validationIssues={validationIssues}
           />
         )}
       </div>

@@ -24,6 +24,7 @@ import {
   type ResolvedGroup,
   type ResolvedSection,
 } from "../domain/formModel";
+import type { SectionValidationIssue } from "../domain/sectionValidation";
 import {
   type AttachmentRef,
   type SectionRecord,
@@ -47,8 +48,13 @@ export interface FormRendererProps {
   onChange: (values: SectionValues) => void;
   /** When provided, a Save button renders; called only when validation passes. */
   onSave?: (values: SectionValues) => void;
-  /** External errors keyed by systemKey, shown on the bound record's fields. */
-  validationErrors?: Record<string, string>;
+  /**
+   * Required-field issues from the page-level Save, shown inline under the
+   * matching field. Each issue is "required and empty", so it is displayed only
+   * while the field is still empty and clears itself as soon as a value is
+   * entered — no separate dismissal is needed.
+   */
+  externalIssues?: SectionValidationIssue[];
 }
 
 type FieldControlElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -124,7 +130,7 @@ export function FormRenderer({
   recordId,
   onChange,
   onSave,
-  validationErrors,
+  externalIssues,
 }: FormRendererProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [expandedByGroup, setExpandedByGroup] = useState<Record<string, string | null>>({});
@@ -164,6 +170,32 @@ export function FormRenderer({
 
   const groupRecords = (group: ResolvedGroup): SectionRecord[] =>
     values.records.filter((record) => record.groupKey === group.groupKey);
+
+  /**
+   * The page-level required-field message for this record/field, or undefined.
+   * A section issue with `recordId: null` (singleton with no record yet) binds
+   * to the auto-created bound record. Suppressed once the field has a value, so
+   * the error clears itself as the user types.
+   */
+  const externalErrorFor = (record: SectionRecord, systemKey: string): string | undefined => {
+    if (!externalIssues) return undefined;
+    if ((record.values[systemKey] ?? "").trim().length > 0) return undefined;
+    const issue = externalIssues.find(
+      (candidate) =>
+        candidate.systemKey === systemKey &&
+        (candidate.recordId === record.id ||
+          (candidate.recordId === null && record.id === boundRecord.id)),
+    );
+    return issue?.message;
+  };
+
+  /** Records of a repeatable group that currently carry an unresolved issue. */
+  const erroredGroupRecordIds = (group: ResolvedGroup): Set<string> =>
+    new Set(
+      groupRecords(group)
+        .filter((record) => group.fields.some((f) => externalErrorFor(record, f.systemKey)))
+        .map((record) => record.id),
+    );
 
   const addGroupRecord = (group: ResolvedGroup) => {
     const record: SectionRecord = {
@@ -226,8 +258,7 @@ export function FormRenderer({
     const fieldId = fieldDomId(record, field.systemKey);
     const storedValue = record.values[field.systemKey] ?? "";
     const error =
-      errors[errorKey(record.id, field.systemKey)] ??
-      (record.id === boundRecord.id ? validationErrors?.[field.systemKey] : undefined);
+      errors[errorKey(record.id, field.systemKey)] ?? externalErrorFor(record, field.systemKey);
     const previousAnswer = field.previousAnswers?.find(
       (answer) => answer.recordId === record.id && answer.value === storedValue,
     );
@@ -306,6 +337,13 @@ export function FormRenderer({
   const renderRepeatableGroup = (group: ResolvedGroup) => {
     const records = groupRecords(group);
     const visibleFields = group.fields.filter((field) => !field.hidden);
+    const errored = erroredGroupRecordIds(group);
+    // Until the user touches this group's disclosure (state still undefined),
+    // default to expanding the first record with an unresolved required issue
+    // so its inline errors are never hidden behind a collapsed row.
+    const explicit = expandedByGroup[group.groupKey];
+    const autoExpandedId =
+      explicit !== undefined ? explicit : (records.find((r) => errored.has(r.id))?.id ?? null);
     return (
       <section className="form-group form-group--repeatable" key={group.groupKey}>
         <h3 className="form-group__title">{group.title}</h3>
@@ -319,7 +357,7 @@ export function FormRenderer({
                 visibleFields,
                 section.readinessRule.requiredKeys,
               );
-              const expanded = expandedByGroup[group.groupKey] === record.id;
+              const expanded = autoExpandedId === record.id;
               return (
                 <li className="record-list__item" key={record.id}>
                   <div className="record-list__row">
@@ -336,6 +374,9 @@ export function FormRenderer({
                     >
                       {label}
                     </button>
+                    {!expanded && errored.has(record.id) ? (
+                      <span className="record-list__row-error">Required info missing</span>
+                    ) : null}
                     <button
                       type="button"
                       className="record-list__action"

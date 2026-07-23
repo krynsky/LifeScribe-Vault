@@ -44,9 +44,10 @@ interface HarnessProps {
   initial?: SectionValues;
   onSave?: (values: SectionValues) => void;
   captureRef?: { current: SectionValues | null };
+  externalIssues?: import("../domain/sectionValidation").SectionValidationIssue[];
 }
 
-function Harness({ section, initial, onSave, captureRef }: HarnessProps) {
+function Harness({ section, initial, onSave, captureRef, externalIssues }: HarnessProps) {
   const [values, setValues] = useState<SectionValues>(
     initial ?? makeSectionValues(section.sectionKey),
   );
@@ -62,6 +63,7 @@ function Harness({ section, initial, onSave, captureRef }: HarnessProps) {
         }
       }}
       onSave={onSave}
+      externalIssues={externalIssues}
     />
   );
 }
@@ -367,6 +369,50 @@ describe("FormRenderer", () => {
 
     const record = captureRef.current?.records[0];
     expect(record?.values["digitalLocation"]).toBe("C:\\Users\\Dana\\Estate");
+  });
+
+  it("renders a page-level required issue inline under its field and clears it once filled", async () => {
+    const user = userEvent.setup();
+    const section = resolveSection(makePlanPack(), "plan");
+    const record = makeRecord({ id: "r1", values: { provider: "" } });
+    const values = makeSectionValues("plan", [record]);
+    render(
+      <Harness
+        section={section}
+        initial={values}
+        externalIssues={[{ systemKey: "provider", recordId: "r1", message: "Provider is required." }]}
+      />,
+    );
+
+    // Inline under the field, not a top-of-form list.
+    expect(screen.getByRole("alert")).toHaveTextContent("Provider is required.");
+
+    // Entering a value clears the required message with no extra action.
+    await user.selectOptions(screen.getByLabelText("Provider"), "Bitwarden");
+    expect(screen.queryByText("Provider is required.")).not.toBeInTheDocument();
+  });
+
+  it("auto-expands a collapsed repeatable-group record that has a required issue", async () => {
+    const section = resolveSection(makePlanPack(), "plan");
+    // Two contact records; the SECOND is missing its required contact name.
+    const values = makeSectionValues("plan", [
+      makeRecord({ id: "c1", groupKey: "contact", values: { contactName: "June Park" } }),
+      makeRecord({ id: "c2", groupKey: "contact", values: { contactName: "" } }),
+    ]);
+    render(
+      <Harness
+        section={section}
+        initial={values}
+        externalIssues={[
+          { systemKey: "contactName", recordId: "c2", message: "Contact name is required." },
+        ]}
+      />,
+    );
+
+    // The offending record is expanded so its inline error is visible.
+    expect(screen.getByRole("alert")).toHaveTextContent("Contact name is required.");
+    // The healthy record stays collapsed (its summary button is present).
+    expect(screen.getByRole("button", { name: "June Park" })).toBeInTheDocument();
   });
 
   it("supports add/duplicate/delete for repeatable groups inside a section form", async () => {
