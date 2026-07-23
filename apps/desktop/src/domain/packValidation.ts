@@ -386,6 +386,8 @@ export function validatePack(candidate: unknown): PackValidationResult {
 
   if (Array.isArray(candidate.modules) && candidate.modules.length > 0) {
     errors.push(...validateModules(candidate as unknown as FormPack, composePack).errors);
+  } else if (candidate.modules !== undefined && !Array.isArray(candidate.modules)) {
+    errors.push("Pack modules must be an array when present.");
   }
 
   if (errors.length > 0) {
@@ -394,7 +396,11 @@ export function validatePack(candidate: unknown): PackValidationResult {
   return { ok: true, pack: candidate as unknown as FormPack, errors: [] };
 }
 
-/** Index every field in a pack: systemKey -> { protected }. */
+/**
+ * Build a pack-wide flat systemKey -> { protected } map. Assumes systemKeys
+ * are unique across sections (validateSection enforces uniqueness per
+ * section; module addFields further enforce global uniqueness of added keys).
+ */
 function indexModuleBaseFields(pack: FormPack): Map<string, { protected: boolean }> {
   const index = new Map<string, { protected: boolean }>();
   for (const section of pack.sections) {
@@ -458,6 +464,10 @@ export function validateModules(
     }
   }
 
+  // Compose each option alone onto the base pack and revalidate. This
+  // intentionally collects all errors across all options rather than
+  // stopping at the first failure, so an option that produces an invalid
+  // pack may append a follow-on error alongside an already-flagged module.
   for (const module of modules) {
     for (const option of module.options) {
       let composed: FormPack;
@@ -467,6 +477,7 @@ export function validateModules(
         errors.push(`module "${module.moduleId}" option "${option.optionId}" failed to compose: ${String((error as Error).message ?? error)}`);
         continue;
       }
+      // Strip modules so this nested validatePack call does not recurse back into validateModules.
       const result = validatePack({ ...composed, modules: undefined });
       if (!result.ok) {
         errors.push(

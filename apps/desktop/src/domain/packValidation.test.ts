@@ -521,4 +521,49 @@ describe("validateModules", () => {
     const { errors } = validateModules({ ...moduleBasePack(), modules: [bad] }, composePack);
     expect(errors.join(" ")).toMatch(/defaultOptionId/i);
   });
+
+  it("reports a module option that fails to compose", () => {
+    const bad: FormModule = {
+      moduleId: "bad", title: "Bad", question: "?", order: 1, defaultOptionId: "on",
+      options: [{ optionId: "on", addFields: [{ sectionKey: "devices", groupKey: "ghost", order: 1,
+        field: { systemKey: "x", label: "X", type: "text", required: false, protected: false, order: 1 } }] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [bad] }, composePack);
+    expect(errors.join(" ")).toMatch(/failed to compose/i);
+  });
+
+  it("reports a module option whose composed pack is invalid", () => {
+    const bad: FormModule = {
+      moduleId: "bad", title: "Bad", question: "?", order: 1, defaultOptionId: "on",
+      options: [{ optionId: "on", addFields: [{ sectionKey: "devices", groupKey: "device", order: 3,
+        field: { systemKey: "blank", label: "", type: "text", required: false, protected: false, order: 3 } }] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [bad] }, composePack);
+    expect(errors.join(" ")).toMatch(/produces an invalid pack/i);
+  });
+});
+
+describe("validatePack wiring for modules", () => {
+  it("accepts a valid module-bearing pack", () => {
+    expect(validatePack({ ...moduleBasePack(), modules: [addFieldModule("devicePin")] }).ok).toBe(true);
+  });
+
+  it("rejects a pack with a structurally-bad module", () => {
+    expect(
+      validatePack({
+        ...moduleBasePack(),
+        modules: [{ moduleId: "x", title: "X", question: "?", order: 1, defaultOptionId: "a", options: [{ optionId: "a" }] }],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects a non-array modules value", () => {
+    const r = validatePack({ ...moduleBasePack(), modules: {} as never });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/modules must be an array/i);
+  });
+
+  it("still accepts a plain pack with no modules", () => {
+    expect(validatePack(moduleBasePack()).ok).toBe(true);
+  });
 });
