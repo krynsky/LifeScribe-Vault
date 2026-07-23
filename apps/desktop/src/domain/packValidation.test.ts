@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { FormPack } from "./formModel";
-import { loadPack, validatePack, validatePackUpgrade } from "./packValidation";
+import type { FormModule, FormPack } from "./formModel";
+import { composePack } from "./composePack";
+import { loadPack, validateModules, validatePack, validatePackUpgrade } from "./packValidation";
 import { makeField, makeGroup, makePack, makePlanPack, makeSection } from "./testing/fixtures";
 
 // Vitest runs with cwd = apps/desktop
@@ -406,5 +407,169 @@ describe("loadPack", () => {
     expect(result.usedFallback).toBe(true);
     expect(result.pack).toBe(lastGood);
     expect(result.errors.join(" ")).toMatch(/Protected field plan\.provider cannot be deleted/);
+  });
+});
+
+function moduleBasePack(): FormPack {
+  return {
+    packId: "base",
+    packVersion: "1.0.0",
+    schemaVersion: 1,
+    minAppVersion: "0.0.0",
+    migrations: [],
+    sections: [
+      {
+        sectionKey: "devices",
+        title: "Devices",
+        lede: "",
+        multiRecord: true,
+        order: 1,
+        readinessRule: { requiredKeys: ["deviceName"] },
+        kitMapping: { entries: [{ heading: "Devices", fields: ["deviceName"] }] },
+        groups: [
+          {
+            groupKey: "device",
+            title: "Device",
+            repeatable: false,
+            order: 1,
+            fields: [
+              { systemKey: "deviceName", label: "Device name", type: "text", required: true, protected: true, order: 1 },
+              { systemKey: "unlockHint", label: "Unlock hint", type: "text", required: false, protected: false, order: 2 },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function addFieldModule(systemKey: string, order = 3): FormModule {
+  return {
+    moduleId: "secrets",
+    title: "Secrets",
+    question: "?",
+    order: 1,
+    defaultOptionId: "off",
+    options: [
+      { optionId: "off" },
+      {
+        optionId: "on",
+        addFields: [
+          {
+            sectionKey: "devices",
+            groupKey: "device",
+            order,
+            field: { systemKey, label: "PIN", type: "text", required: false, protected: false, order },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("validateModules", () => {
+  it("accepts a well-formed module that composes to a valid pack", () => {
+    const pack = { ...moduleBasePack(), modules: [addFieldModule("devicePin")] };
+    expect(validateModules(pack, composePack).errors).toEqual([]);
+  });
+
+  it("rejects a removeKeys that targets a protected field", () => {
+    const remove: FormModule = {
+      moduleId: "trim", title: "Trim", question: "?", order: 1, defaultOptionId: "keep",
+      options: [{ optionId: "keep" }, { optionId: "drop", removeKeys: ["deviceName"] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [remove] }, composePack);
+    expect(errors.join(" ")).toMatch(/protected/i);
+  });
+
+  it("rejects a removeKeys that references an unknown field", () => {
+    const remove: FormModule = {
+      moduleId: "trim", title: "Trim", question: "?", order: 1, defaultOptionId: "keep",
+      options: [{ optionId: "keep" }, { optionId: "drop", removeKeys: ["ghost"] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [remove] }, composePack);
+    expect(errors.join(" ")).toMatch(/unknown field/i);
+  });
+
+  it("rejects an added systemKey in the custom.* namespace", () => {
+    const pack = { ...moduleBasePack(), modules: [addFieldModule("custom.devices.x")] };
+    const { errors } = validateModules(pack, composePack);
+    expect(errors.join(" ")).toMatch(/custom\./);
+  });
+
+  it("rejects the same systemKey added by two different modules", () => {
+    const a = addFieldModule("dup");
+    const b = { ...addFieldModule("dup"), moduleId: "other", order: 2 };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [a, b] }, composePack);
+    expect(errors.join(" ")).toMatch(/added by more than one module/i);
+  });
+
+  it("rejects a module with fewer than two options", () => {
+    const one: FormModule = {
+      moduleId: "x", title: "X", question: "?", order: 1, defaultOptionId: "a",
+      options: [{ optionId: "a" }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [one] }, composePack);
+    expect(errors.join(" ")).toMatch(/at least two options/i);
+  });
+
+  it("rejects a defaultOptionId that is not one of the options", () => {
+    const bad: FormModule = {
+      moduleId: "x", title: "X", question: "?", order: 1, defaultOptionId: "missing",
+      options: [{ optionId: "a" }, { optionId: "b" }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [bad] }, composePack);
+    expect(errors.join(" ")).toMatch(/defaultOptionId/i);
+  });
+
+  it("reports a module option that fails to compose", () => {
+    const bad: FormModule = {
+      moduleId: "bad", title: "Bad", question: "?", order: 1, defaultOptionId: "on",
+      options: [{ optionId: "on", addFields: [{ sectionKey: "devices", groupKey: "ghost", order: 1,
+        field: { systemKey: "x", label: "X", type: "text", required: false, protected: false, order: 1 } }] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [bad] }, composePack);
+    expect(errors.join(" ")).toMatch(/failed to compose/i);
+  });
+
+  it("reports a module option whose composed pack is invalid", () => {
+    const bad: FormModule = {
+      moduleId: "bad", title: "Bad", question: "?", order: 1, defaultOptionId: "on",
+      options: [{ optionId: "on", addFields: [{ sectionKey: "devices", groupKey: "device", order: 3,
+        field: { systemKey: "blank", label: "", type: "text", required: false, protected: false, order: 3 } }] }],
+    };
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [bad] }, composePack);
+    expect(errors.join(" ")).toMatch(/produces an invalid pack/i);
+  });
+});
+
+describe("validatePack wiring for modules", () => {
+  it("accepts a valid module-bearing pack", () => {
+    expect(validatePack({ ...moduleBasePack(), modules: [addFieldModule("devicePin")] }).ok).toBe(true);
+  });
+
+  it("rejects a pack with a structurally-bad module", () => {
+    expect(
+      validatePack({
+        ...moduleBasePack(),
+        modules: [{ moduleId: "x", title: "X", question: "?", order: 1, defaultOptionId: "a", options: [{ optionId: "a" }] }],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("rejects a non-array modules value", () => {
+    const r = validatePack({ ...moduleBasePack(), modules: {} as never });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/modules must be an array/i);
+  });
+
+  it("still accepts a plain pack with no modules", () => {
+    expect(validatePack(moduleBasePack()).ok).toBe(true);
+  });
+
+  it("does not throw when a malformed base pack carries modules", () => {
+    const malformed = { ...moduleBasePack(), sections: "nope", modules: [addFieldModule("x")] } as never;
+    expect(() => validatePack(malformed)).not.toThrow();
+    expect(validatePack(malformed).ok).toBe(false);
   });
 });
