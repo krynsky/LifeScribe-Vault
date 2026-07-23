@@ -347,7 +347,7 @@ Rules (symmetric with the field rules already there): `removeSectionKeys` must r
   const sectionAddedBy = new Map<string, string>(); // sectionKey -> moduleId
 ```
 
-Then, inside the per-option loop (alongside the existing `removeKeys`/`addFields` checks), add:
+Then, inside the per-option loop (alongside the existing `removeKeys`/`addFields` checks — `addedBy` is the existing `systemKey -> moduleId` map used by the `addFields` check), add:
 
 ```typescript
       for (const key of option.removeSectionKeys ?? []) {
@@ -365,10 +365,24 @@ Then, inside the per-option loop (alongside the existing `removeKeys`/`addFields
           errors.push(`Section "${key}" is added by more than one module ("${priorModule}" and "${module.moduleId}").`);
         }
         sectionAddedBy.set(key, module.moduleId);
+        // A whole added section is self-contained: it legitimately carries its
+        // own protected readiness field(s), so — unlike addFields into an
+        // existing section — protected fields here are NOT forbidden. We DO
+        // still enforce cross-module systemKey uniqueness by folding the added
+        // section's own field keys into the same addedBy map.
+        for (const group of add.section.groups) {
+          for (const field of group.fields) {
+            const priorFieldModule = addedBy.get(field.systemKey);
+            if (priorFieldModule && priorFieldModule !== module.moduleId) {
+              errors.push(`Field "${field.systemKey}" (in module-added section "${key}") is added by more than one module ("${priorFieldModule}" and "${module.moduleId}").`);
+            }
+            addedBy.set(field.systemKey, module.moduleId);
+          }
+        }
       }
 ```
 
-(The existing per-option `compose(pack, [module], …)` + `validatePack` gate at the end of `validateModules` already validates each added section's internal structure and all downstream integrity — no separate `validateSection` call is needed here, matching how field-add validity is delegated to that gate.)
+(The existing per-option `compose(pack, [module], …)` + `validatePack` gate at the end of `validateModules` already validates each added section's internal structure — field types, `custom.*`-namespace bans, readiness/kit integrity — so no separate `validateSection` call is needed here, matching how field-add validity is delegated to that gate. The gate cannot see cross-module collisions, which is why the `addedBy`/`sectionAddedBy` maps carry that check explicitly.)
 
 - [ ] **Step 4: Run to verify PASS** — `npm --prefix apps/desktop run test -- src/domain/packValidation.test.ts` → all pass (existing + 4 new).
 
