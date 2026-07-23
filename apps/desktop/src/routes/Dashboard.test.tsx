@@ -737,6 +737,30 @@ describe("Dashboard formModeHint — credential pack on load", () => {
     await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
     expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
   });
+
+  it("composes the secret field from moduleSelections, not just formMode", async () => {
+    // formMode is "hint" but moduleSelections explicitly turns the secrets
+    // module "on" — proving the base pack is composed with the profile's
+    // moduleSelections at load, not merely branched on formMode.
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        profile: {
+          ownerName: "Mark",
+          reviewCadenceMonths: 12,
+          formMode: "hint",
+          moduleSelections: { secrets: "on" },
+        },
+      },
+      generation: 1,
+      recovered: false,
+    });
+    const onLocked = vi.fn();
+    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Mark");
+
+    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
+    expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
+  });
 });
 
 describe("Dashboard mode switch", () => {

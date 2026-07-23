@@ -15,15 +15,17 @@ describe("loadDefaultPack", () => {
     mockedRead.mockRejectedValue(new Error("invoke unavailable"));
   });
 
-  it("requests the hint variant by default and returns the hint pack", async () => {
+  it("loads the single base pack by default", async () => {
     const pack = await loadDefaultPack();
-    expect(mockedRead).toHaveBeenCalledWith("hint");
+    expect(mockedRead).toHaveBeenCalledWith();
     expect(pack.packId).toBe("lifescribe-default");
+    expect(pack.modules).toBeDefined();
   });
 
-  it("requests the credential variant and returns the credential pack", async () => {
+  it("ignores the (now-vestigial) mode argument and still returns the base pack", async () => {
     const pack = await loadDefaultPack("credential");
-    expect(mockedRead).toHaveBeenCalledWith("credential");
-    expect(pack.packId).toBe("lifescribe-default-credential");
+    expect(mockedRead).toHaveBeenCalledWith();
+    expect(pack.packId).toBe("lifescribe-default");
+    expect(pack.modules).toBeDefined();
   });
 });

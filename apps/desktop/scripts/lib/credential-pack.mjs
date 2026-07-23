@@ -105,6 +105,10 @@ export function buildCredentialPack(hintPack, overlay) {
   applyAddedFields(pack, overlay.addedFields, touched);
   renumberTouchedGroups(touched);
   applyKitAdditions(pack, overlay.kitAdditions);
+  // The credential pack is a fully-composed variant artifact — it carries no
+  // module definitions (composable modules live only on the base pack and are
+  // composed at load). Strip any that came along in the hint-pack clone.
+  delete pack.modules;
   return pack;
 }
 

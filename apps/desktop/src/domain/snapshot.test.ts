@@ -82,7 +82,7 @@ describe("customPack round-trip", () => {
     const wire = buildSnapshot({
       snapshotFormat: 1,
       schemaVersion: 1,
-      profile: { ownerName: "Alice", reviewCadenceMonths: 12, formMode: "hint" as const },
+      profile: { ownerName: "Alice", reviewCadenceMonths: 12, formMode: "hint" as const, moduleSelections: {} },
       values: {},
       sectionMeta: {},
       overlay: null,
@@ -103,7 +103,7 @@ describe("customPack round-trip", () => {
     const wire = buildSnapshot({
       snapshotFormat: 1,
       schemaVersion: 1,
-      profile: { ownerName: "Bob", reviewCadenceMonths: 12, formMode: "hint" as const },
+      profile: { ownerName: "Bob", reviewCadenceMonths: 12, formMode: "hint" as const, moduleSelections: {} },
       values: {},
       sectionMeta: {},
       overlay: null,
@@ -118,7 +118,7 @@ describe("customPack round-trip", () => {
     const wire = buildSnapshot({
       snapshotFormat: 1,
       schemaVersion: 1,
-      profile: { ownerName: "Carol", reviewCadenceMonths: 12, formMode: "hint" as const },
+      profile: { ownerName: "Carol", reviewCadenceMonths: 12, formMode: "hint" as const, moduleSelections: {} },
       values: {},
       sectionMeta: {},
       overlay: null,
@@ -128,5 +128,43 @@ describe("customPack round-trip", () => {
     });
     const result = normalizeSnapshot(wire, "");
     expect(result.extra).not.toHaveProperty("customPack");
+  });
+});
+
+describe("moduleSelections migration", () => {
+  it("seeds { secrets: 'on' } from a legacy credential formMode", () => {
+    const parsed = normalizeSnapshot({ profile: { ownerName: "Dana", formMode: "credential" } });
+    expect(parsed.profile.moduleSelections).toEqual({ secrets: "on" });
+  });
+
+  it("seeds { secrets: 'off' } from a legacy hint formMode", () => {
+    const parsed = normalizeSnapshot({ profile: { ownerName: "Dana", formMode: "hint" } });
+    expect(parsed.profile.moduleSelections).toEqual({ secrets: "off" });
+  });
+
+  it("preserves an explicit moduleSelections map over the formMode-derived seed", () => {
+    const parsed = normalizeSnapshot({
+      profile: { ownerName: "Dana", formMode: "hint", moduleSelections: { secrets: "on", "file-method": "attach" } },
+    });
+    expect(parsed.profile.moduleSelections).toEqual({ secrets: "on", "file-method": "attach" });
+  });
+
+  it("ignores a non-string-record moduleSelections and falls back to the formMode seed", () => {
+    const parsed = normalizeSnapshot({
+      profile: { ownerName: "Dana", formMode: "credential", moduleSelections: "bogus" },
+    });
+    expect(parsed.profile.moduleSelections).toEqual({ secrets: "on" });
+  });
+
+  it("emptySnapshot seeds moduleSelections from its formMode", () => {
+    expect(emptySnapshot("Dana", "credential").profile.moduleSelections).toEqual({ secrets: "on" });
+    expect(emptySnapshot("Dana", "hint").profile.moduleSelections).toEqual({ secrets: "off" });
+  });
+
+  it("ignores a moduleSelections map with a non-string value", () => {
+    const parsed = normalizeSnapshot({
+      profile: { ownerName: "Dana", formMode: "hint", moduleSelections: { secrets: "on", extra: 1 } },
+    });
+    expect(parsed.profile.moduleSelections).toEqual({ secrets: "off" });
   });
 });

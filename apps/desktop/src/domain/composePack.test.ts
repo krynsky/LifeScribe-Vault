@@ -92,6 +92,21 @@ describe("composePack", () => {
     expect(out.sections[0]!.groups[0]!.fields.map((f) => f.systemKey)).toEqual(["deviceName"]);
   });
 
+  it("strips a removed field from the section's kit mapping (no dangling reference)", () => {
+    // deviceName is in the base kit mapping; removing the field must also drop
+    // its kit reference, or the composed pack fails validatePack.
+    const removeModule: FormModule = {
+      moduleId: "trim",
+      title: "Trim",
+      question: "?",
+      order: 1,
+      defaultOptionId: "keep",
+      options: [{ optionId: "keep" }, { optionId: "drop", removeKeys: ["deviceName"] }],
+    };
+    const out = composePack(basePack(), [removeModule], { trim: "drop" });
+    expect(out.sections[0]!.kitMapping.entries[0]!.fields).not.toContain("deviceName");
+  });
+
   it("applies remove before add within a single option", () => {
     const swap: FormModule = {
       moduleId: "swap",
@@ -213,5 +228,26 @@ describe("composePack", () => {
       ],
     };
     expect(() => composePack(basePack(), [bad], { bad: "on" })).toThrow(/unknown section/);
+  });
+
+  it("does not carry the modules array on its composed output", () => {
+    // Real base packs (see default-pack.json) carry their module definitions
+    // on the pack itself; mirror that here so the assertion is meaningful
+    // (composePack never invents a `modules` field — it only ever forwards
+    // one already present on `base`).
+    const base = { ...basePack(), modules: [secretsModule] };
+    const out = composePack(base, [secretsModule], { secrets: "on" });
+    expect(out.modules).toBeUndefined();
+  });
+
+  it("re-composing an already-composed pack does not duplicate module-added fields", () => {
+    const base = { ...basePack(), modules: [secretsModule] };
+    const once = composePack(base, [secretsModule], { secrets: "on" });
+    // Simulate a saved customPack being re-composed on the next load.
+    const twice = composePack(once, once.modules ?? [], { secrets: "on" });
+    const deviceKeys = twice.sections
+      .find((s) => s.sectionKey === "devices")!
+      .groups[0]!.fields.map((f) => f.systemKey);
+    expect(deviceKeys.filter((k) => k === "devicePin")).toHaveLength(1);
   });
 });

@@ -1,7 +1,8 @@
 import { type FormEvent, useEffect, useState } from "react";
+import { composePack } from "../domain/composePack";
 import type { FormPack } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
-import type { FormMode } from "../domain/snapshot";
+import { moduleSelectionsFromFormMode, type FormMode } from "../domain/snapshot";
 
 export interface SetupScreenProps {
   onCreate: (masterPassword: string, ownerName: string, formMode: FormMode) => Promise<void>;
@@ -58,34 +59,37 @@ function RevealToggle({
  */
 function PackPreview({ formMode }: { formMode: FormMode }) {
   const [open, setOpen] = useState(false);
-  // Per-mode cache; "failed" is cached too so the effect never needs a
-  // synchronous state reset (react-hooks/set-state-in-effect).
-  const [packs, setPacks] = useState<Partial<Record<FormMode, FormPack | "failed">>>({});
+  // The base pack is mode-independent (one bundled pack); "failed" is cached
+  // too so the effect never needs a synchronous state reset
+  // (react-hooks/set-state-in-effect).
+  const [base, setBase] = useState<FormPack | "failed" | undefined>(undefined);
 
   useEffect(() => {
-    if (!open || packs[formMode]) {
+    if (!open || base) {
       return;
     }
     let isCurrent = true;
-    loadDefaultPack(formMode)
+    loadDefaultPack()
       .then((pack) => {
         if (isCurrent) {
-          setPacks((previous) => ({ ...previous, [formMode]: pack }));
+          setBase(pack);
         }
       })
       .catch(() => {
         if (isCurrent) {
-          setPacks((previous) => ({ ...previous, [formMode]: "failed" }));
+          setBase("failed");
         }
       });
     return () => {
       isCurrent = false;
     };
-  }, [open, formMode, packs]);
+  }, [open, base]);
 
-  const entry = packs[formMode];
-  const failed = entry === "failed";
-  const pack = failed ? undefined : entry;
+  const failed = base === "failed";
+  const pack =
+    base && !failed
+      ? composePack(base, base.modules ?? [], moduleSelectionsFromFormMode(formMode))
+      : undefined;
   const sections = pack
     ? [...pack.sections].sort((a, b) => a.order - b.order)
     : [];
