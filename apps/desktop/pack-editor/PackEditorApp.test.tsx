@@ -36,6 +36,14 @@ const basePack: FormPack = {
               protected: true,
               order: 1,
             },
+            {
+              systemKey: "nickname",
+              label: "Nickname",
+              type: "text",
+              required: false,
+              protected: false,
+              order: 2,
+            },
           ],
         },
       ],
@@ -148,6 +156,16 @@ describe("PackEditorApp", () => {
       .groups.flatMap((g) => g.fields)
       .find((f) => f.systemKey === "fullName")!;
     expect(field.label).toBe("Legal name");
+  });
+
+  it("removes an added base field", async () => {
+    render(<PackEditorApp />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /remove field Nickname/i }),
+    );
+    expect(
+      screen.queryByRole("button", { name: /edit field Nickname/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("blocks save with an alert when a label is emptied", async () => {
