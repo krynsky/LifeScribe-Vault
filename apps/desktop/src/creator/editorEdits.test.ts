@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { FieldDefinition, FormPack } from "../domain/formModel";
-import { addFieldToTarget, removeInTarget, type EditTarget } from "./editorEdits";
+import type { FieldDefinition, FormPack, PackSection } from "../domain/formModel";
+import {
+  addFieldToTarget,
+  addSectionToTarget,
+  removeInTarget,
+  removeSectionInTarget,
+  type EditTarget,
+} from "./editorEdits";
 
 const NEW_FIELD: FieldDefinition = {
   systemKey: "note", label: "Note", type: "text", required: false, protected: false, order: 99,
@@ -92,6 +98,59 @@ describe("removeInTarget", () => {
     const snapshot = JSON.stringify(input);
     removeInTarget(input, SECRETS_ON, "devices", "device", "deviceName");
     expect(JSON.stringify(input)).toBe(snapshot);
+  });
+});
+
+const NEW_SECTION: PackSection = {
+  sectionKey: "crypto", title: "Crypto", lede: "", multiRecord: true, order: 5,
+  readinessRule: { requiredKeys: ["walletName"] },
+  kitMapping: { entries: [{ heading: "Crypto", fields: ["walletName"] }] },
+  groups: [{ groupKey: "wallet", title: "Wallet", repeatable: false, order: 1, fields: [
+    { systemKey: "walletName", label: "Wallet name", type: "text", required: true, protected: true, order: 1 },
+  ] }],
+};
+
+describe("addSectionToTarget", () => {
+  it("appends a section to the base pack when the target is base", () => {
+    const out = addSectionToTarget(base(), BASE_TARGET, NEW_SECTION);
+    expect(out.sections.map((s) => s.sectionKey)).toContain("crypto");
+    expect(option(out, "secrets", "on").addSections ?? []).toHaveLength(0);
+  });
+
+  it("appends { order, section } to a module option's addSections when target is a module option", () => {
+    const out = addSectionToTarget(base(), SECRETS_ON, NEW_SECTION);
+    expect(out.sections.map((s) => s.sectionKey)).not.toContain("crypto");
+    const added = option(out, "secrets", "on").addSections!;
+    expect(added).toHaveLength(1);
+    expect(added[0]!.section.sectionKey).toBe("crypto");
+    expect(added[0]!.order).toBe(NEW_SECTION.order);
+  });
+
+  it("does not mutate the input pack", () => {
+    const input = base();
+    const snapshot = JSON.stringify(input);
+    addSectionToTarget(input, SECRETS_ON, NEW_SECTION);
+    expect(JSON.stringify(input)).toBe(snapshot);
+  });
+});
+
+describe("removeSectionInTarget", () => {
+  it("drops the section from the base pack when the target is base", () => {
+    const withSection = addSectionToTarget(base(), BASE_TARGET, NEW_SECTION);
+    const out = removeSectionInTarget(withSection, BASE_TARGET, "crypto");
+    expect(out.sections.map((s) => s.sectionKey)).not.toContain("crypto");
+  });
+
+  it("adds the sectionKey to a module option's removeSectionKeys when target is a module option", () => {
+    const out = removeSectionInTarget(base(), SECRETS_ON, "devices");
+    expect(out.sections.map((s) => s.sectionKey)).toContain("devices");
+    expect(option(out, "secrets", "on").removeSectionKeys).toEqual(["devices"]);
+  });
+
+  it("does not duplicate a key already in removeSectionKeys", () => {
+    const once = removeSectionInTarget(base(), SECRETS_ON, "devices");
+    const twice = removeSectionInTarget(once, SECRETS_ON, "devices");
+    expect(option(twice, "secrets", "on").removeSectionKeys).toEqual(["devices"]);
   });
 });
 

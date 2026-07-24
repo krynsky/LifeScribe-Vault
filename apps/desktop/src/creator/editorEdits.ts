@@ -4,7 +4,7 @@
  * option's add/remove arrays. Pure and immutable.
  */
 
-import type { FieldDefinition, FormModuleOption, FormPack } from "../domain/formModel";
+import type { FieldDefinition, FormModuleOption, FormPack, PackSection } from "../domain/formModel";
 import { removeField, updateGroup } from "./packEdits";
 
 export type EditTarget = { kind: "base" } | { kind: "module"; moduleId: string; optionId: string };
@@ -76,5 +76,25 @@ export function removeInTarget(
     return removeKeys.includes(systemKey)
       ? option
       : { ...option, removeKeys: [...removeKeys, systemKey] };
+  });
+}
+
+export function addSectionToTarget(pack: FormPack, target: EditTarget, section: PackSection): FormPack {
+  if (target.kind === "base") {
+    return { ...pack, sections: [...pack.sections, section] };
+  }
+  return updateOption(pack, target.moduleId, target.optionId, (option) => ({
+    ...option,
+    addSections: [...(option.addSections ?? []), { order: section.order, section }],
+  }));
+}
+
+export function removeSectionInTarget(pack: FormPack, target: EditTarget, sectionKey: string): FormPack {
+  if (target.kind === "base") {
+    return { ...pack, sections: pack.sections.filter((section) => section.sectionKey !== sectionKey) };
+  }
+  return updateOption(pack, target.moduleId, target.optionId, (option) => {
+    const keys = option.removeSectionKeys ?? [];
+    return keys.includes(sectionKey) ? option : { ...option, removeSectionKeys: [...keys, sectionKey] };
   });
 }
