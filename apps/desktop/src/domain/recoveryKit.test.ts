@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { composePack } from "./composePack";
 import type { FormPack, PackSection, ResolvedField } from "./formModel";
 import { validatePack } from "./packValidation";
 import {
@@ -416,22 +417,14 @@ describe("kitMeta snapshot round-trip (additive)", () => {
   });
 });
 
-describe("Recovery Kit from the credential pack", () => {
-  const CREDENTIAL_PACK_PATH = resolve(
-    process.cwd(),
-    "src-tauri/resources/packs/default-pack-credential.json",
-  );
-
-  function loadCredentialPack(): FormPack {
-    const result = validatePack(JSON.parse(readFileSync(CREDENTIAL_PACK_PATH, "utf-8")));
-    if (!result.ok) {
-      throw new Error("credential pack failed validation");
-    }
-    return result.pack;
+describe("Recovery Kit with the secrets module composed in", () => {
+  function loadPackWithSecretsModule(): FormPack {
+    const base = loadShippedPack();
+    return composePack(base, base.modules ?? [], { secrets: "on" });
   }
 
-  it("includes the master password in the Recovery Kit under credential mode", () => {
-    const pack = loadCredentialPack();
+  it("includes the master password in the Recovery Kit when the secrets module is on", () => {
+    const pack = loadPackWithSecretsModule();
     const values = makeVaultValues([
       makeSectionValues("password-manager", [
         makeRecord({
