@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import type { EditTarget } from "../src/creator/editorEdits";
+import {
+  addModule,
+  addModuleOption,
+  removeModuleOption,
+  setModuleDefaultOption,
+  updateModuleDetails,
+  updateModuleOptionLabel,
+  type EditTarget,
+} from "../src/creator/editorEdits";
 import { buildEditorView } from "../src/creator/editorView";
 import type { FormPack } from "../src/domain/formModel";
 import { composePack } from "../src/domain/composePack";
@@ -8,6 +16,7 @@ import { validatePack } from "../src/domain/packValidation";
 import { createSectionValues } from "../src/domain/valuesStore";
 import { FormRenderer } from "../src/forms/FormRenderer";
 import { backupPacks, getPack, savePack } from "./api";
+import { ModulePropertyPanel } from "./ModulePropertyPanel";
 import { OverlayDesign } from "./OverlayDesign";
 import { SectionNav } from "./SectionNav";
 
@@ -20,6 +29,7 @@ export function PackEditorApp() {
   const [activeTarget, setActiveTarget] = useState<EditTarget>({ kind: "base" });
   const [activeSection, setActiveSection] = useState<string>("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"design" | "preview" | "json">("design");
   const [loadError, setLoadError] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -142,6 +152,16 @@ export function PackEditorApp() {
         {(base.modules ?? []).map((module) => (
           <div key={module.moduleId} className="pack-editor__module">
             <h3>{module.title}</h3>
+            <button
+              type="button"
+              className="button button--ghost button--small"
+              onClick={() => {
+                setEditingModuleId(module.moduleId);
+                setActiveTab("design");
+              }}
+            >
+              {`Edit ${module.title} details`}
+            </button>
             <label className="pack-editor__module-select">
               <span>{`View selection for ${module.title}`}</span>
               <select
@@ -183,6 +203,20 @@ export function PackEditorApp() {
             </ul>
           </div>
         ))}
+        <button
+          type="button"
+          className="button button--ghost button--small pack-editor__add-module"
+          onClick={() => {
+            const before = new Set((base.modules ?? []).map((m) => m.moduleId));
+            const next = addModule(base);
+            const created = (next.modules ?? []).find((m) => !before.has(m.moduleId));
+            setBase(next);
+            setEditingModuleId(created?.moduleId ?? null);
+            setActiveTab("design");
+          }}
+        >
+          + Create module
+        </button>
       </nav>
 
       <SectionNav
@@ -193,6 +227,7 @@ export function PackEditorApp() {
         onSelectSection={(sectionKey) => {
           setActiveSection(sectionKey);
           setSelectedKey(null);
+          setEditingModuleId(null);
         }}
         onChangeBase={setBase}
       />
@@ -210,18 +245,37 @@ export function PackEditorApp() {
           </button>
         </div>
 
-        {activeTab === "design" && viewSection ? (
+        {activeTab === "design" ? (
           <div role="tabpanel">
-            <OverlayDesign
-              base={base}
-              view={view}
-              viewSection={viewSection}
-              activeTarget={activeTarget}
-              selectedKey={selectedKey}
-              onSelectKey={setSelectedKey}
-              onChangeBase={setBase}
-              onError={setSaveError}
-            />
+            {editingModuleId && (base.modules ?? []).find((m) => m.moduleId === editingModuleId) ? (
+              <ModulePropertyPanel
+                module={(base.modules ?? []).find((m) => m.moduleId === editingModuleId)!}
+                onChangeDetails={(patch) => setBase(updateModuleDetails(base, editingModuleId, patch))}
+                onChangeOptionLabel={(optionId, label) =>
+                  setBase(updateModuleOptionLabel(base, editingModuleId, optionId, label))
+                }
+                onSetDefaultOption={(optionId) =>
+                  setBase(setModuleDefaultOption(base, editingModuleId, optionId))
+                }
+                onAddOption={() => setBase(addModuleOption(base, editingModuleId))}
+                onRemoveOption={(optionId) => setBase(removeModuleOption(base, editingModuleId, optionId))}
+                onClose={() => setEditingModuleId(null)}
+              />
+            ) : viewSection ? (
+              <OverlayDesign
+                base={base}
+                view={view}
+                viewSection={viewSection}
+                activeTarget={activeTarget}
+                selectedKey={selectedKey}
+                onSelectKey={(key) => {
+                  setSelectedKey(key);
+                  setEditingModuleId(null);
+                }}
+                onChangeBase={setBase}
+                onError={setSaveError}
+              />
+            ) : null}
           </div>
         ) : null}
 

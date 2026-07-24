@@ -4,8 +4,8 @@
  * option's add/remove arrays. Pure and immutable.
  */
 
-import type { FieldDefinition, FormModuleOption, FormPack, PackSection } from "../domain/formModel";
-import { removeField, updateGroup, updateSection } from "./packEdits";
+import type { FieldDefinition, FormModule, FormModuleOption, FormPack, PackSection } from "../domain/formModel";
+import { maxOrder, removeField, updateGroup, updateSection } from "./packEdits";
 
 export type EditTarget = { kind: "base" } | { kind: "module"; moduleId: string; optionId: string };
 
@@ -100,27 +100,38 @@ export function addSectionToTarget(pack: FormPack, target: EditTarget, section: 
 }
 
 /**
- * Renames a section, routed to its owning layer. A base target renames the
- * base section directly; a module target renames that option's addSections
+ * Updates a section, routed to its owning layer. A base target updates the
+ * base section directly; a module target updates that option's addSections
  * entry — a no-op (referential-equal option) if the option didn't add a
  * section by that key, which mirrors updateOption's existing not-found
- * behavior rather than throwing.
+ * behavior rather than throwing. Used by both the section nav's inline rename
+ * and the section property panel (title/lede/multiRecord).
  */
+export function updateSectionInTarget(
+  pack: FormPack,
+  target: EditTarget,
+  sectionKey: string,
+  updater: (s: PackSection) => PackSection,
+): FormPack {
+  if (target.kind === "base") {
+    return updateSection(pack, sectionKey, updater);
+  }
+  return updateOption(pack, target.moduleId, target.optionId, (option) => ({
+    ...option,
+    addSections: (option.addSections ?? []).map((add) =>
+      add.section.sectionKey === sectionKey ? { ...add, section: updater(add.section) } : add,
+    ),
+  }));
+}
+
+/** Renames a section, routed to its owning layer. See {@link updateSectionInTarget}. */
 export function renameSectionInTarget(
   pack: FormPack,
   target: EditTarget,
   sectionKey: string,
   title: string,
 ): FormPack {
-  if (target.kind === "base") {
-    return updateSection(pack, sectionKey, (s) => ({ ...s, title }));
-  }
-  return updateOption(pack, target.moduleId, target.optionId, (option) => ({
-    ...option,
-    addSections: (option.addSections ?? []).map((add) =>
-      add.section.sectionKey === sectionKey ? { ...add, section: { ...add.section, title } } : add,
-    ),
-  }));
+  return updateSectionInTarget(pack, target, sectionKey, (s) => ({ ...s, title }));
 }
 
 export function removeSectionInTarget(pack: FormPack, target: EditTarget, sectionKey: string): FormPack {
@@ -139,5 +150,122 @@ export function removeSectionInTarget(pack: FormPack, target: EditTarget, sectio
     }
     const keys = option.removeSectionKeys ?? [];
     return keys.includes(sectionKey) ? option : { ...option, removeSectionKeys: [...keys, sectionKey] };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Module authoring — creating and editing onboarding modules themselves
+// (distinct from the field/section edits above, which are ROUTED BY a
+// module's active option). Pure and immutable, mirroring the helpers above.
+// ---------------------------------------------------------------------------
+
+function uniqueModuleId(pack: FormPack): string {
+  const existing = new Set((pack.modules ?? []).map((m) => m.moduleId));
+  let id: string;
+  do {
+    id = `module_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  } while (existing.has(id));
+  return id;
+}
+
+function uniqueOptionId(module: FormModule): string {
+  const existing = new Set(module.options.map((o) => o.optionId));
+  let n = existing.size + 1;
+  let id = `option_${n}`;
+  while (existing.has(id)) {
+    n += 1;
+    id = `option_${n}`;
+  }
+  return id;
+}
+
+function updateModuleById(
+  pack: FormPack,
+  moduleId: string,
+  updater: (m: FormModule) => FormModule,
+): FormPack {
+  return {
+    ...pack,
+    modules: (pack.modules ?? []).map((m) => (m.moduleId === moduleId ? updater(m) : m)),
+  };
+}
+
+/**
+ * Appends a new module, valid by construction per validateModules: a unique
+ * moduleId, an order past the current max, exactly two options ("off"/"on"),
+ * and a defaultOptionId naming one of them.
+ */
+export function addModule(pack: FormPack): FormPack {
+  const modules = pack.modules ?? [];
+  const newModule: FormModule = {
+    moduleId: uniqueModuleId(pack),
+    title: "New Module",
+    question: "New question?",
+    order: maxOrder(modules) + 1,
+    defaultOptionId: "off",
+    options: [
+      { optionId: "off", label: "No" },
+      { optionId: "on", label: "Yes" },
+    ],
+  };
+  return { ...pack, modules: [...modules, newModule] };
+}
+
+/** Patches a module's title/question/helperText. No-op if moduleId isn't found. */
+export function updateModuleDetails(
+  pack: FormPack,
+  moduleId: string,
+  patch: Partial<Pick<FormModule, "title" | "question" | "helperText">>,
+): FormPack {
+  return updateModuleById(pack, moduleId, (m) => ({ ...m, ...patch }));
+}
+
+/** Renames one option's label. No-op if moduleId/optionId isn't found. */
+export function updateModuleOptionLabel(
+  pack: FormPack,
+  moduleId: string,
+  optionId: string,
+  label: string,
+): FormPack {
+  return updateModuleById(pack, moduleId, (m) => ({
+    ...m,
+    options: m.options.map((o) => (o.optionId === optionId ? { ...o, label } : o)),
+  }));
+}
+
+/**
+ * Sets which option is the module's default. No-op if optionId isn't one of
+ * the module's current options — never points defaultOptionId at a dangling id.
+ */
+export function setModuleDefaultOption(pack: FormPack, moduleId: string, optionId: string): FormPack {
+  return updateModuleById(pack, moduleId, (m) =>
+    m.options.some((o) => o.optionId === optionId) ? { ...m, defaultOptionId: optionId } : m,
+  );
+}
+
+/** Appends a new option to a module with a unique optionId. */
+export function addModuleOption(pack: FormPack, moduleId: string): FormPack {
+  return updateModuleById(pack, moduleId, (m) => ({
+    ...m,
+    options: [...m.options, { optionId: uniqueOptionId(m), label: "New option" }],
+  }));
+}
+
+/**
+ * Removes an option from a module, gated so the pack can never become invalid
+ * (validateModules requires >= 2 options and a defaultOptionId naming one of
+ * them):
+ * - No-op if the module has only two options (removing would drop below two)
+ *   or if optionId isn't one of the module's options.
+ * - If the removed option was the default, the default auto-corrects to the
+ *   first remaining option — never left dangling.
+ */
+export function removeModuleOption(pack: FormPack, moduleId: string, optionId: string): FormPack {
+  return updateModuleById(pack, moduleId, (m) => {
+    if (m.options.length <= 2) return m;
+    if (!m.options.some((o) => o.optionId === optionId)) return m;
+    const remaining = m.options.filter((o) => o.optionId !== optionId);
+    const defaultOptionId = m.defaultOptionId === optionId ? remaining[0]!.optionId : m.defaultOptionId;
+    return { ...m, options: remaining, defaultOptionId };
   });
 }

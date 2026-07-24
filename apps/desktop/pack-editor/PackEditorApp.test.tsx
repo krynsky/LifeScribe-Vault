@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FormPack } from "../src/domain/formModel";
+import { validatePack } from "../src/domain/packValidation";
 import * as api from "./api";
 import { PackEditorApp } from "./PackEditorApp";
 
@@ -645,6 +646,117 @@ describe("PackEditorApp", () => {
       )!;
       expect(onOption.addSections ?? []).toHaveLength(0);
       expect(onOption.removeSectionKeys ?? []).not.toContain("walletSection");
+    });
+  });
+
+  describe("module authoring + property panels (Task 5)", () => {
+    it("creating a module makes it appear and the saved pack gains a valid module", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await screen.findByText("Password manager");
+
+      await userEvent.click(screen.getByRole("button", { name: /\+ create module/i }));
+      expect(await screen.findByText("New Module")).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+
+      expect(saved.modules).toHaveLength(2);
+      const created = saved.modules!.find((m) => m.moduleId !== "secrets")!;
+      expect(created.options.length).toBeGreaterThanOrEqual(2);
+      expect(created.options.map((o) => o.optionId)).toContain(created.defaultOptionId);
+      expect(validatePack(saved).ok).toBe(true);
+    });
+
+    it("editing a module's question is reflected in the saved pack", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: /edit password manager details/i }),
+      );
+
+      const question = screen.getByLabelText("Question");
+      await userEvent.clear(question);
+      await userEvent.type(question, "Do you use a vault app?");
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      expect(saved.modules!.find((m) => m.moduleId === "secrets")!.question).toBe(
+        "Do you use a vault app?",
+      );
+    });
+
+    it("editing a BASE section's lede via the section property panel is reflected in the saved base.sections", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      const lede = await screen.findByLabelText("Lede");
+      await userEvent.type(lede, "Everything about your identity.");
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      expect(saved.sections.find((s) => s.sectionKey === "identity")!.lede).toBe(
+        "Everything about your identity.",
+      );
+    });
+
+    it("editing a MODULE-ADDED section's lede routes into that option's addSections, not base.sections", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      const walletTitle = await screen.findByLabelText(/rename section: wallet/i);
+      await userEvent.click(walletTitle);
+
+      const lede = await screen.findByLabelText("Lede");
+      await userEvent.type(lede, "Where the crypto keys live.");
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+
+      const onOption = saved.modules!.find((m) => m.moduleId === "secrets")!.options.find(
+        (o) => o.optionId === "on",
+      )!;
+      expect(onOption.addSections!.find((a) => a.section.sectionKey === "walletSection")!.section.lede).toBe(
+        "Where the crypto keys live.",
+      );
+      // The base pack does not carry walletSection at all.
+      expect(saved.sections.map((s) => s.sectionKey)).not.toContain("walletSection");
+    });
+
+    it("removing an option is prevented when it would leave fewer than two options", async () => {
+      render(<PackEditorApp />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: /edit password manager details/i }),
+      );
+      // Only two options ("No"/"Yes") exist — no enabled Remove control for either.
+      expect(screen.queryByRole("button", { name: /remove option no/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /remove option yes/i })).not.toBeInTheDocument();
+    });
+
+    it("auto-corrects the default option instead of orphaning it when the default option is removed", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: /edit password manager details/i }),
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: /\+ add option/i }));
+      // With three options, removing the current default ("No", the module's
+      // defaultOptionId) must not orphan defaultOptionId.
+      await userEvent.click(screen.getByRole("button", { name: /remove option no/i }));
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const module = saved.modules!.find((m) => m.moduleId === "secrets")!;
+      expect(module.options.map((o) => o.optionId)).toContain(module.defaultOptionId);
+      expect(validatePack(saved).ok).toBe(true);
     });
   });
 });

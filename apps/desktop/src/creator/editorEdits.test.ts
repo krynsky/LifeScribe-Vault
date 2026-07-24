@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { FieldDefinition, FormPack, PackSection } from "../domain/formModel";
+import { validateModules } from "../domain/packValidation";
+import { composePack } from "../domain/composePack";
 import {
   addFieldToTarget,
+  addModule,
+  addModuleOption,
   addSectionToTarget,
   removeInTarget,
+  removeModuleOption,
   removeSectionInTarget,
   renameSectionInTarget,
+  setModuleDefaultOption,
+  updateModuleDetails,
+  updateModuleOptionLabel,
+  updateSectionInTarget,
   type EditTarget,
 } from "./editorEdits";
 
@@ -213,5 +222,149 @@ describe("unknown target", () => {
     // No module gained an addField; nothing threw.
     expect(option(out, "secrets", "on").addFields ?? []).toHaveLength(0);
     expect(out.modules).toHaveLength(1);
+  });
+});
+
+describe("updateSectionInTarget", () => {
+  it("updates a base section's lede/multiRecord directly when the target is base", () => {
+    const out = updateSectionInTarget(base(), BASE_TARGET, "devices", (s) => ({
+      ...s,
+      lede: "New lede",
+      multiRecord: false,
+    }));
+    const section = out.sections.find((s) => s.sectionKey === "devices")!;
+    expect(section.lede).toBe("New lede");
+    expect(section.multiRecord).toBe(false);
+  });
+
+  it("updates a module option's addSections entry when the target is a module option", () => {
+    const withSection = addSectionToTarget(base(), SECRETS_ON, NEW_SECTION);
+    const out = updateSectionInTarget(withSection, SECRETS_ON, "crypto", (s) => ({ ...s, lede: "Vault lede" }));
+    const added = option(out, "secrets", "on").addSections!;
+    expect(added[0]!.section.lede).toBe("Vault lede");
+    // The base pack's own sections are untouched.
+    expect(out.sections.map((s) => s.sectionKey)).not.toContain("crypto");
+  });
+
+  it("is a no-op when the module option did not add a section by that key", () => {
+    const out = updateSectionInTarget(base(), SECRETS_ON, "devices", (s) => ({ ...s, lede: "x" }));
+    expect(option(out, "secrets", "on").addSections ?? []).toHaveLength(0);
+    expect(out.sections.find((s) => s.sectionKey === "devices")!.lede).toBe("");
+  });
+
+  it("does not mutate the input pack", () => {
+    const input = base();
+    const snapshot = JSON.stringify(input);
+    updateSectionInTarget(input, BASE_TARGET, "devices", (s) => ({ ...s, lede: "x" }));
+    expect(JSON.stringify(input)).toBe(snapshot);
+  });
+});
+
+describe("addModule", () => {
+  it("appends a valid module: unique moduleId, order past the max, >= 2 options, default among them", () => {
+    const out = addModule(base());
+    expect(out.modules).toHaveLength(2);
+    const created = out.modules!.find((m) => m.moduleId !== "secrets")!;
+    expect(created.order).toBeGreaterThan(base().modules![0]!.order);
+    expect(created.options.length).toBeGreaterThanOrEqual(2);
+    expect(created.options.map((o) => o.optionId)).toContain(created.defaultOptionId);
+    // The pack as a whole stays valid, per validateModules.
+    expect(validateModules(out, composePack).errors).toEqual([]);
+  });
+
+  it("does not mutate the input pack", () => {
+    const input = base();
+    const snapshot = JSON.stringify(input);
+    addModule(input);
+    expect(JSON.stringify(input)).toBe(snapshot);
+  });
+
+  it("assigns a fresh unique moduleId on repeated calls", () => {
+    const once = addModule(base());
+    const twice = addModule(once);
+    const ids = twice.modules!.map((m) => m.moduleId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("updateModuleDetails", () => {
+  it("patches title/question/helperText", () => {
+    const out = updateModuleDetails(base(), "secrets", {
+      title: "Secrets & PINs",
+      question: "Do you keep secrets?",
+      helperText: "Explain your setup.",
+    });
+    const module = out.modules!.find((m) => m.moduleId === "secrets")!;
+    expect(module.title).toBe("Secrets & PINs");
+    expect(module.question).toBe("Do you keep secrets?");
+    expect(module.helperText).toBe("Explain your setup.");
+  });
+
+  it("is a no-op for an unknown moduleId", () => {
+    const out = updateModuleDetails(base(), "nope", { title: "x" });
+    expect(out.modules).toEqual(base().modules);
+  });
+});
+
+describe("updateModuleOptionLabel", () => {
+  it("renames one option's label without touching the others", () => {
+    const out = updateModuleOptionLabel(base(), "secrets", "on", "Yes, I do");
+    const module = out.modules!.find((m) => m.moduleId === "secrets")!;
+    expect(module.options.find((o) => o.optionId === "on")!.label).toBe("Yes, I do");
+    expect(module.options.find((o) => o.optionId === "off")!.label).toBeUndefined();
+  });
+});
+
+describe("setModuleDefaultOption", () => {
+  it("sets the default to an existing option", () => {
+    const out = setModuleDefaultOption(base(), "secrets", "on");
+    expect(out.modules!.find((m) => m.moduleId === "secrets")!.defaultOptionId).toBe("on");
+  });
+
+  it("is a no-op when optionId is not one of the module's options", () => {
+    const out = setModuleDefaultOption(base(), "secrets", "nope");
+    expect(out.modules!.find((m) => m.moduleId === "secrets")!.defaultOptionId).toBe("off");
+  });
+});
+
+describe("addModuleOption", () => {
+  it("appends a new option with a unique optionId", () => {
+    const out = addModuleOption(base(), "secrets");
+    const module = out.modules!.find((m) => m.moduleId === "secrets")!;
+    expect(module.options).toHaveLength(3);
+    const ids = module.options.map((o) => o.optionId);
+    expect(new Set(ids).size).toBe(3);
+  });
+});
+
+describe("removeModuleOption", () => {
+  it("removes a non-default option, leaving the default untouched", () => {
+    const withThird = addModuleOption(base(), "secrets");
+    const thirdId = withThird.modules!.find((m) => m.moduleId === "secrets")!.options[2]!.optionId;
+    const out = removeModuleOption(withThird, "secrets", thirdId);
+    const module = out.modules!.find((m) => m.moduleId === "secrets")!;
+    expect(module.options.map((o) => o.optionId)).not.toContain(thirdId);
+    expect(module.defaultOptionId).toBe("off");
+  });
+
+  it("auto-corrects the default when the removed option was the default", () => {
+    const withThird = addModuleOption(base(), "secrets");
+    const out = removeModuleOption(withThird, "secrets", "off");
+    const module = out.modules!.find((m) => m.moduleId === "secrets")!;
+    expect(module.options.map((o) => o.optionId)).not.toContain("off");
+    expect(module.options.map((o) => o.optionId)).toContain(module.defaultOptionId);
+  });
+
+  it("refuses to drop below two options (no-op at exactly two)", () => {
+    const out = removeModuleOption(base(), "secrets", "on");
+    const module = out.modules!.find((m) => m.moduleId === "secrets")!;
+    expect(module.options).toHaveLength(2);
+    expect(module.options.map((o) => o.optionId)).toContain("on");
+  });
+
+  it("is a no-op for an unknown optionId", () => {
+    const withThird = addModuleOption(base(), "secrets");
+    const out = removeModuleOption(withThird, "secrets", "nope");
+    expect(out.modules!.find((m) => m.moduleId === "secrets")!.options).toHaveLength(3);
   });
 });

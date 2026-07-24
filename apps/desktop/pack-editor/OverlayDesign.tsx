@@ -1,10 +1,16 @@
 import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
 import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
-import { addFieldToTarget, removeInTarget, type EditTarget } from "../src/creator/editorEdits";
+import {
+  addFieldToTarget,
+  removeInTarget,
+  updateSectionInTarget,
+  type EditTarget,
+} from "../src/creator/editorEdits";
 import type { EditorView, EditorViewField, EditorViewSection, ViewSource } from "../src/creator/editorView";
 import { maxOrder, updateField } from "../src/creator/packEdits";
 import { isCustomFieldKey, FIELD_TYPES } from "../src/domain/formModel";
 import type { FieldDefinition, FieldType, FormPack } from "../src/domain/formModel";
+import { SectionPropertyPanel } from "./SectionPropertyPanel";
 
 export interface OverlayDesignProps {
   base: FormPack;
@@ -181,6 +187,16 @@ export function OverlayDesign({
   const selectedGroupKey =
     viewSection.groups.find((g) => g.fields.some((f) => f.systemKey === selectedKey))?.groupKey ?? null;
   const selectedEditable = selectedField ? isActiveOwner(selectedField.source, activeTarget) && !selectedField.removed : false;
+  // When no field is selected, the panel falls back to editing the currently
+  // active section itself — gated by the same ownership rule as fields, so an
+  // enabled panel is never a dead end for a section this target doesn't own.
+  const sectionEditable = isActiveOwner(viewSection.source, activeTarget) && !viewSection.removed;
+
+  function handleSectionChange(patch: { title: string; lede: string; multiRecord: boolean }) {
+    onChangeBase(
+      updateSectionInTarget(base, activeTarget, viewSection.sectionKey, (s) => ({ ...s, ...patch })),
+    );
+  }
 
   function handleAdd(groupKey: string, type: FieldType) {
     const group = viewSection.groups.find((g) => g.groupKey === groupKey);
@@ -320,9 +336,18 @@ export function OverlayDesign({
             </p>
           </div>
         )
+      ) : sectionEditable ? (
+        <SectionPropertyPanel
+          section={{ title: viewSection.title, lede: viewSection.lede, multiRecord: viewSection.multiRecord }}
+          onChange={handleSectionChange}
+        />
       ) : (
-        <div className="field-panel field-panel--empty">
-          <p>Select a field to edit its properties.</p>
+        <div className="field-panel field-panel--locked" role="note">
+          <p>
+            {viewSection.removed
+              ? "This section has been removed here. It cannot be edited while removed."
+              : `This section comes from ${ownerLabel(viewSection.source, base)}. Switch the active target to edit it.`}
+          </p>
         </div>
       )}
     </div>
