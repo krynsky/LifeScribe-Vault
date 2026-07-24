@@ -72,7 +72,8 @@ export function PackEditorApp() {
 
   const view = buildEditorView(base, viewSelections);
   const visibleSections = view.sections.filter((s) => !s.removed);
-  const viewSection = view.sections.find((s) => s.sectionKey === activeSection);
+  const viewSection =
+    visibleSections.find((s) => s.sectionKey === activeSection) ?? visibleSections[0];
   const selectedField =
     viewSection?.groups.flatMap((g) => g.fields).find((f) => f.systemKey === selectedKey) ?? null;
   const selectedGroupKey =
@@ -87,13 +88,17 @@ export function PackEditorApp() {
     }
   }
 
-  const moduleSelections: Record<string, string> = {};
-  for (const [moduleId, optionId] of Object.entries(viewSelections)) {
-    if (optionId) moduleSelections[moduleId] = optionId;
-  }
-  const composed = composePack(base, base.modules ?? [], moduleSelections);
+  // Preview shows the true end-user composition: every module resolves to a
+  // concrete option — its default when the creator hasn't overlaid one — which
+  // is exactly what composePack does at runtime. This intentionally differs from
+  // the Design overlay view, where "not overlaid" means "show none of this
+  // module's changes". Task 6 gives Preview its own selection picker.
+  const previewSelections = Object.fromEntries(
+    (base.modules ?? []).map((m) => [m.moduleId, viewSelections[m.moduleId] ?? m.defaultOptionId]),
+  );
+  const composed = composePack(base, base.modules ?? [], previewSelections);
   const resolvedSection = mergePackWithOverlay(composed, null, {}).resolved.sections.find(
-    (s) => s.sectionKey === activeSection,
+    (s) => s.sectionKey === viewSection?.sectionKey,
   );
 
   const jsonText = JSON.stringify(base, null, 2);

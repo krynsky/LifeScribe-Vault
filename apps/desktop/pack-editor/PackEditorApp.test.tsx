@@ -208,6 +208,16 @@ describe("PackEditorApp", () => {
     expect(within(preview).getByText("Full name")).toBeInTheDocument();
   });
 
+  it("Preview reflects an overlaid module option", async () => {
+    render(<PackEditorApp />);
+    const select = await screen.findByLabelText(/view selection for password manager/i);
+    await userEvent.selectOptions(select, "on");
+
+    await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
+    const preview = screen.getByRole("tabpanel");
+    expect(within(preview).getByText("Master password")).toBeInTheDocument();
+  });
+
   it("switches to the JSON tab and shows the base pack", async () => {
     render(<PackEditorApp />);
     await screen.findByText("Password manager");
