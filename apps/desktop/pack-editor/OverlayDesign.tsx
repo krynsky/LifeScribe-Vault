@@ -82,7 +82,15 @@ function FieldRow({
   const owner = isActiveOwner(field.source, activeTarget);
   const reorderable = field.source.kind === "base" && !field.removed;
   const showDuplicate = field.source.kind === "base" && owner && !field.removed;
-  const showRemove = !field.removed && !field.protected;
+  // removeInTarget's module branch just records a removeKey by systemKey — it
+  // never silently no-ops, regardless of which layer the field came from, so
+  // any field is actionable while a module option is active. Its base branch
+  // only mutates base.sections, so with the base target active, Remove is only
+  // actionable for fields the base target actually owns; anything else (an
+  // overlaid-but-not-active module's field) must NOT render an enabled Remove
+  // — removeField's `if (!field) return pack;` would silently no-op it.
+  const removalActionable = activeTarget.kind === "module" || owner;
+  const showRemove = !field.removed && !field.protected && removalActionable;
 
   return (
     <li

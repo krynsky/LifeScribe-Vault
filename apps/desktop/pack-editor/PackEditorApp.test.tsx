@@ -283,6 +283,35 @@ describe("PackEditorApp", () => {
       expect(message).toHaveTextContent(/password manager/i);
     });
 
+    it("does not offer an enabled Remove for a field from an overlaid-but-not-active module option (base target active)", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      // Overlay the "Yes" option into the view, but leave the active editing
+      // target on Base — Master password is now visible yet owned by a
+      // different, non-active layer.
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+      await screen.findByRole("button", { name: /edit field Master password/i });
+
+      expect(
+        screen.queryByRole("button", { name: /remove field Master password/i }),
+      ).not.toBeInTheDocument();
+
+      // Saving must reflect no change at all — not a silently-dropped removal.
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const onOption = saved.modules!.find((m) => m.moduleId === "secrets")!.options.find(
+        (o) => o.optionId === "on",
+      )!;
+      expect(onOption.removeKeys ?? []).not.toContain("masterPassword");
+      const baseFieldKeys = saved.sections
+        .find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .map((f) => f.systemKey);
+      expect(baseFieldKeys).toEqual(["fullName", "nickname"]);
+    });
+
     it("reorders base fields correctly with an overlay active (index translation)", async () => {
       mocked.savePack.mockResolvedValue(undefined);
       render(<PackEditorApp />);
