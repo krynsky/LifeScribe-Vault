@@ -79,4 +79,28 @@ describe("removeInTarget", () => {
     const twice = removeInTarget(once, SECRETS_ON, "devices", "device", "deviceName");
     expect(option(twice, "secrets", "on").removeKeys).toEqual(["deviceName"]);
   });
+
+  it("rejects removing a protected base field (delegates to removeField's guard)", () => {
+    // deviceName is protected in the fixture.
+    expect(() => removeInTarget(base(), BASE_TARGET, "devices", "device", "deviceName")).toThrow(
+      /protected/i,
+    );
+  });
+
+  it("does not mutate the input pack (module-target removal)", () => {
+    const input = base();
+    const snapshot = JSON.stringify(input);
+    removeInTarget(input, SECRETS_ON, "devices", "device", "deviceName");
+    expect(JSON.stringify(input)).toBe(snapshot);
+  });
+});
+
+describe("unknown target", () => {
+  it("is a no-op when the target names a module/option that does not exist", () => {
+    const target: EditTarget = { kind: "module", moduleId: "nope", optionId: "x" };
+    const out = addFieldToTarget(base(), target, "devices", "device", NEW_FIELD);
+    // No module gained an addField; nothing threw.
+    expect(option(out, "secrets", "on").addFields ?? []).toHaveLength(0);
+    expect(out.modules).toHaveLength(1);
+  });
 });
