@@ -5,7 +5,7 @@
  */
 
 import type { FieldDefinition, FormModuleOption, FormPack, PackSection } from "../domain/formModel";
-import { removeField, updateGroup } from "./packEdits";
+import { removeField, updateGroup, updateSection } from "./packEdits";
 
 export type EditTarget = { kind: "base" } | { kind: "module"; moduleId: string; optionId: string };
 
@@ -86,6 +86,30 @@ export function addSectionToTarget(pack: FormPack, target: EditTarget, section: 
   return updateOption(pack, target.moduleId, target.optionId, (option) => ({
     ...option,
     addSections: [...(option.addSections ?? []), { order: section.order, section }],
+  }));
+}
+
+/**
+ * Renames a section, routed to its owning layer. A base target renames the
+ * base section directly; a module target renames that option's addSections
+ * entry — a no-op (referential-equal option) if the option didn't add a
+ * section by that key, which mirrors updateOption's existing not-found
+ * behavior rather than throwing.
+ */
+export function renameSectionInTarget(
+  pack: FormPack,
+  target: EditTarget,
+  sectionKey: string,
+  title: string,
+): FormPack {
+  if (target.kind === "base") {
+    return updateSection(pack, sectionKey, (s) => ({ ...s, title }));
+  }
+  return updateOption(pack, target.moduleId, target.optionId, (option) => ({
+    ...option,
+    addSections: (option.addSections ?? []).map((add) =>
+      add.section.sectionKey === sectionKey ? { ...add, section: { ...add.section, title } } : add,
+    ),
   }));
 }
 

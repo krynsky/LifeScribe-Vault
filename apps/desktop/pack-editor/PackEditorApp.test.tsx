@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FormPack } from "../src/domain/formModel";
@@ -50,6 +50,33 @@ const basePack: FormPack = {
       readinessRule: { requiredKeys: ["fullName"] },
       kitMapping: { entries: [{ heading: "Identity", fields: ["fullName"] }] },
     },
+    {
+      sectionKey: "contacts",
+      title: "Contacts",
+      lede: "",
+      multiRecord: false,
+      order: 2,
+      groups: [
+        {
+          groupKey: "contacts-details",
+          title: "Details",
+          repeatable: false,
+          order: 1,
+          fields: [
+            {
+              systemKey: "phone",
+              label: "Phone",
+              type: "phone",
+              required: false,
+              protected: false,
+              order: 1,
+            },
+          ],
+        },
+      ],
+      readinessRule: { requiredKeys: [] },
+      kitMapping: { entries: [] },
+    },
   ],
   modules: [
     {
@@ -73,6 +100,41 @@ const basePack: FormPack = {
                 required: false,
                 protected: false,
                 order: 2,
+              },
+            },
+          ],
+          addSections: [
+            {
+              // Between "identity" (order 1) and "contacts" (order 2) so it
+              // renders interleaved in the mixed view list — genuinely
+              // exercises the view-index -> base-index translation.
+              order: 1.5,
+              section: {
+                sectionKey: "walletSection",
+                title: "Wallet",
+                lede: "",
+                multiRecord: false,
+                order: 1.5,
+                groups: [
+                  {
+                    groupKey: "wallet-details",
+                    title: "Details",
+                    repeatable: false,
+                    order: 1,
+                    fields: [
+                      {
+                        systemKey: "walletKey",
+                        label: "Wallet key",
+                        type: "text",
+                        required: false,
+                        protected: false,
+                        order: 1,
+                      },
+                    ],
+                  },
+                ],
+                readinessRule: { requiredKeys: [] },
+                kitMapping: { entries: [] },
               },
             },
           ],
@@ -410,6 +472,135 @@ describe("PackEditorApp", () => {
         .map((f) => f.systemKey);
       expect(fieldKeys).toHaveLength(3);
       expect(fieldKeys).toEqual(expect.arrayContaining(["fullName", "nickname"]));
+    });
+  });
+
+  describe("editable section nav (Task 4)", () => {
+    function mockSectionRects(order: string[]) {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        const key = this.getAttribute?.("data-section-key");
+        const idx = key ? order.indexOf(key) : -1;
+        const top = idx >= 0 ? idx * 40 : 0;
+        return {
+          top,
+          bottom: top + 40,
+          left: 0,
+          right: 200,
+          width: 200,
+          height: 40,
+          x: 0,
+          y: top,
+          toJSON() {
+            return {};
+          },
+        } as DOMRect;
+      });
+    }
+
+    it("renames a base section and saves the new title", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      const titleInput = await screen.findByLabelText(/rename section: identity/i);
+      await userEvent.clear(titleInput);
+      await userEvent.type(titleInput, "Personal Info");
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      expect(saved.sections.find((s) => s.sectionKey === "identity")!.title).toBe("Personal Info");
+    });
+
+    it("drag-reorders base sections, skipping a module-added section interleaved between them", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      mockSectionRects(["identity", "walletSection", "contacts"]);
+      render(<PackEditorApp />);
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+      await screen.findByLabelText(/rename section: wallet/i);
+
+      // dnd-kit's KeyboardSensor attaches its follow-up keydown listener via a
+      // setTimeout(0) inside `attach()` (to avoid re-triggering off the very
+      // keydown that started the drag) — each key press below must let that
+      // macrotask flush before the next one fires, or the sensor never sees it.
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+      const handle = screen.getByRole("button", { name: /drag to reorder identity/i });
+      handle.focus();
+      fireEvent.keyDown(handle, { code: "Space" });
+      await flush();
+      fireEvent.keyDown(handle, { code: "ArrowDown" });
+      await flush();
+      fireEvent.keyDown(handle, { code: "Space" });
+      await flush();
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const orderedKeys = [...saved.sections].sort((a, b) => a.order - b.order).map((s) => s.sectionKey);
+      // "identity" moved past "contacts" — "walletSection" (module-added, not
+      // in base.sections) sat physically between them but must not derail the
+      // base-index translation.
+      expect(orderedKeys).toEqual(["contacts", "identity"]);
+    });
+
+    it("records a removeSectionKeys entry for a base section when a module option is active, without touching base.sections", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      const removeButton = await screen.findByRole("button", { name: /remove contacts in this option/i });
+      await userEvent.click(removeButton);
+
+      const contactsRow = (await screen.findByLabelText(/rename section: contacts/i)).closest(
+        "[data-section-key]",
+      );
+      expect(contactsRow).toHaveAttribute("data-removed", "true");
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const onOption = saved.modules!.find((m) => m.moduleId === "secrets")!.options.find(
+        (o) => o.optionId === "on",
+      )!;
+      expect(onOption.removeSectionKeys).toContain("contacts");
+      expect(saved.sections.map((s) => s.sectionKey)).toEqual(
+        expect.arrayContaining(["identity", "contacts"]),
+      );
+    });
+
+    it("adding a section with a module option active lands in that option's addSections, not base.sections", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+      await userEvent.click(await screen.findByRole("button", { name: /\+ add section/i }));
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      expect(saved.sections.map((s) => s.sectionKey)).toEqual(
+        expect.arrayContaining(["identity", "contacts"]),
+      );
+      expect(saved.sections).toHaveLength(2);
+
+      const onOption = saved.modules!.find((m) => m.moduleId === "secrets")!.options.find(
+        (o) => o.optionId === "on",
+      )!;
+      // walletSection (pre-existing) + the newly added section.
+      expect(onOption.addSections).toHaveLength(2);
+    });
+
+    it("tags a module-added section with its owning module, not base", async () => {
+      render(<PackEditorApp />);
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      const walletInput = await screen.findByLabelText(/rename section: wallet/i);
+      const row = walletInput.closest("[data-section-key]")!;
+      expect(row).toHaveAttribute("data-layer", "other");
+      expect(row).toHaveTextContent(/password manager/i);
     });
   });
 });

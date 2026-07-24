@@ -9,6 +9,7 @@ import { createSectionValues } from "../src/domain/valuesStore";
 import { FormRenderer } from "../src/forms/FormRenderer";
 import { backupPacks, getPack, savePack } from "./api";
 import { OverlayDesign } from "./OverlayDesign";
+import { SectionNav } from "./SectionNav";
 
 type Status = "loading" | "ready" | "error";
 
@@ -184,21 +185,17 @@ export function PackEditorApp() {
         ))}
       </nav>
 
-      <nav className="pack-editor__nav" aria-label="Sections">
-        {visibleSections.map((s) => (
-          <button
-            key={s.sectionKey}
-            type="button"
-            aria-current={s.sectionKey === activeSection ? "page" : undefined}
-            onClick={() => {
-              setActiveSection(s.sectionKey);
-              setSelectedKey(null);
-            }}
-          >
-            {s.title}
-          </button>
-        ))}
-      </nav>
+      <SectionNav
+        base={base}
+        view={view}
+        activeTarget={activeTarget}
+        activeSection={activeSection}
+        onSelectSection={(sectionKey) => {
+          setActiveSection(sectionKey);
+          setSelectedKey(null);
+        }}
+        onChangeBase={setBase}
+      />
 
       <main className="pack-editor__main">
         <div className="pack-editor__tabs" role="tablist">
