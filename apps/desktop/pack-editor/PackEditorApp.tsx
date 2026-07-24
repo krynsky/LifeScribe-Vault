@@ -1,21 +1,14 @@
 import { useEffect, useState } from "react";
-import {
-  addOptionalField,
-  removeField,
-  updateField,
-} from "../src/creator/packEdits";
 import type { EditTarget } from "../src/creator/editorEdits";
 import { buildEditorView } from "../src/creator/editorView";
-import type { FieldType, FormPack } from "../src/domain/formModel";
+import type { FormPack } from "../src/domain/formModel";
 import { composePack } from "../src/domain/composePack";
 import { mergePackWithOverlay } from "../src/domain/packMerge";
 import { validatePack } from "../src/domain/packValidation";
 import { createSectionValues } from "../src/domain/valuesStore";
 import { FormRenderer } from "../src/forms/FormRenderer";
-import { FieldList } from "../src/forms/structure/FieldList";
-import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
-import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
 import { backupPacks, getPack, savePack } from "./api";
+import { OverlayDesign } from "./OverlayDesign";
 
 type Status = "loading" | "ready" | "error";
 
@@ -74,19 +67,6 @@ export function PackEditorApp() {
   const visibleSections = view.sections.filter((s) => !s.removed);
   const viewSection =
     visibleSections.find((s) => s.sectionKey === activeSection) ?? visibleSections[0];
-  const selectedField =
-    viewSection?.groups.flatMap((g) => g.fields).find((f) => f.systemKey === selectedKey) ?? null;
-  const selectedGroupKey =
-    viewSection?.groups.find((g) => g.fields.some((f) => f.systemKey === selectedKey))?.groupKey ?? null;
-
-  const lockedKeys = new Set<string>();
-  if (viewSection) {
-    for (const group of viewSection.groups) {
-      for (const field of group.fields) {
-        if (field.source.kind !== "base") lockedKeys.add(field.systemKey);
-      }
-    }
-  }
 
   // Preview shows the true end-user composition: every module resolves to a
   // concrete option — its default when the creator hasn't overlaid one — which
@@ -96,10 +76,18 @@ export function PackEditorApp() {
   const previewSelections = Object.fromEntries(
     (base.modules ?? []).map((m) => [m.moduleId, viewSelections[m.moduleId] ?? m.defaultOptionId]),
   );
-  const composed = composePack(base, base.modules ?? [], previewSelections);
-  const resolvedSection = mergePackWithOverlay(composed, null, {}).resolved.sections.find(
-    (s) => s.sectionKey === viewSection?.sectionKey,
-  );
+  // The Design overlay view can represent module edits (e.g. an addFields target
+  // section that isn't in the current view) that composePack rejects outright.
+  // A bad composition must not crash Design/JSON — it only affects Preview.
+  let resolvedSection;
+  try {
+    const composed = composePack(base, base.modules ?? [], previewSelections);
+    resolvedSection = mergePackWithOverlay(composed, null, {}).resolved.sections.find(
+      (s) => s.sectionKey === viewSection?.sectionKey,
+    );
+  } catch {
+    resolvedSection = undefined;
+  }
 
   const jsonText = JSON.stringify(base, null, 2);
 
@@ -226,36 +214,16 @@ export function PackEditorApp() {
         </div>
 
         {activeTab === "design" && viewSection ? (
-          <div className="pack-editor__design" role="tabpanel">
-            <FieldList
-              groups={viewSection.groups}
+          <div role="tabpanel">
+            <OverlayDesign
+              base={base}
+              view={view}
+              viewSection={viewSection}
+              activeTarget={activeTarget}
               selectedKey={selectedKey}
-              lockedKeys={lockedKeys}
-              onSelect={setSelectedKey}
-              onDuplicate={(gk, key) =>
-                setBase((p) => (p ? duplicateField(p, viewSection.sectionKey, gk, key) : p))
-              }
-              onDelete={(gk, key) => {
-                setBase((p) => (p ? removeField(p, viewSection.sectionKey, gk, key) : p));
-                setSelectedKey((cur) => (cur === key ? null : cur));
-              }}
-              onReorder={(gk, from, to) =>
-                setBase((p) => (p ? reorderFields(p, viewSection.sectionKey, gk, from, to) : p))
-              }
-              onAdd={(gk, type: FieldType) =>
-                setBase((p) => (p ? addOptionalField(p, viewSection.sectionKey, gk, type) : p))
-              }
-            />
-            <FieldPropertyPanel
-              field={selectedField}
-              onChange={(updated) => {
-                if (!selectedGroupKey || !selectedField || selectedField.source.kind !== "base") return;
-                setBase((p) =>
-                  p
-                    ? updateField(p, viewSection.sectionKey, selectedGroupKey, updated.systemKey, () => updated)
-                    : p,
-                );
-              }}
+              onSelectKey={setSelectedKey}
+              onChangeBase={setBase}
+              onError={setSaveError}
             />
           </div>
         ) : null}

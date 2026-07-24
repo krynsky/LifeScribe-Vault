@@ -225,4 +225,96 @@ describe("PackEditorApp", () => {
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByText(/"packId": "test-pack"/)).toBeInTheDocument();
   });
+
+  describe("overlay editing (Task 3)", () => {
+    it("adding a field with a module option active lands in that option's addFields, not base.sections", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      const addSelect = await screen.findByLabelText(/add field to details/i);
+      await userEvent.selectOptions(addSelect, "text");
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+
+      const baseFieldKeys = saved.sections
+        .find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .map((f) => f.systemKey);
+      // The two original base fields only — nothing new landed in base.sections.
+      expect(baseFieldKeys).toEqual(["fullName", "nickname"]);
+
+      const onOption = saved.modules!.find((m) => m.moduleId === "secrets")!.options.find(
+        (o) => o.optionId === "on",
+      )!;
+      // masterPassword (pre-existing) + the newly added field.
+      expect(onOption.addFields).toHaveLength(2);
+    });
+
+    it("removing a base field with a module option active records a removeKey and shows it struck through", async () => {
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      const removeButton = await screen.findByRole("button", { name: /remove field Nickname/i });
+      await userEvent.click(removeButton);
+
+      const nicknameRow = (await screen.findByRole("button", { name: /edit field Nickname/i })).closest(
+        "[data-removed]",
+      );
+      expect(nicknameRow).toHaveAttribute("data-removed", "true");
+    });
+
+    it("selecting a field owned by a different layer shows a switch-target message instead of a dead editable panel", async () => {
+      render(<PackEditorApp />);
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      await userEvent.click(await screen.findByRole("button", { name: /edit field Master password/i }));
+
+      expect(screen.queryByLabelText("Label")).not.toBeInTheDocument();
+      const message = screen.getByText(/switch the active target to edit it/i);
+      expect(message).toHaveTextContent(/password manager/i);
+    });
+
+    it("reorders base fields correctly with an overlay active (index translation)", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      // View order: fullName (base), masterPassword (module), nickname (base).
+      await screen.findByRole("button", { name: /edit field Master password/i });
+      const moveDown = screen.getByRole("button", { name: /move field Full name down/i });
+      await userEvent.click(moveDown);
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const fields = saved.sections
+        .find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .sort((a, b) => a.order - b.order);
+      expect(fields.map((f) => f.systemKey)).toEqual(["nickname", "fullName"]);
+    });
+
+    it("renders a warnings notice from buildEditorView", async () => {
+      mocked.getPack.mockImplementation(async () => {
+        const pack = clonePack();
+        pack.modules![0]!.options[1]!.addFields![0]!.sectionKey = "missing-section";
+        return { pack };
+      });
+      render(<PackEditorApp />);
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      expect(await screen.findByText(/could not be placed/i)).toBeInTheDocument();
+    });
+  });
 });
