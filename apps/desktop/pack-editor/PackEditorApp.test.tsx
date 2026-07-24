@@ -230,6 +230,28 @@ describe("PackEditorApp", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("posts the edited base pack (with modules) via savePack, with no variant argument", async () => {
+    mocked.savePack.mockResolvedValue(undefined);
+    render(<PackEditorApp />);
+    await userEvent.click(await screen.findByRole("button", { name: /edit field Full name/i }));
+    const label = screen.getByLabelText("Label");
+    await userEvent.clear(label);
+    await userEvent.type(label, "Legal name");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(mocked.savePack).toHaveBeenCalledTimes(1);
+    const call = mocked.savePack.mock.calls[0]!;
+    // savePack(base) only — no PackName/variant second argument.
+    expect(call).toHaveLength(1);
+    const saved = call[0];
+    expect(saved.modules).toBeDefined();
+    expect(saved.modules).toHaveLength(1);
+    expect(saved.modules![0]!.moduleId).toBe("secrets");
+    const identitySection = saved.sections.find((s) => s.sectionKey === "identity")!;
+    expect(Object.keys(identitySection)).not.toContain("source");
+    expect(Object.keys(identitySection)).not.toContain("removed");
+  });
+
   it("blocks save with an alert when a label is emptied", async () => {
     mocked.savePack.mockResolvedValue(undefined);
     render(<PackEditorApp />);

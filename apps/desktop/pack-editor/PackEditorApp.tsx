@@ -118,7 +118,7 @@ export function PackEditorApp() {
     setSaveError("");
     setSaveMessage("");
     try {
-      await savePack(base, "hint");
+      await savePack(base);
       const { pack } = await getPack();
       setBase(pack);
       setSaveMessage("Saved.");

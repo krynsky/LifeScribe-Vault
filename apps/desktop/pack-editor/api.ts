@@ -1,7 +1,5 @@
 import type { FormPack } from "../src/domain/formModel";
 
-export type PackName = "credential" | "hint";
-
 export interface PackPayload {
   pack: FormPack;
 }
@@ -27,12 +25,11 @@ export async function backupPacks(): Promise<string> {
   return body.dir ?? "";
 }
 
-export async function savePack(editedPack: FormPack, packName: PackName = "credential"): Promise<void> {
-  const url = packName === "hint" ? "/__pack?pack=hint" : "/__pack";
-  const res = await fetch(url, {
+export async function savePack(base: FormPack): Promise<void> {
+  const res = await fetch("/__pack", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(editedPack),
+    body: JSON.stringify(base),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
