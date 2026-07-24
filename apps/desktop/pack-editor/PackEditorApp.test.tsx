@@ -293,14 +293,72 @@ describe("PackEditorApp", () => {
     expect(within(preview).getByText("Full name")).toBeInTheDocument();
   });
 
-  it("Preview reflects an overlaid module option", async () => {
-    render(<PackEditorApp />);
-    const select = await screen.findByLabelText(/view selection for password manager/i);
-    await userEvent.selectOptions(select, "on");
+  describe("Preview's own selection picker (Task 6)", () => {
+    it("defaults the Preview picker to each module's defaultOptionId", async () => {
+      render(<PackEditorApp />);
+      await screen.findByText("Password manager");
+      await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
+      const preview = screen.getByRole("tabpanel");
+      const previewSelect = within(preview).getByLabelText(
+        /preview selection for password manager/i,
+      ) as HTMLSelectElement;
+      expect(previewSelect.value).toBe("off");
+      // Default option ("No") does not add Master password.
+      expect(within(preview).queryByText("Master password")).not.toBeInTheDocument();
+    });
 
-    await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
-    const preview = screen.getByRole("tabpanel");
-    expect(within(preview).getByText("Master password")).toBeInTheDocument();
+    it("choosing the Preview picker's 'on' option renders that option's added field, without touching the Design overlay", async () => {
+      render(<PackEditorApp />);
+      await screen.findByText("Password manager");
+      await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
+      const preview = screen.getByRole("tabpanel");
+      const previewSelect = within(preview).getByLabelText(/preview selection for password manager/i);
+      await userEvent.selectOptions(previewSelect, "on");
+
+      expect(within(preview).getByText("Master password")).toBeInTheDocument();
+
+      // Design overlay is untouched by the Preview selection.
+      await userEvent.click(screen.getByRole("tab", { name: /^design$/i }));
+      const designSelect = screen.getByLabelText(
+        /view selection for password manager/i,
+      ) as HTMLSelectElement;
+      expect(designSelect.value).toBe("");
+      expect(screen.queryByRole("button", { name: /edit field Master password/i })).not.toBeInTheDocument();
+    });
+
+    it("changing the Design overlay selection does not change what Preview shows", async () => {
+      render(<PackEditorApp />);
+      const designSelect = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(designSelect, "on");
+      expect(await screen.findByRole("button", { name: /edit field Master password/i })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
+      const preview = screen.getByRole("tabpanel");
+      const previewSelect = within(preview).getByLabelText(
+        /preview selection for password manager/i,
+      ) as HTMLSelectElement;
+      // Preview's own picker still shows the module default, unaffected by Design.
+      expect(previewSelect.value).toBe("off");
+      expect(within(preview).queryByText("Master password")).not.toBeInTheDocument();
+    });
+
+    it("shows a visible message instead of a blank pane when the preview combination fails to compose", async () => {
+      mocked.getPack.mockImplementation(async () => {
+        const pack = clonePack();
+        pack.modules![0]!.options[1]!.addFields![0]!.sectionKey = "missing-section";
+        return { pack };
+      });
+      render(<PackEditorApp />);
+      await screen.findByText("Password manager");
+      await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
+      const preview = screen.getByRole("tabpanel");
+      const previewSelect = within(preview).getByLabelText(/preview selection for password manager/i);
+      await userEvent.selectOptions(previewSelect, "on");
+
+      const message = await within(preview).findByRole("alert");
+      expect(message).toHaveTextContent(/preview unavailable for this combination/i);
+      expect(message).toHaveTextContent(/missing-section/i);
+    });
   });
 
   it("switches to the JSON tab and shows the base pack", async () => {

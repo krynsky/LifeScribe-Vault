@@ -26,6 +26,7 @@ export function PackEditorApp() {
   const [status, setStatus] = useState<Status>("loading");
   const [base, setBase] = useState<FormPack | null>(null);
   const [viewSelections, setViewSelections] = useState<Record<string, string | null>>({});
+  const [previewSelections, setPreviewSelections] = useState<Record<string, string>>({});
   const [activeTarget, setActiveTarget] = useState<EditTarget>({ kind: "base" });
   const [activeSection, setActiveSection] = useState<string>("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -37,16 +38,18 @@ export function PackEditorApp() {
   const [saveError, setSaveError] = useState<string>("");
 
   useEffect(() => {
+    // No setState calls here before the async call: status/selectedKey/
+    // saveMessage/saveError already start at these exact values via
+    // useState, and this effect has an empty dep array (runs once on
+    // mount only), so re-asserting them here would just be a redundant
+    // cascading render.
     let current = true;
-    setStatus("loading");
-    setSelectedKey(null);
-    setSaveMessage("");
-    setSaveError("");
     getPack()
       .then(({ pack }) => {
         if (!current) return;
         setBase(pack);
         setViewSelections({});
+        setPreviewSelections({});
         setActiveTarget({ kind: "base" });
         setActiveSection(pack.sections[0]?.sectionKey ?? "");
         setStatus("ready");
@@ -80,24 +83,28 @@ export function PackEditorApp() {
     visibleSections.find((s) => s.sectionKey === activeSection) ?? visibleSections[0];
 
   // Preview shows the true end-user composition: every module resolves to a
-  // concrete option — its default when the creator hasn't overlaid one — which
-  // is exactly what composePack does at runtime. This intentionally differs from
-  // the Design overlay view, where "not overlaid" means "show none of this
-  // module's changes". Task 6 gives Preview its own selection picker.
-  const previewSelections = Object.fromEntries(
-    (base.modules ?? []).map((m) => [m.moduleId, viewSelections[m.moduleId] ?? m.defaultOptionId]),
+  // concrete option — its default when the creator hasn't picked one in the
+  // Preview picker — which is exactly what composePack does at runtime. This
+  // is a fully independent selection from the Design overlay (viewSelections):
+  // changing one must never move the other, so each gets its own state.
+  const resolvedPreviewSelections = Object.fromEntries(
+    (base.modules ?? []).map((m) => [m.moduleId, previewSelections[m.moduleId] ?? m.defaultOptionId]),
   );
-  // The Design overlay view can represent module edits (e.g. an addFields target
-  // section that isn't in the current view) that composePack rejects outright.
-  // A bad composition must not crash Design/JSON — it only affects Preview.
+  // The preview picker can represent a module combination (e.g. an addFields
+  // target section that isn't present after another module's addSections
+  // removal) that composePack rejects outright. That must surface as a visible
+  // message, not a silent blank pane — this branch has repeatedly hit that bug
+  // class.
   let resolvedSection;
+  let previewError = "";
   try {
-    const composed = composePack(base, base.modules ?? [], previewSelections);
+    const composed = composePack(base, base.modules ?? [], resolvedPreviewSelections);
     resolvedSection = mergePackWithOverlay(composed, null, {}).resolved.sections.find(
-      (s) => s.sectionKey === viewSection?.sectionKey,
+      (s) => s.sectionKey === activeSection,
     );
-  } catch {
+  } catch (error) {
     resolvedSection = undefined;
+    previewError = error instanceof Error ? error.message : String(error);
   }
 
   const jsonText = JSON.stringify(base, null, 2);
@@ -279,14 +286,43 @@ export function PackEditorApp() {
           </div>
         ) : null}
 
-        {activeTab === "preview" && resolvedSection ? (
+        {activeTab === "preview" ? (
           <div className="pack-editor__preview" role="tabpanel">
-            <FormRenderer
-              section={resolvedSection}
-              values={createSectionValues(resolvedSection.sectionKey)}
-              schemaVersion={base.schemaVersion}
-              onChange={() => {}}
-            />
+            {(base.modules ?? []).length > 0 ? (
+              <div className="pack-editor__preview-selectors">
+                {(base.modules ?? []).map((module) => (
+                  <label key={module.moduleId} className="pack-editor__preview-select">
+                    <span>{`Preview selection for ${module.title}`}</span>
+                    <select
+                      aria-label={`Preview selection for ${module.title}`}
+                      value={previewSelections[module.moduleId] ?? module.defaultOptionId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPreviewSelections((prev) => ({ ...prev, [module.moduleId]: value }));
+                      }}
+                    >
+                      {module.options.map((option) => (
+                        <option key={option.optionId} value={option.optionId}>
+                          {option.label ?? option.optionId}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            ) : null}
+            {previewError ? (
+              <p className="form-error" role="alert">
+                {`Preview unavailable for this combination: ${previewError}`}
+              </p>
+            ) : resolvedSection ? (
+              <FormRenderer
+                section={resolvedSection}
+                values={createSectionValues(resolvedSection.sectionKey)}
+                schemaVersion={base.schemaVersion}
+                onChange={() => {}}
+              />
+            ) : null}
           </div>
         ) : null}
 

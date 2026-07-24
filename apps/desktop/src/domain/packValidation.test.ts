@@ -497,6 +497,13 @@ describe("validateModules", () => {
     expect(errors.join(" ")).toMatch(/custom\./);
   });
 
+  it("rejects two modules sharing the same moduleId", () => {
+    const a = addFieldModule("devicePinA");
+    const b = { ...addFieldModule("devicePinB"), order: 2 }; // same moduleId "secrets" as a
+    const { errors } = validateModules({ ...moduleBasePack(), modules: [a, b] }, composePack);
+    expect(errors.join(" ")).toMatch(/duplicate moduleid "secrets"/i);
+  });
+
   it("rejects the same systemKey added by two different modules", () => {
     const a = addFieldModule("dup");
     const b = { ...addFieldModule("dup"), moduleId: "other", order: 2 };
