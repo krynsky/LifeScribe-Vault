@@ -17,6 +17,19 @@ export interface OverlayDesignProps {
   onError: (message: string) => void;
 }
 
+/**
+ * EditorViewField extends FieldDefinition with view-only `source`/`removed`
+ * keys. FieldPropertyPanel's onChange does `{...field, ...}`, so those keys
+ * would otherwise ride along into `updateField` and get persisted into the
+ * pack JSON. Strip them at both the field-list -> panel boundary (defense at
+ * the source) AND again in the panel's onChange (defense against a future
+ * change to the panel re-spreading extra keys in).
+ */
+function stripViewKeys(field: FieldDefinition & { source?: ViewSource; removed?: boolean }): FieldDefinition {
+  const { source: _source, removed: _removed, ...def } = field;
+  return def;
+}
+
 function uniqueFieldKey(): string {
   let key: string;
   do {
@@ -189,6 +202,11 @@ export function OverlayDesign({
       onChangeBase(next);
       if (selectedKey === systemKey) onSelectKey(null);
     } catch (error) {
+      // removeField (the base branch of removeInTarget) throws only for
+      // `protected` fields — unreachable from this UI today because
+      // `showRemove` already excludes protected fields from the row. Kept as
+      // a defensive catch (not exercised by any current test) in case that
+      // gating ever changes.
       onError(error instanceof Error ? error.message : String(error));
     }
   }
@@ -243,8 +261,13 @@ export function OverlayDesign({
                     base={base}
                     activeTarget={activeTarget}
                     selected={field.systemKey === selectedKey}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < sorted.length - 1}
+                    // move() only ever swaps with the IMMEDIATE view neighbor
+                    // and no-ops if that neighbor isn't base-sourced — so an
+                    // enabled button must mirror that exactly, not just index
+                    // bounds, or a module-interleaved base field (e.g. [A, M,
+                    // B]) would show an enabled-but-dead "move down" on A.
+                    canMoveUp={index > 0 && sorted[index - 1]!.source.kind === "base"}
+                    canMoveDown={index < sorted.length - 1 && sorted[index + 1]!.source.kind === "base"}
                     onSelect={onSelectKey}
                     onDuplicate={handleDuplicate}
                     onRemove={handleRemove}
@@ -279,11 +302,12 @@ export function OverlayDesign({
       {selectedField ? (
         selectedEditable ? (
           <FieldPropertyPanel
-            field={selectedField}
+            field={stripViewKeys(selectedField)}
             onChange={(updated) => {
               if (!selectedGroupKey) return;
+              const clean = stripViewKeys(updated);
               onChangeBase(
-                updateField(base, viewSection.sectionKey, selectedGroupKey, updated.systemKey, () => updated),
+                updateField(base, viewSection.sectionKey, selectedGroupKey, clean.systemKey, () => clean),
               );
             }}
           />

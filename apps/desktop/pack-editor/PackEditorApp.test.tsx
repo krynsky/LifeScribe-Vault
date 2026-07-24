@@ -318,7 +318,11 @@ describe("PackEditorApp", () => {
       const select = await screen.findByLabelText(/view selection for password manager/i);
       await userEvent.selectOptions(select, "on");
 
-      // View order: fullName (base), masterPassword (module), nickname (base).
+      // View order: fullName, nickname, masterPassword — buildEditorView's
+      // documented tie-break keeps the pre-existing field (nickname, order 2)
+      // ahead of the added one (masterPassword, also order 2). Moving
+      // fullName down swaps it with its immediate base-sourced neighbor,
+      // nickname.
       await screen.findByRole("button", { name: /edit field Master password/i });
       const moveDown = screen.getByRole("button", { name: /move field Full name down/i });
       await userEvent.click(moveDown);
@@ -344,6 +348,68 @@ describe("PackEditorApp", () => {
       await userEvent.selectOptions(select, "on");
 
       expect(await screen.findByText(/could not be placed/i)).toBeInTheDocument();
+    });
+
+    it("does not leak view-only source/removed keys into the saved pack when editing via the property panel", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit field Full name/i }));
+      const label = screen.getByLabelText("Label");
+      await userEvent.clear(label);
+      await userEvent.type(label, "Legal name");
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const field = saved.sections
+        .find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .find((f) => f.systemKey === "fullName")!;
+      expect(field.label).toBe("Legal name");
+      expect(Object.keys(field)).not.toContain("source");
+      expect(Object.keys(field)).not.toContain("removed");
+    });
+
+    it("disables the move button toward an immediate module-owned neighbor (interleaved fields)", async () => {
+      mocked.getPack.mockImplementation(async () => {
+        const pack = clonePack();
+        // Place masterPassword between fullName and nickname in view order:
+        // fullName (order 1), masterPassword (order 1, added after — stable
+        // sort keeps it right after fullName), nickname (order 2).
+        pack.modules![0]!.options[1]!.addFields![0]!.order = 1;
+        return { pack };
+      });
+      render(<PackEditorApp />);
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+      await screen.findByRole("button", { name: /edit field Master password/i });
+
+      const moveDown = screen.getByRole("button", { name: /move field Full name down/i });
+      expect(moveDown).toBeDisabled();
+    });
+
+    it("duplicates a base field via the Duplicate control", async () => {
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /duplicate nickname/i }));
+
+      expect(screen.getAllByRole("button", { name: /edit field Nickname/i })).toHaveLength(2);
+    });
+
+    it("adding a field with the Base target active lands in base.sections", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      const addSelect = await screen.findByLabelText(/add field to details/i);
+      await userEvent.selectOptions(addSelect, "text");
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const fieldKeys = saved.sections
+        .find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .map((f) => f.systemKey);
+      expect(fieldKeys).toHaveLength(3);
+      expect(fieldKeys).toEqual(expect.arrayContaining(["fullName", "nickname"]));
     });
   });
 });
