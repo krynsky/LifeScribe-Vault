@@ -3,14 +3,11 @@ import type { FormPack } from "../src/domain/formModel";
 export type PackName = "credential" | "hint";
 
 export interface PackPayload {
-  hintPack: FormPack;
-  /** Present for credential mode; absent for hint mode. */
-  overlay?: unknown;
+  pack: FormPack;
 }
 
-export async function getPack(packName: PackName = "credential"): Promise<PackPayload> {
-  const url = packName === "hint" ? "/__pack?pack=hint" : "/__pack";
-  const res = await fetch(url);
+export async function getPack(): Promise<PackPayload> {
+  const res = await fetch("/__pack");
   if (!res.ok) {
     throw new Error(`Could not load the pack (${res.status}).`);
   }

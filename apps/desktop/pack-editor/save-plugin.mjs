@@ -1,6 +1,6 @@
 /**
  * Vite dev-server plugin backing the pack editor. Dev-only.
- *   GET  /__pack        -> { hintPack, overlay } read from disk
+ *   GET  /__pack        -> { pack } (the base pack) read from disk
  *   POST /__pack        -> writes credential-overlay.json + regenerated pack;
  *                          body is the edited credential FormPack (JSON)
  *   POST /__pack/backup -> copies the three source files (hint pack,
@@ -59,13 +59,8 @@ export function packEditorSavePlugin() {
 
         if (req.method === "GET") {
           try {
-            const hintPack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
-            if (hintMode) {
-              sendJson(res, 200, { hintPack });
-            } else {
-              const overlay = JSON.parse(readFileSync(OVERLAY_PATH, "utf-8"));
-              sendJson(res, 200, { hintPack, overlay });
-            }
+            const pack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
+            sendJson(res, 200, { pack });
           } catch (error) {
             sendJson(res, 500, { error: String(error?.message ?? error) });
           }

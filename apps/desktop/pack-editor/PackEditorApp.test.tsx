@@ -1,112 +1,159 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import defaultPack from "../src-tauri/resources/packs/default-pack.json";
-import overlay from "../scripts/credential-overlay.json";
 import type { FormPack } from "../src/domain/formModel";
 import * as api from "./api";
-import type { PackName } from "./api";
 import { PackEditorApp } from "./PackEditorApp";
-
-const hintPack = defaultPack as unknown as FormPack;
 
 vi.mock("./api", () => ({ getPack: vi.fn(), savePack: vi.fn(), backupPacks: vi.fn() }));
 const mocked = vi.mocked(api);
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mocked.getPack.mockImplementation(async (packName: PackName = "credential") => {
-    if (packName === "hint") return { hintPack };
-    return { hintPack, overlay };
-  });
-});
+const basePack: FormPack = {
+  packId: "test-pack",
+  packVersion: "1.0.0",
+  schemaVersion: 1,
+  minAppVersion: "0.0.0",
+  migrations: [],
+  sections: [
+    {
+      sectionKey: "identity",
+      title: "Identity",
+      lede: "",
+      multiRecord: false,
+      order: 1,
+      groups: [
+        {
+          groupKey: "identity-details",
+          title: "Details",
+          repeatable: false,
+          order: 1,
+          fields: [
+            {
+              systemKey: "fullName",
+              label: "Full name",
+              type: "text",
+              required: true,
+              protected: true,
+              order: 1,
+            },
+          ],
+        },
+      ],
+      readinessRule: { requiredKeys: ["fullName"] },
+      kitMapping: { entries: [{ heading: "Identity", fields: ["fullName"] }] },
+    },
+  ],
+  modules: [
+    {
+      moduleId: "secrets",
+      title: "Password manager",
+      question: "Do you use a password manager?",
+      options: [
+        { optionId: "off", label: "No" },
+        {
+          optionId: "on",
+          label: "Yes",
+          addFields: [
+            {
+              sectionKey: "identity",
+              groupKey: "identity-details",
+              order: 2,
+              field: {
+                systemKey: "masterPassword",
+                label: "Master password",
+                type: "text",
+                required: false,
+                protected: false,
+                order: 2,
+              },
+            },
+          ],
+        },
+      ],
+      defaultOptionId: "off",
+      order: 1,
+    },
+  ],
+};
 
-async function openPasswordManager() {
-  render(<PackEditorApp />);
-  await userEvent.click(await screen.findByRole("button", { name: /password manager plan/i }));
+function clonePack(): FormPack {
+  return JSON.parse(JSON.stringify(basePack)) as FormPack;
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocked.getPack.mockImplementation(async () => ({ pack: clonePack() }));
+});
+
 describe("PackEditorApp", () => {
-  it("shows pack selector buttons using the app's form-detail wording", async () => {
+  it("no longer shows the old hint/credential pack selector", async () => {
     render(<PackEditorApp />);
-    expect(
-      await screen.findByRole("button", { name: /stores secrets \(credential\)/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /locations only \(hint\)/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /stores secrets \(credential\)/i }),
-    ).toHaveAttribute("aria-current", "page");
+    await screen.findByText("Password manager");
+    expect(screen.queryByText(/credential/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/locations only/i)).not.toBeInTheDocument();
   });
 
-  it("lists the credential-only field row after loading", async () => {
-    await openPasswordManager();
+  it("lists modules in a side panel by title", async () => {
+    render(<PackEditorApp />);
+    expect(await screen.findByText("Password manager")).toBeInTheDocument();
+  });
+
+  it("choosing a module option overlays its added field into the view", async () => {
+    render(<PackEditorApp />);
+    const select = await screen.findByLabelText(/view selection for password manager/i);
+    expect(
+      screen.queryByRole("button", { name: /edit field Master password/i }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(select, "on");
+
     expect(
       await screen.findByRole("button", { name: /edit field Master password/i }),
     ).toBeInTheDocument();
   });
 
-  it("switching to the hint pack reloads without credential-only fields", async () => {
+  it("marks the active editing target and moves it back to Base", async () => {
     render(<PackEditorApp />);
-    await userEvent.click(await screen.findByRole("button", { name: /locations only \(hint\)/i }));
-    expect(screen.getByRole("button", { name: /locations only \(hint\)/i })).toHaveAttribute("aria-current", "page");
-    // "Master password" is a credential-only field added by the overlay — not present in hint mode
-    await screen.findByRole("button", { name: /password manager plan/i });
-    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
-    expect(screen.queryByRole("button", { name: /edit field Master password/i })).not.toBeInTheDocument();
+    await screen.findByText("Password manager");
+
+    const baseButton = screen.getByRole("button", { name: /^base$/i });
+    expect(baseButton).toHaveAttribute("aria-current", "true");
+
+    const editOnLayer = screen.getByRole("button", { name: /edit yes layer/i });
+    expect(editOnLayer).not.toHaveAttribute("aria-current", "true");
+
+    await userEvent.click(editOnLayer);
+    expect(editOnLayer).toHaveAttribute("aria-current", "true");
+    expect(baseButton).not.toHaveAttribute("aria-current", "true");
+
+    await userEvent.click(baseButton);
+    expect(baseButton).toHaveAttribute("aria-current", "true");
+    expect(editOnLayer).not.toHaveAttribute("aria-current", "true");
   });
 
-  it("selecting a field edits it in the property panel and saves", async () => {
+  it("selecting a base field edits it in the property panel and saves", async () => {
     mocked.savePack.mockResolvedValue(undefined);
-    await openPasswordManager();
-    await userEvent.click(await screen.findByRole("button", { name: /edit field Master password/i }));
+    render(<PackEditorApp />);
+    await userEvent.click(await screen.findByRole("button", { name: /edit field Full name/i }));
 
     const label = screen.getByLabelText("Label");
     await userEvent.clear(label);
-    await userEvent.type(label, "Vault master password");
+    await userEvent.type(label, "Legal name");
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(mocked.savePack).toHaveBeenCalledTimes(1);
     const saved = mocked.savePack.mock.calls[0]![0];
     const field = saved.sections
-      .find((s) => s.sectionKey === "password-manager")!
+      .find((s) => s.sectionKey === "identity")!
       .groups.flatMap((g) => g.fields)
-      .find((f) => f.systemKey === "passwordManagerMasterPassword")!;
-    expect(field.label).toBe("Vault master password");
-  });
-
-  it("save passes packName to savePack", async () => {
-    mocked.savePack.mockResolvedValue(undefined);
-    render(<PackEditorApp />);
-    await userEvent.click(await screen.findByRole("button", { name: /locations only \(hint\)/i }));
-    await screen.findByRole("button", { name: /password manager plan/i });
-    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
-    expect(mocked.savePack).toHaveBeenCalledWith(expect.anything(), "hint");
-  });
-
-  it("backs up the pack files and reports the backup folder", async () => {
-    mocked.backupPacks.mockResolvedValue("scripts/pack-backups/2026-07-05T00-00-00-000Z");
-    await openPasswordManager();
-    await userEvent.click(screen.getByRole("button", { name: /back up packs/i }));
-
-    expect(mocked.backupPacks).toHaveBeenCalledTimes(1);
-    expect(
-      await screen.findByText(/Backed up to scripts\/pack-backups\/2026-07-05T00-00-00-000Z/),
-    ).toBeInTheDocument();
-    // Backup never writes the edited pack — it copies the on-disk originals.
-    expect(mocked.savePack).not.toHaveBeenCalled();
-  });
-
-  it("shows an alert when the backup fails", async () => {
-    mocked.backupPacks.mockRejectedValue(new Error("disk full"));
-    await openPasswordManager();
-    await userEvent.click(screen.getByRole("button", { name: /back up packs/i }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("disk full");
+      .find((f) => f.systemKey === "fullName")!;
+    expect(field.label).toBe("Legal name");
   });
 
   it("blocks save with an alert when a label is emptied", async () => {
     mocked.savePack.mockResolvedValue(undefined);
-    await openPasswordManager();
-    await userEvent.click(await screen.findByRole("button", { name: /edit field Master password/i }));
+    render(<PackEditorApp />);
+    await userEvent.click(await screen.findByRole("button", { name: /edit field Full name/i }));
     await userEvent.clear(screen.getByLabelText("Label"));
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
@@ -114,29 +161,40 @@ describe("PackEditorApp", () => {
     expect(mocked.savePack).not.toHaveBeenCalled();
   });
 
-  it("removes an added field", async () => {
-    await openPasswordManager();
-    await userEvent.click(
-      screen.getByRole("button", { name: /remove field Master password/i }),
-    );
+  it("backs up the pack files and reports the backup folder", async () => {
+    mocked.backupPacks.mockResolvedValue("scripts/pack-backups/2026-07-05T00-00-00-000Z");
+    render(<PackEditorApp />);
+    await screen.findByText("Password manager");
+    await userEvent.click(screen.getByRole("button", { name: /back up packs/i }));
+
+    expect(mocked.backupPacks).toHaveBeenCalledTimes(1);
     expect(
-      screen.queryByRole("button", { name: /edit field Master password/i }),
-    ).not.toBeInTheDocument();
+      await screen.findByText(/Backed up to scripts\/pack-backups\/2026-07-05T00-00-00-000Z/),
+    ).toBeInTheDocument();
+    expect(mocked.savePack).not.toHaveBeenCalled();
   });
 
-  it("switches to the Preview tab and shows the field read-only", async () => {
-    await openPasswordManager();
+  it("shows an alert when the backup fails", async () => {
+    mocked.backupPacks.mockRejectedValue(new Error("disk full"));
+    render(<PackEditorApp />);
+    await screen.findByText("Password manager");
+    await userEvent.click(screen.getByRole("button", { name: /back up packs/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("disk full");
+  });
+
+  it("switches to the Preview tab and shows the base field read-only", async () => {
+    render(<PackEditorApp />);
+    await screen.findByText("Password manager");
     await userEvent.click(screen.getByRole("tab", { name: /preview/i }));
     const preview = screen.getByRole("tabpanel");
-    expect(within(preview).getByText("Master password")).toBeInTheDocument();
+    expect(within(preview).getByText("Full name")).toBeInTheDocument();
   });
 
-  it("switches to the JSON tab and shows the derived overlay", async () => {
-    await openPasswordManager();
+  it("switches to the JSON tab and shows the base pack", async () => {
+    render(<PackEditorApp />);
+    await screen.findByText("Password manager");
     await userEvent.click(screen.getByRole("tab", { name: /json/i }));
     const panel = screen.getByRole("tabpanel");
-    expect(
-      within(panel).getByText(/"packId": "lifescribe-default-credential"/),
-    ).toBeInTheDocument();
+    expect(within(panel).getByText(/"packId": "test-pack"/)).toBeInTheDocument();
   });
 });
