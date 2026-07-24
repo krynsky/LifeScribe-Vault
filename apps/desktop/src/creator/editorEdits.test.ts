@@ -5,6 +5,7 @@ import {
   addSectionToTarget,
   removeInTarget,
   removeSectionInTarget,
+  renameSectionInTarget,
   type EditTarget,
 } from "./editorEdits";
 
@@ -99,6 +100,16 @@ describe("removeInTarget", () => {
     removeInTarget(input, SECRETS_ON, "devices", "device", "deviceName");
     expect(JSON.stringify(input)).toBe(snapshot);
   });
+
+  it("undoes the option's own addFields entry instead of recording a dead removeKeys entry", () => {
+    // composePack/buildEditorView apply removeKeys BEFORE addFields within the
+    // same option, so a removeKeys entry for a field this option itself added
+    // would never take effect — it must splice the addFields entry instead.
+    const withAdd = addFieldToTarget(base(), SECRETS_ON, "devices", "device", NEW_FIELD);
+    const out = removeInTarget(withAdd, SECRETS_ON, "devices", "device", "note");
+    expect(option(out, "secrets", "on").addFields ?? []).toHaveLength(0);
+    expect(option(out, "secrets", "on").removeKeys ?? []).not.toContain("note");
+  });
 });
 
 const NEW_SECTION: PackSection = {
@@ -151,6 +162,47 @@ describe("removeSectionInTarget", () => {
     const once = removeSectionInTarget(base(), SECRETS_ON, "devices");
     const twice = removeSectionInTarget(once, SECRETS_ON, "devices");
     expect(option(twice, "secrets", "on").removeSectionKeys).toEqual(["devices"]);
+  });
+
+  it("undoes the option's own addSections entry instead of recording a dead removeSectionKeys entry", () => {
+    // composePack/buildEditorView apply removeSectionKeys BEFORE addSections
+    // within the same option, so a removeSectionKeys entry for a section this
+    // option itself added would never take effect — it must splice the
+    // addSections entry instead.
+    const withAdd = addSectionToTarget(base(), SECRETS_ON, NEW_SECTION);
+    const out = removeSectionInTarget(withAdd, SECRETS_ON, "crypto");
+    expect(option(out, "secrets", "on").addSections ?? []).toHaveLength(0);
+    expect(option(out, "secrets", "on").removeSectionKeys ?? []).not.toContain("crypto");
+  });
+});
+
+describe("renameSectionInTarget", () => {
+  it("renames a base section directly when the target is base", () => {
+    const out = renameSectionInTarget(base(), BASE_TARGET, "devices", "Gadgets");
+    expect(out.sections.find((s) => s.sectionKey === "devices")!.title).toBe("Gadgets");
+  });
+
+  it("renames a module option's addSections entry when the target is a module option", () => {
+    const withSection = addSectionToTarget(base(), SECRETS_ON, NEW_SECTION);
+    const out = renameSectionInTarget(withSection, SECRETS_ON, "crypto", "Digital Assets");
+    const added = option(out, "secrets", "on").addSections!;
+    expect(added).toHaveLength(1);
+    expect(added[0]!.section.title).toBe("Digital Assets");
+    // The base pack's own sections are untouched.
+    expect(out.sections.map((s) => s.sectionKey)).not.toContain("crypto");
+  });
+
+  it("is a no-op when the module option did not add a section by that key", () => {
+    const out = renameSectionInTarget(base(), SECRETS_ON, "devices", "Gadgets");
+    expect(option(out, "secrets", "on").addSections ?? []).toHaveLength(0);
+    expect(out.sections.find((s) => s.sectionKey === "devices")!.title).toBe("Devices");
+  });
+
+  it("does not mutate the input pack", () => {
+    const input = addSectionToTarget(base(), SECRETS_ON, NEW_SECTION);
+    const snapshot = JSON.stringify(input);
+    renameSectionInTarget(input, SECRETS_ON, "crypto", "Digital Assets");
+    expect(JSON.stringify(input)).toBe(snapshot);
   });
 });
 

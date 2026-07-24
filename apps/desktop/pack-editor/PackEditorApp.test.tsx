@@ -602,5 +602,27 @@ describe("PackEditorApp", () => {
       expect(row).toHaveAttribute("data-layer", "other");
       expect(row).toHaveTextContent(/password manager/i);
     });
+
+    it("removing a section the active module option added itself actually removes it (not a dead removeSectionKeys entry)", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      const removeButton = await screen.findByRole("button", { name: /remove wallet in this option/i });
+      await userEvent.click(removeButton);
+
+      expect(screen.queryByLabelText(/rename section: wallet/i)).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const onOption = saved.modules!.find((m) => m.moduleId === "secrets")!.options.find(
+        (o) => o.optionId === "on",
+      )!;
+      expect(onOption.addSections ?? []).toHaveLength(0);
+      expect(onOption.removeSectionKeys ?? []).not.toContain("walletSection");
+    });
   });
 });

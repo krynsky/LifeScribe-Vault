@@ -72,6 +72,16 @@ export function removeInTarget(
     return removeField(pack, sectionKey, groupKey, systemKey);
   }
   return updateOption(pack, target.moduleId, target.optionId, (option) => {
+    // If this option added the field itself (via addFields), a removeKeys
+    // entry would be dead: composePack/buildEditorView apply removeKeys
+    // BEFORE addFields within the same option, so the remove would run
+    // before the field exists and the add would still land it. Undo the
+    // addition instead.
+    const added = option.addFields ?? [];
+    const ownIndex = added.findIndex((add) => add.field.systemKey === systemKey);
+    if (ownIndex !== -1) {
+      return { ...option, addFields: added.filter((_, i) => i !== ownIndex) };
+    }
     const removeKeys = option.removeKeys ?? [];
     return removeKeys.includes(systemKey)
       ? option
@@ -118,6 +128,15 @@ export function removeSectionInTarget(pack: FormPack, target: EditTarget, sectio
     return { ...pack, sections: pack.sections.filter((section) => section.sectionKey !== sectionKey) };
   }
   return updateOption(pack, target.moduleId, target.optionId, (option) => {
+    // Same reasoning as removeInTarget's field case: an option's own
+    // addSections entry is applied AFTER removeSectionKeys within that
+    // option, so recording a removeSectionKeys entry for a section this
+    // option itself added would be silently ignored. Undo the addition.
+    const added = option.addSections ?? [];
+    const ownIndex = added.findIndex((add) => add.section.sectionKey === sectionKey);
+    if (ownIndex !== -1) {
+      return { ...option, addSections: added.filter((_, i) => i !== ownIndex) };
+    }
     const keys = option.removeSectionKeys ?? [];
     return keys.includes(sectionKey) ? option : { ...option, removeSectionKeys: [...keys, sectionKey] };
   });
