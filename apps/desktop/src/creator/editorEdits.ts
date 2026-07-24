@@ -5,7 +5,7 @@
  */
 
 import type { FieldDefinition, FormModule, FormModuleOption, FormPack, PackSection } from "../domain/formModel";
-import { maxOrder, removeField, updateGroup, updateSection } from "./packEdits";
+import { maxOrder, removeField, updateField, updateGroup, updateSection } from "./packEdits";
 
 export type EditTarget = { kind: "base" } | { kind: "module"; moduleId: string; optionId: string };
 
@@ -86,6 +86,57 @@ export function removeInTarget(
     return removeKeys.includes(systemKey)
       ? option
       : { ...option, removeKeys: [...removeKeys, systemKey] };
+  });
+}
+
+/**
+ * Updates a field's properties, routed to its owning layer. A base target
+ * updates the base field directly. A module target updates wherever that
+ * option owns the field: either its own addFields entry, or a field inside a
+ * whole section the option added via addSections. No-op (referential-equal
+ * option) if the target's option doesn't own a field by that key — mirroring
+ * updateSectionInTarget's not-found behavior rather than throwing.
+ */
+export function updateFieldInTarget(
+  pack: FormPack,
+  target: EditTarget,
+  sectionKey: string,
+  groupKey: string,
+  systemKey: string,
+  updated: FieldDefinition,
+): FormPack {
+  if (target.kind === "base") {
+    return updateField(pack, sectionKey, groupKey, systemKey, () => updated);
+  }
+  return updateOption(pack, target.moduleId, target.optionId, (option) => {
+    // (a) a field this option injected via addFields
+    const addFields = option.addFields ?? [];
+    const i = addFields.findIndex((a) => a.field.systemKey === systemKey);
+    if (i !== -1) {
+      const next = [...addFields];
+      next[i] = { ...next[i]!, field: updated };
+      return { ...option, addFields: next };
+    }
+    // (b) a field inside a whole section this option added
+    const addSections = option.addSections ?? [];
+    const s = addSections.findIndex((entry) => entry.section.sectionKey === sectionKey);
+    if (s !== -1) {
+      const entry = addSections[s]!;
+      const next = [...addSections];
+      next[s] = {
+        ...entry,
+        section: {
+          ...entry.section,
+          groups: entry.section.groups.map((g) =>
+            g.groupKey !== groupKey
+              ? g
+              : { ...g, fields: g.fields.map((f) => (f.systemKey === systemKey ? updated : f)) },
+          ),
+        },
+      };
+      return { ...option, addSections: next };
+    }
+    return option; // not owned by this option — no-op
   });
 }
 

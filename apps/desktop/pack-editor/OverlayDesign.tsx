@@ -3,11 +3,12 @@ import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
 import {
   addFieldToTarget,
   removeInTarget,
+  updateFieldInTarget,
   updateSectionInTarget,
   type EditTarget,
 } from "../src/creator/editorEdits";
 import type { EditorView, EditorViewField, EditorViewSection, ViewSource } from "../src/creator/editorView";
-import { maxOrder, updateField } from "../src/creator/packEdits";
+import { maxOrder } from "../src/creator/packEdits";
 import { isCustomFieldKey, FIELD_TYPES } from "../src/domain/formModel";
 import type { FieldDefinition, FieldType, FormPack } from "../src/domain/formModel";
 import { SectionPropertyPanel } from "./SectionPropertyPanel";
@@ -323,7 +324,14 @@ export function OverlayDesign({
               if (!selectedGroupKey) return;
               const clean = stripViewKeys(updated);
               onChangeBase(
-                updateField(base, viewSection.sectionKey, selectedGroupKey, clean.systemKey, () => clean),
+                updateFieldInTarget(
+                  base,
+                  activeTarget,
+                  viewSection.sectionKey,
+                  selectedGroupKey,
+                  clean.systemKey,
+                  clean,
+                ),
               );
             }}
           />

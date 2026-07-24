@@ -538,6 +538,42 @@ describe("PackEditorApp", () => {
       expect(screen.getAllByRole("button", { name: /edit field Nickname/i })).toHaveLength(2);
     });
 
+    it("editing the Label of a module-owned field routes through the active target, not the base-only updateField", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      // Make the "Yes" option the active editing target — masterPassword is
+      // one of its addFields, so edits to it should be live, not a no-op.
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+      const select = await screen.findByLabelText(/view selection for password manager/i);
+      await userEvent.selectOptions(select, "on");
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: /edit field Master password/i }),
+      );
+      const label = screen.getByLabelText("Label");
+      await userEvent.clear(label);
+      await userEvent.type(label, "Vault master password");
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+
+      const onOption = saved.modules!.find((m) => m.moduleId === "secrets")!.options.find(
+        (o) => o.optionId === "on",
+      )!;
+      const field = onOption.addFields!.find((a) => a.field.systemKey === "masterPassword")!.field;
+      expect(field.label).toBe("Vault master password");
+      expect(Object.keys(field)).not.toContain("source");
+      expect(Object.keys(field)).not.toContain("removed");
+
+      // The base pack's own sections are untouched.
+      const baseFieldKeys = saved.sections
+        .find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .map((f) => f.systemKey);
+      expect(baseFieldKeys).toEqual(["fullName", "nickname"]);
+    });
+
     it("adding a field with the Base target active lands in base.sections", async () => {
       mocked.savePack.mockResolvedValue(undefined);
       render(<PackEditorApp />);

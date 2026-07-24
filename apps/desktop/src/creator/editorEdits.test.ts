@@ -12,6 +12,7 @@ import {
   removeSectionInTarget,
   renameSectionInTarget,
   setModuleDefaultOption,
+  updateFieldInTarget,
   updateModuleDetails,
   updateModuleOptionLabel,
   updateSectionInTarget,
@@ -257,6 +258,60 @@ describe("updateSectionInTarget", () => {
     const snapshot = JSON.stringify(input);
     updateSectionInTarget(input, BASE_TARGET, "devices", (s) => ({ ...s, lede: "x" }));
     expect(JSON.stringify(input)).toBe(snapshot);
+  });
+});
+
+describe("updateFieldInTarget", () => {
+  it("updates a base field directly when the target is base", () => {
+    const updated: FieldDefinition = {
+      systemKey: "deviceName", label: "Device Nickname", type: "text", required: true, protected: true, order: 1,
+    };
+    const out = updateFieldInTarget(base(), BASE_TARGET, "devices", "device", "deviceName", updated);
+    expect(group(out, "devices", "device").fields.find((f) => f.systemKey === "deviceName")!.label).toBe(
+      "Device Nickname",
+    );
+  });
+
+  it("updates a field in a module option's addFields when the target owns it via addFields", () => {
+    const withAdd = addFieldToTarget(base(), SECRETS_ON, "devices", "device", NEW_FIELD);
+    const updated: FieldDefinition = { ...NEW_FIELD, label: "Updated Note" };
+    const out = updateFieldInTarget(withAdd, SECRETS_ON, "devices", "device", "note", updated);
+    const added = option(out, "secrets", "on").addFields!;
+    expect(added).toHaveLength(1);
+    expect(added[0]!.field.label).toBe("Updated Note");
+    // The base pack's own fields are untouched.
+    expect(group(out, "devices", "device").fields.map((f) => f.systemKey)).not.toContain("note");
+  });
+
+  it("updates a field inside a module option's addSections entry", () => {
+    const withSection = addSectionToTarget(base(), SECRETS_ON, NEW_SECTION);
+    const updated: FieldDefinition = {
+      systemKey: "walletName", label: "Wallet Nickname", type: "text", required: true, protected: true, order: 1,
+    };
+    const out = updateFieldInTarget(withSection, SECRETS_ON, "crypto", "wallet", "walletName", updated);
+    const added = option(out, "secrets", "on").addSections!;
+    expect(added[0]!.section.groups[0]!.fields[0]!.label).toBe("Wallet Nickname");
+    expect(out.sections.map((s) => s.sectionKey)).not.toContain("crypto");
+  });
+
+  it("is a no-op when the module option does not own the field", () => {
+    const updated: FieldDefinition = {
+      systemKey: "deviceName", label: "Hijacked", type: "text", required: true, protected: true, order: 1,
+    };
+    const out = updateFieldInTarget(base(), SECRETS_ON, "devices", "device", "deviceName", updated);
+    expect(group(out, "devices", "device").fields.find((f) => f.systemKey === "deviceName")!.label).toBe(
+      "Device name",
+    );
+    expect(option(out, "secrets", "on").addFields ?? []).toHaveLength(0);
+    expect(option(out, "secrets", "on").addSections ?? []).toHaveLength(0);
+  });
+
+  it("does not mutate the input pack", () => {
+    const withAdd = addFieldToTarget(base(), SECRETS_ON, "devices", "device", NEW_FIELD);
+    const snapshot = JSON.stringify(withAdd);
+    const updated: FieldDefinition = { ...NEW_FIELD, label: "Updated Note" };
+    updateFieldInTarget(withAdd, SECRETS_ON, "devices", "device", "note", updated);
+    expect(JSON.stringify(withAdd)).toBe(snapshot);
   });
 });
 

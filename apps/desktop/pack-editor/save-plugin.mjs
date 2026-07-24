@@ -5,7 +5,11 @@
  *                          straight to default-pack.json
  *   POST /__pack/backup -> copies the three source files (hint pack,
  *                          credential pack, overlay) into a timestamped
- *                          folder under scripts/pack-backups/
+ *                          folder under scripts/pack-backups/. The credential
+ *                          pack and overlay are frozen legacy artifacts —
+ *                          save no longer regenerates them (a later plan
+ *                          retires them) — but backup still copies whatever
+ *                          is on disk for continuity.
  */
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";

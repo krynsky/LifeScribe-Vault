@@ -15,6 +15,9 @@ export async function getPack(): Promise<PackPayload> {
 /**
  * Copy the three pack source files (hint pack, credential pack, overlay)
  * into a timestamped folder under scripts/pack-backups/. Returns the folder.
+ * The credential pack and overlay are frozen legacy artifacts — no longer
+ * regenerated on save (a later plan retires them) — but backup still copies
+ * them for continuity.
  */
 export async function backupPacks(): Promise<string> {
   const res = await fetch("/__pack/backup", { method: "POST" });
