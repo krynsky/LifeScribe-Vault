@@ -1,3 +1,19 @@
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
 import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
 import {
@@ -45,6 +61,32 @@ function uniqueFieldKey(): string {
   return key;
 }
 
+/**
+ * Moves `fromKey` to `toKey`'s slot within a base group, renumbering
+ * sequentially. A no-op (referential-identity `base`) if either key isn't
+ * base-sourced — the list renders the MIXED view (base + module-injected
+ * fields), so a dragged/dropped row may belong to a module option. Mirrors
+ * SectionNav.reorderBaseSections; the base-index translation via reorderFields
+ * lets a module-interleaved neighbor be skipped without derailing the move.
+ */
+function reorderBaseFieldsByKey(
+  base: FormPack,
+  sectionKey: string,
+  groupKey: string,
+  fromKey: string,
+  toKey: string,
+): FormPack {
+  const group = base.sections
+    .find((s) => s.sectionKey === sectionKey)
+    ?.groups.find((g) => g.groupKey === groupKey);
+  if (!group) return base;
+  const sorted = [...group.fields].sort((a, b) => a.order - b.order);
+  const fromIndex = sorted.findIndex((f) => f.systemKey === fromKey);
+  const toIndex = sorted.findIndex((f) => f.systemKey === toKey);
+  if (fromIndex === -1 || toIndex === -1) return base;
+  return reorderFields(base, sectionKey, groupKey, fromIndex, toIndex);
+}
+
 /** Which module/option (or "Base") a field's source layer names for display. */
 function ownerLabel(source: ViewSource, base: FormPack): string {
   if (source.kind === "base") return "Base";
@@ -75,13 +117,10 @@ interface RowProps {
   base: FormPack;
   activeTarget: EditTarget;
   selected: boolean;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
+  reorderable: boolean;
   onSelect: (key: string) => void;
   onDuplicate: (groupKey: string, key: string) => void;
   onRemove: (groupKey: string, key: string) => void;
-  onMoveUp: (groupKey: string, key: string) => void;
-  onMoveDown: (groupKey: string, key: string) => void;
 }
 
 function FieldRow({
@@ -90,17 +129,26 @@ function FieldRow({
   base,
   activeTarget,
   selected,
-  canMoveUp,
-  canMoveDown,
+  reorderable,
   onSelect,
   onDuplicate,
   onRemove,
-  onMoveUp,
-  onMoveDown,
 }: RowProps) {
+  // useSortable's `disabled` shorthand only disables DRAGGING when passed a
+  // plain boolean (droppable stays enabled), so a non-reorderable row would
+  // still be a valid drop target unless both flags are set — matching
+  // SectionNav's handling.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: field.systemKey,
+    disabled: { draggable: !reorderable, droppable: !reorderable },
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  };
   const layer = layerOf(field.source, activeTarget);
   const owner = isActiveOwner(field.source, activeTarget);
-  const reorderable = field.source.kind === "base" && !field.removed;
   const showDuplicate = field.source.kind === "base" && owner && !field.removed;
   // removeInTarget's module branch just records a removeKey by systemKey — it
   // never silently no-ops, regardless of which layer the field came from, so
@@ -114,27 +162,22 @@ function FieldRow({
 
   return (
     <li
+      ref={setNodeRef}
+      style={style}
       className={selected ? "field-row field-row--selected" : "field-row"}
       data-layer={layer}
+      data-field-key={field.systemKey}
       data-removed={field.removed ? "true" : undefined}
     >
       <button
         type="button"
         className="field-row__handle"
-        aria-label={`Move field ${field.label} up`}
-        disabled={!reorderable || !canMoveUp}
-        onClick={() => onMoveUp(groupKey, field.systemKey)}
+        aria-label={`Drag to reorder ${field.label}`}
+        disabled={!reorderable}
+        {...attributes}
+        {...listeners}
       >
-        ↑
-      </button>
-      <button
-        type="button"
-        className="field-row__handle"
-        aria-label={`Move field ${field.label} down`}
-        disabled={!reorderable || !canMoveDown}
-        onClick={() => onMoveDown(groupKey, field.systemKey)}
-      >
-        ↓
+        ⠿
       </button>
       <button
         type="button"
@@ -193,6 +236,11 @@ export function OverlayDesign({
   // enabled panel is never a dead end for a section this target doesn't own.
   const sectionEditable = isActiveOwner(viewSection.source, activeTarget) && !viewSection.removed;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   function handleSectionChange(patch: { title: string; lede: string; multiRecord: boolean }) {
     onChangeBase(
       updateSectionInTarget(base, activeTarget, viewSection.sectionKey, (s) => ({ ...s, ...patch })),
@@ -232,26 +280,12 @@ export function OverlayDesign({
     onChangeBase(duplicateField(base, viewSection.sectionKey, groupKey, systemKey));
   }
 
-  function move(groupKey: string, systemKey: string, direction: "up" | "down") {
-    const group = viewSection.groups.find((g) => g.groupKey === groupKey);
-    if (!group) return;
-    const sorted = [...group.fields].sort((a, b) => a.order - b.order);
-    const index = sorted.findIndex((f) => f.systemKey === systemKey);
-    if (index === -1) return;
-    const neighborIndex = direction === "up" ? index - 1 : index + 1;
-    const neighbor = sorted[neighborIndex];
-    const current = sorted[index]!;
-    if (!neighbor || current.source.kind !== "base" || neighbor.source.kind !== "base") return;
-
-    const baseGroup = base.sections
-      .find((s) => s.sectionKey === viewSection.sectionKey)
-      ?.groups.find((g) => g.groupKey === groupKey);
-    if (!baseGroup) return;
-    const baseSorted = [...baseGroup.fields].sort((a, b) => a.order - b.order);
-    const fromIndex = baseSorted.findIndex((f) => f.systemKey === current.systemKey);
-    const toIndex = baseSorted.findIndex((f) => f.systemKey === neighbor.systemKey);
-    if (fromIndex === -1 || toIndex === -1) return;
-    onChangeBase(reorderFields(base, viewSection.sectionKey, groupKey, fromIndex, toIndex));
+  function handleDragEnd(groupKey: string, event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    onChangeBase(
+      reorderBaseFieldsByKey(base, viewSection.sectionKey, groupKey, String(active.id), String(over.id)),
+    );
   }
 
   return (
@@ -269,30 +303,37 @@ export function OverlayDesign({
           return (
             <section key={group.groupKey} className="field-list__group">
               <h3 className="field-list__group-title">{group.title}</h3>
-              <ul className="field-list__rows">
-                {sorted.map((field, index) => (
-                  <FieldRow
-                    key={field.systemKey}
-                    field={field}
-                    groupKey={group.groupKey}
-                    base={base}
-                    activeTarget={activeTarget}
-                    selected={field.systemKey === selectedKey}
-                    // move() only ever swaps with the IMMEDIATE view neighbor
-                    // and no-ops if that neighbor isn't base-sourced — so an
-                    // enabled button must mirror that exactly, not just index
-                    // bounds, or a module-interleaved base field (e.g. [A, M,
-                    // B]) would show an enabled-but-dead "move down" on A.
-                    canMoveUp={index > 0 && sorted[index - 1]!.source.kind === "base"}
-                    canMoveDown={index < sorted.length - 1 && sorted[index + 1]!.source.kind === "base"}
-                    onSelect={onSelectKey}
-                    onDuplicate={handleDuplicate}
-                    onRemove={handleRemove}
-                    onMoveUp={(gk, key) => move(gk, key, "up")}
-                    onMoveDown={(gk, key) => move(gk, key, "down")}
-                  />
-                ))}
-              </ul>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event) => handleDragEnd(group.groupKey, event)}
+              >
+                <SortableContext
+                  items={sorted.map((f) => f.systemKey)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ul className="field-list__rows">
+                    {sorted.map((field) => (
+                      <FieldRow
+                        key={field.systemKey}
+                        field={field}
+                        groupKey={group.groupKey}
+                        base={base}
+                        activeTarget={activeTarget}
+                        selected={field.systemKey === selectedKey}
+                        // Only base-sourced, non-removed fields can be dragged;
+                        // reorderBaseFieldsByKey no-ops on module-interleaved
+                        // rows (their droppable is disabled too), so a module
+                        // field between two base ones is skipped, not derailed.
+                        reorderable={field.source.kind === "base" && !field.removed}
+                        onSelect={onSelectKey}
+                        onDuplicate={handleDuplicate}
+                        onRemove={handleRemove}
+                      />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
               <label className="field-list__add">
                 <span className="sr-only">{`Add field to ${group.title}`}</span>
                 <select

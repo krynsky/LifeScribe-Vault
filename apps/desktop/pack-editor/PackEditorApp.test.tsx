@@ -370,6 +370,32 @@ describe("PackEditorApp", () => {
   });
 
   describe("overlay editing (Task 3)", () => {
+    // dnd-kit's KeyboardSensor computes moves from element rects; jsdom reports
+    // all-zero rects, so stub them per field row (keyed on data-field-key) to
+    // give the sortable a real vertical order to navigate.
+    function mockFieldRects(order: string[]) {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        const key = this.getAttribute?.("data-field-key");
+        const idx = key ? order.indexOf(key) : -1;
+        const top = idx >= 0 ? idx * 40 : 0;
+        return {
+          top,
+          bottom: top + 40,
+          left: 0,
+          right: 200,
+          width: 200,
+          height: 40,
+          x: 0,
+          y: top,
+          toJSON() {
+            return {};
+          },
+        } as DOMRect;
+      });
+    }
+
     it("adding a field with a module option active lands in that option's addFields, not base.sections", async () => {
       mocked.savePack.mockResolvedValue(undefined);
       render(<PackEditorApp />);
@@ -455,20 +481,29 @@ describe("PackEditorApp", () => {
       expect(baseFieldKeys).toEqual(["fullName", "nickname"]);
     });
 
-    it("reorders base fields correctly with an overlay active (index translation)", async () => {
+    it("drag-reorders base fields correctly with an overlay active (index translation)", async () => {
       mocked.savePack.mockResolvedValue(undefined);
+      // View order: fullName, nickname, masterPassword — buildEditorView's
+      // documented tie-break keeps the pre-existing field (nickname, order 2)
+      // ahead of the added one (masterPassword, also order 2).
+      mockFieldRects(["fullName", "nickname", "masterPassword"]);
       render(<PackEditorApp />);
       const select = await screen.findByLabelText(/view selection for password manager/i);
       await userEvent.selectOptions(select, "on");
-
-      // View order: fullName, nickname, masterPassword — buildEditorView's
-      // documented tie-break keeps the pre-existing field (nickname, order 2)
-      // ahead of the added one (masterPassword, also order 2). Moving
-      // fullName down swaps it with its immediate base-sourced neighbor,
-      // nickname.
       await screen.findByRole("button", { name: /edit field Master password/i });
-      const moveDown = screen.getByRole("button", { name: /move field Full name down/i });
-      await userEvent.click(moveDown);
+
+      // Dragging fullName down one slot swaps it with its immediate
+      // base-sourced neighbor, nickname (see the section-nav drag test for why
+      // each keydown must let dnd-kit's setTimeout(0) listener flush).
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+      const handle = screen.getByRole("button", { name: /drag to reorder Full name/i });
+      handle.focus();
+      fireEvent.keyDown(handle, { code: "Space" });
+      await flush();
+      fireEvent.keyDown(handle, { code: "ArrowDown" });
+      await flush();
+      fireEvent.keyDown(handle, { code: "Space" });
+      await flush();
 
       await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
       expect(mocked.savePack).toHaveBeenCalledTimes(1);
@@ -513,7 +548,8 @@ describe("PackEditorApp", () => {
       expect(Object.keys(field)).not.toContain("removed");
     });
 
-    it("disables the move button toward an immediate module-owned neighbor (interleaved fields)", async () => {
+    it("drag-reorders base fields, skipping a module-added field interleaved between them", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
       mocked.getPack.mockImplementation(async () => {
         const pack = clonePack();
         // Place masterPassword between fullName and nickname in view order:
@@ -522,13 +558,33 @@ describe("PackEditorApp", () => {
         pack.modules![0]!.options[1]!.addFields![0]!.order = 1;
         return { pack };
       });
+      mockFieldRects(["fullName", "masterPassword", "nickname"]);
       render(<PackEditorApp />);
       const select = await screen.findByLabelText(/view selection for password manager/i);
       await userEvent.selectOptions(select, "on");
       await screen.findByRole("button", { name: /edit field Master password/i });
 
-      const moveDown = screen.getByRole("button", { name: /move field Full name down/i });
-      expect(moveDown).toBeDisabled();
+      // masterPassword (module-added) sits physically between the two base
+      // fields; its droppable is disabled, so one ArrowDown skips it and lands
+      // fullName on nickname without derailing the base-index translation.
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+      const handle = screen.getByRole("button", { name: /drag to reorder Full name/i });
+      handle.focus();
+      fireEvent.keyDown(handle, { code: "Space" });
+      await flush();
+      fireEvent.keyDown(handle, { code: "ArrowDown" });
+      await flush();
+      fireEvent.keyDown(handle, { code: "Space" });
+      await flush();
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      const fields = saved.sections
+        .find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .sort((a, b) => a.order - b.order);
+      expect(fields.map((f) => f.systemKey)).toEqual(["nickname", "fullName"]);
     });
 
     it("duplicates a base field via the Duplicate control", async () => {

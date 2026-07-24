@@ -38,6 +38,7 @@
 .field-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
 .field-row--selected { border-color: var(--color-accent); background: var(--color-accent-tint); }
 .field-row__handle { border: none; background: transparent; cursor: grab; color: var(--color-ink-tertiary); font-size: 1rem; padding: 0 2px; }
+.field-row__handle:disabled { cursor: default; opacity: 0.4; }
 .field-row__label { flex: 1; text-align: left; border: none; background: transparent; cursor: pointer; color: inherit; font: inherit; }
 .field-row__type { font-size: var(--text-xs); color: var(--color-ink-tertiary); background: var(--color-surface-sunken); padding: 1px 7px; border-radius: var(--radius-sm); }
 .field-list__add { margin-top: var(--space-2); display: block; }
