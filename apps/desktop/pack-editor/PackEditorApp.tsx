@@ -1,40 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
-import { buildCredentialPack } from "../scripts/lib/credential-pack.mjs";
+import { useEffect, useState } from "react";
 import {
-  addOptionalField,
-  removeField,
-  updateField,
-} from "../src/creator/packEdits";
-import type { FieldType, FormPack } from "../src/domain/formModel";
-import { validatePack } from "../src/domain/packValidation";
-import { deriveOverlay } from "../scripts/lib/derive-overlay.mjs";
+  addModule,
+  addModuleOption,
+  removeModuleOption,
+  setModuleDefaultOption,
+  updateModuleDetails,
+  updateModuleOptionLabel,
+  type EditTarget,
+} from "../src/creator/editorEdits";
+import { buildEditorView } from "../src/creator/editorView";
+import type { FormPack } from "../src/domain/formModel";
+import { composePack } from "../src/domain/composePack";
 import { mergePackWithOverlay } from "../src/domain/packMerge";
+import { validatePack } from "../src/domain/packValidation";
 import { createSectionValues } from "../src/domain/valuesStore";
 import { FormRenderer } from "../src/forms/FormRenderer";
-import { FieldList } from "../src/forms/structure/FieldList";
-import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
-import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
-import { backupPacks, getPack, savePack, type PackName } from "./api";
+import { backupPacks, getPack, savePack } from "./api";
+import { ModulePropertyPanel } from "./ModulePropertyPanel";
+import { OverlayDesign } from "./OverlayDesign";
+import { SectionNav } from "./SectionNav";
 
 type Status = "loading" | "ready" | "error";
 
-function hintSystemKeys(pack: FormPack): Set<string> {
-  const keys = new Set<string>();
-  for (const section of pack.sections) {
-    for (const group of section.groups) {
-      for (const field of group.fields) keys.add(field.systemKey);
-    }
-  }
-  return keys;
-}
-
 export function PackEditorApp() {
-  const [packName, setPackName] = useState<PackName>("credential");
   const [status, setStatus] = useState<Status>("loading");
-  const [hintPack, setHintPack] = useState<FormPack | null>(null);
-  const [pack, setPack] = useState<FormPack | null>(null);
+  const [base, setBase] = useState<FormPack | null>(null);
+  const [viewSelections, setViewSelections] = useState<Record<string, string | null>>({});
+  const [previewSelections, setPreviewSelections] = useState<Record<string, string>>({});
+  const [activeTarget, setActiveTarget] = useState<EditTarget>({ kind: "base" });
   const [activeSection, setActiveSection] = useState<string>("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"design" | "preview" | "json">("design");
   const [loadError, setLoadError] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -42,19 +38,20 @@ export function PackEditorApp() {
   const [saveError, setSaveError] = useState<string>("");
 
   useEffect(() => {
+    // No setState calls here before the async call: status/selectedKey/
+    // saveMessage/saveError already start at these exact values via
+    // useState, and this effect has an empty dep array (runs once on
+    // mount only), so re-asserting them here would just be a redundant
+    // cascading render.
     let current = true;
-    setStatus("loading");
-    setSelectedKey(null);
-    setSaveMessage("");
-    setSaveError("");
-    getPack(packName)
-      .then(({ hintPack: hint, overlay }) => {
+    getPack()
+      .then(({ pack }) => {
         if (!current) return;
-        const editablePack: FormPack =
-          packName === "hint" ? hint : (buildCredentialPack(hint, overlay!) as FormPack);
-        setHintPack(hint);
-        setPack(editablePack);
-        setActiveSection(editablePack.sections[0]?.sectionKey ?? "");
+        setBase(pack);
+        setViewSelections({});
+        setPreviewSelections({});
+        setActiveTarget({ kind: "base" });
+        setActiveSection(pack.sections[0]?.sectionKey ?? "");
         setStatus("ready");
       })
       .catch((error: unknown) => {
@@ -65,17 +62,12 @@ export function PackEditorApp() {
     return () => {
       current = false;
     };
-  }, [packName]);
-
-  const hintKeys = useMemo(
-    () => (packName === "credential" && hintPack ? hintSystemKeys(hintPack) : new Set<string>()),
-    [hintPack, packName],
-  );
+  }, []);
 
   if (status === "loading") {
     return <main className="centered-screen">Loading the form pack…</main>;
   }
-  if (status === "error" || !pack || !hintPack) {
+  if (status === "error" || !base) {
     return (
       <main className="centered-screen">
         <p className="form-error" role="alert">
@@ -85,20 +77,37 @@ export function PackEditorApp() {
     );
   }
 
-  const section = pack.sections.find((s) => s.sectionKey === activeSection);
-  const selectedField =
-    section?.groups.flatMap((g) => g.fields).find((f) => f.systemKey === selectedKey) ?? null;
-  const selectedGroupKey =
-    section?.groups.find((g) => g.fields.some((f) => f.systemKey === selectedKey))?.groupKey ?? null;
-  const resolvedSection = section
-    ? mergePackWithOverlay(pack, null, {}).resolved.sections.find(
-        (s) => s.sectionKey === activeSection,
-      )
-    : undefined;
-  const overlayJson =
-    packName === "hint"
-      ? JSON.stringify(pack, null, 2)
-      : JSON.stringify(deriveOverlay(hintPack, pack), null, 2);
+  const view = buildEditorView(base, viewSelections);
+  const visibleSections = view.sections.filter((s) => !s.removed);
+  const viewSection =
+    visibleSections.find((s) => s.sectionKey === activeSection) ?? visibleSections[0];
+
+  // Preview shows the true end-user composition: every module resolves to a
+  // concrete option — its default when the creator hasn't picked one in the
+  // Preview picker — which is exactly what composePack does at runtime. This
+  // is a fully independent selection from the Design overlay (viewSelections):
+  // changing one must never move the other, so each gets its own state.
+  const resolvedPreviewSelections = Object.fromEntries(
+    (base.modules ?? []).map((m) => [m.moduleId, previewSelections[m.moduleId] ?? m.defaultOptionId]),
+  );
+  // The preview picker can represent a module combination (e.g. an addFields
+  // target section that isn't present after another module's addSections
+  // removal) that composePack rejects outright. That must surface as a visible
+  // message, not a silent blank pane — this branch has repeatedly hit that bug
+  // class.
+  let resolvedSection;
+  let previewError = "";
+  try {
+    const composed = composePack(base, base.modules ?? [], resolvedPreviewSelections);
+    resolvedSection = mergePackWithOverlay(composed, null, {}).resolved.sections.find(
+      (s) => s.sectionKey === activeSection,
+    );
+  } catch (error) {
+    resolvedSection = undefined;
+    previewError = error instanceof Error ? error.message : String(error);
+  }
+
+  const jsonText = JSON.stringify(base, null, 2);
 
   async function handleBackup() {
     setSaving(true);
@@ -115,8 +124,8 @@ export function PackEditorApp() {
   }
 
   async function handleSave() {
-    if (!pack) return;
-    const result = validatePack(pack);
+    if (!base) return;
+    const result = validatePack(base);
     if (!result.ok) {
       setSaveError(`Cannot save: ${result.errors.join("; ")}`);
       setSaveMessage("");
@@ -126,10 +135,9 @@ export function PackEditorApp() {
     setSaveError("");
     setSaveMessage("");
     try {
-      await savePack(pack, packName);
-      const { hintPack: hint, overlay } = await getPack(packName);
-      setHintPack(hint);
-      setPack(packName === "hint" ? hint : (buildCredentialPack(hint, overlay!) as FormPack));
+      await savePack(base);
+      const { pack } = await getPack();
+      setBase(pack);
       setSaveMessage("Saved.");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : String(error));
@@ -140,39 +148,96 @@ export function PackEditorApp() {
 
   return (
     <div className="pack-editor">
-      {/* Labels match the app's form-detail wording (sidebar: "Stores
-          secrets" / "Locations only"); the pack name stays for dev clarity. */}
-      <nav className="pack-editor__pack-selector" aria-label="Pack">
+      <nav className="pack-editor__modules" aria-label="Modules">
         <button
           type="button"
-          aria-current={packName === "credential" ? "page" : undefined}
-          onClick={() => setPackName("credential")}
+          aria-current={activeTarget.kind === "base" ? "true" : undefined}
+          onClick={() => setActiveTarget({ kind: "base" })}
         >
-          Stores secrets (credential)
+          Base
         </button>
-        <button
-          type="button"
-          aria-current={packName === "hint" ? "page" : undefined}
-          onClick={() => setPackName("hint")}
-        >
-          Locations only (hint)
-        </button>
-      </nav>
-      <nav className="pack-editor__nav" aria-label="Sections">
-        {pack.sections.map((s) => (
-          <button
-            key={s.sectionKey}
-            type="button"
-            aria-current={s.sectionKey === activeSection ? "page" : undefined}
-            onClick={() => {
-              setActiveSection(s.sectionKey);
-              setSelectedKey(null);
-            }}
-          >
-            {s.title}
-          </button>
+        {(base.modules ?? []).map((module) => (
+          <div key={module.moduleId} className="pack-editor__module">
+            <h3>{module.title}</h3>
+            <button
+              type="button"
+              className="button button--ghost button--small"
+              onClick={() => {
+                setEditingModuleId(module.moduleId);
+                setActiveTab("design");
+              }}
+            >
+              {`Edit ${module.title} details`}
+            </button>
+            <label className="pack-editor__module-select">
+              <span>{`View selection for ${module.title}`}</span>
+              <select
+                aria-label={`View selection for ${module.title}`}
+                value={viewSelections[module.moduleId] ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value || null;
+                  setViewSelections((prev) => ({ ...prev, [module.moduleId]: value }));
+                }}
+              >
+                <option value="">Not overlaid</option>
+                {module.options.map((option) => (
+                  <option key={option.optionId} value={option.optionId}>
+                    {option.label ?? option.optionId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <ul className="pack-editor__module-options">
+              {module.options.map((option) => {
+                const isActive =
+                  activeTarget.kind === "module" &&
+                  activeTarget.moduleId === module.moduleId &&
+                  activeTarget.optionId === option.optionId;
+                return (
+                  <li key={option.optionId}>
+                    <button
+                      type="button"
+                      aria-current={isActive ? "true" : undefined}
+                      onClick={() =>
+                        setActiveTarget({ kind: "module", moduleId: module.moduleId, optionId: option.optionId })
+                      }
+                    >
+                      {`Edit ${option.label ?? option.optionId} layer`}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         ))}
+        <button
+          type="button"
+          className="button button--ghost button--small pack-editor__add-module"
+          onClick={() => {
+            const before = new Set((base.modules ?? []).map((m) => m.moduleId));
+            const next = addModule(base);
+            const created = (next.modules ?? []).find((m) => !before.has(m.moduleId));
+            setBase(next);
+            setEditingModuleId(created?.moduleId ?? null);
+            setActiveTab("design");
+          }}
+        >
+          + Create module
+        </button>
       </nav>
+
+      <SectionNav
+        base={base}
+        view={view}
+        activeTarget={activeTarget}
+        activeSection={activeSection}
+        onSelectSection={(sectionKey) => {
+          setActiveSection(sectionKey);
+          setSelectedKey(null);
+          setEditingModuleId(null);
+        }}
+        onChangeBase={setBase}
+      />
 
       <main className="pack-editor__main">
         <div className="pack-editor__tabs" role="tablist">
@@ -187,51 +252,83 @@ export function PackEditorApp() {
           </button>
         </div>
 
-        {activeTab === "design" && section ? (
-          <div className="pack-editor__design" role="tabpanel">
-            <FieldList
-              groups={section.groups}
-              selectedKey={selectedKey}
-              lockedKeys={hintKeys}
-              onSelect={setSelectedKey}
-              onDuplicate={(gk, key) => setPack((p) => (p ? duplicateField(p, section.sectionKey, gk, key) : p))}
-              onDelete={(gk, key) => {
-                setPack((p) => (p ? removeField(p, section.sectionKey, gk, key) : p));
-                setSelectedKey((cur) => (cur === key ? null : cur));
-              }}
-              onReorder={(gk, from, to) =>
-                setPack((p) => (p ? reorderFields(p, section.sectionKey, gk, from, to) : p))
-              }
-              onAdd={(gk, type: FieldType) =>
-                setPack((p) => (p ? addOptionalField(p, section.sectionKey, gk, type) : p))
-              }
-            />
-            <FieldPropertyPanel
-              field={selectedField}
-              onChange={(updated) => {
-                if (!selectedGroupKey) return;
-                setPack((p) =>
-                  p ? updateField(p, section.sectionKey, selectedGroupKey, updated.systemKey, () => updated) : p,
-                );
-              }}
-            />
+        {activeTab === "design" ? (
+          <div role="tabpanel">
+            {editingModuleId && (base.modules ?? []).find((m) => m.moduleId === editingModuleId) ? (
+              <ModulePropertyPanel
+                module={(base.modules ?? []).find((m) => m.moduleId === editingModuleId)!}
+                onChangeDetails={(patch) => setBase(updateModuleDetails(base, editingModuleId, patch))}
+                onChangeOptionLabel={(optionId, label) =>
+                  setBase(updateModuleOptionLabel(base, editingModuleId, optionId, label))
+                }
+                onSetDefaultOption={(optionId) =>
+                  setBase(setModuleDefaultOption(base, editingModuleId, optionId))
+                }
+                onAddOption={() => setBase(addModuleOption(base, editingModuleId))}
+                onRemoveOption={(optionId) => setBase(removeModuleOption(base, editingModuleId, optionId))}
+                onClose={() => setEditingModuleId(null)}
+              />
+            ) : viewSection ? (
+              <OverlayDesign
+                base={base}
+                view={view}
+                viewSection={viewSection}
+                activeTarget={activeTarget}
+                selectedKey={selectedKey}
+                onSelectKey={(key) => {
+                  setSelectedKey(key);
+                  setEditingModuleId(null);
+                }}
+                onChangeBase={setBase}
+                onError={setSaveError}
+              />
+            ) : null}
           </div>
         ) : null}
 
-        {activeTab === "preview" && resolvedSection ? (
+        {activeTab === "preview" ? (
           <div className="pack-editor__preview" role="tabpanel">
-            <FormRenderer
-              section={resolvedSection}
-              values={createSectionValues(resolvedSection.sectionKey)}
-              schemaVersion={pack.schemaVersion}
-              onChange={() => {}}
-            />
+            {(base.modules ?? []).length > 0 ? (
+              <div className="pack-editor__preview-selectors">
+                {(base.modules ?? []).map((module) => (
+                  <label key={module.moduleId} className="pack-editor__preview-select">
+                    <span>{`Preview selection for ${module.title}`}</span>
+                    <select
+                      aria-label={`Preview selection for ${module.title}`}
+                      value={previewSelections[module.moduleId] ?? module.defaultOptionId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPreviewSelections((prev) => ({ ...prev, [module.moduleId]: value }));
+                      }}
+                    >
+                      {module.options.map((option) => (
+                        <option key={option.optionId} value={option.optionId}>
+                          {option.label ?? option.optionId}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            ) : null}
+            {previewError ? (
+              <p className="form-error" role="alert">
+                {`Preview unavailable for this combination: ${previewError}`}
+              </p>
+            ) : resolvedSection ? (
+              <FormRenderer
+                section={resolvedSection}
+                values={createSectionValues(resolvedSection.sectionKey)}
+                schemaVersion={base.schemaVersion}
+                onChange={() => {}}
+              />
+            ) : null}
           </div>
         ) : null}
 
         {activeTab === "json" ? (
           <pre className="pack-editor__json" role="tabpanel">
-            {overlayJson}
+            {jsonText}
           </pre>
         ) : null}
 

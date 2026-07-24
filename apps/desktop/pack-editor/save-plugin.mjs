@@ -1,17 +1,20 @@
 /**
  * Vite dev-server plugin backing the pack editor. Dev-only.
- *   GET  /__pack        -> { hintPack, overlay } read from disk
- *   POST /__pack        -> writes credential-overlay.json + regenerated pack;
- *                          body is the edited credential FormPack (JSON)
+ *   GET  /__pack        -> { pack } (the base pack) read from disk
+ *   POST /__pack        -> writes the edited base FormPack (with its modules)
+ *                          straight to default-pack.json
  *   POST /__pack/backup -> copies the three source files (hint pack,
  *                          credential pack, overlay) into a timestamped
- *                          folder under scripts/pack-backups/
+ *                          folder under scripts/pack-backups/. The credential
+ *                          pack and overlay are frozen legacy artifacts —
+ *                          save no longer regenerates them (a later plan
+ *                          retires them) — but backup still copies whatever
+ *                          is on disk for continuity.
  */
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildCredentialPack, serializePack } from "../scripts/lib/credential-pack.mjs";
-import { renderSaveArtifacts } from "../scripts/lib/save-artifacts.mjs";
+import { serializePack } from "../scripts/lib/credential-pack.mjs";
 
 const resolvePath = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const HINT_PATH = resolvePath("../src-tauri/resources/packs/default-pack.json");
@@ -44,8 +47,6 @@ export function packEditorSavePlugin() {
     configureServer(server) {
       server.middlewares.use("/__pack", (req, res, next) => {
         const url = new URL(req.url, "http://localhost");
-        const packParam = url.searchParams.get("pack");
-        const hintMode = packParam === "hint";
 
         if (req.method === "POST" && url.pathname === "/backup") {
           try {
@@ -59,13 +60,8 @@ export function packEditorSavePlugin() {
 
         if (req.method === "GET") {
           try {
-            const hintPack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
-            if (hintMode) {
-              sendJson(res, 200, { hintPack });
-            } else {
-              const overlay = JSON.parse(readFileSync(OVERLAY_PATH, "utf-8"));
-              sendJson(res, 200, { hintPack, overlay });
-            }
+            const pack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
+            sendJson(res, 200, { pack });
           } catch (error) {
             sendJson(res, 500, { error: String(error?.message ?? error) });
           }
@@ -79,20 +75,9 @@ export function packEditorSavePlugin() {
           req.on("end", () => {
             try {
               const editedPack = JSON.parse(body);
-              if (hintMode) {
-                // Write the edited hint pack directly, then regenerate credential pack
-                // from updated hint + the existing overlay (overlay stays unchanged).
-                const overlay = JSON.parse(readFileSync(OVERLAY_PATH, "utf-8"));
-                writeFileSync(HINT_PATH, serializePack(editedPack));
-                writeFileSync(PACK_PATH, serializePack(buildCredentialPack(editedPack, overlay)));
-                sendJson(res, 200, { ok: true });
-              } else {
-                const hintPack = JSON.parse(readFileSync(HINT_PATH, "utf-8"));
-                const { overlayJson, packJson } = renderSaveArtifacts(hintPack, editedPack);
-                writeFileSync(OVERLAY_PATH, overlayJson);
-                writeFileSync(PACK_PATH, packJson);
-                sendJson(res, 200, { ok: true });
-              }
+              // Write the edited base pack (with its modules) straight to disk.
+              writeFileSync(HINT_PATH, serializePack(editedPack));
+              sendJson(res, 200, { ok: true });
             } catch (error) {
               sendJson(res, 400, { error: String(error?.message ?? error) });
             }

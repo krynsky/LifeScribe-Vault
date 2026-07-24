@@ -439,9 +439,14 @@ export function validateModules(
   const addedBy = new Map<string, string>(); // systemKey -> moduleId
   const baseSectionKeys = new Set(pack.sections.map((section) => section.sectionKey));
   const sectionAddedBy = new Map<string, string>(); // sectionKey -> moduleId
+  const seenModuleIds = new Set<string>();
 
   for (const module of modules) {
     const label = `module "${module.moduleId}"`;
+    if (seenModuleIds.has(module.moduleId)) {
+      errors.push(`Duplicate moduleId "${module.moduleId}".`);
+    }
+    seenModuleIds.add(module.moduleId);
     if (module.options.length < 2) {
       errors.push(`${label} must offer at least two options.`);
     }

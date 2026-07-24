@@ -1,16 +1,11 @@
 import type { FormPack } from "../src/domain/formModel";
 
-export type PackName = "credential" | "hint";
-
 export interface PackPayload {
-  hintPack: FormPack;
-  /** Present for credential mode; absent for hint mode. */
-  overlay?: unknown;
+  pack: FormPack;
 }
 
-export async function getPack(packName: PackName = "credential"): Promise<PackPayload> {
-  const url = packName === "hint" ? "/__pack?pack=hint" : "/__pack";
-  const res = await fetch(url);
+export async function getPack(): Promise<PackPayload> {
+  const res = await fetch("/__pack");
   if (!res.ok) {
     throw new Error(`Could not load the pack (${res.status}).`);
   }
@@ -20,6 +15,9 @@ export async function getPack(packName: PackName = "credential"): Promise<PackPa
 /**
  * Copy the three pack source files (hint pack, credential pack, overlay)
  * into a timestamped folder under scripts/pack-backups/. Returns the folder.
+ * The credential pack and overlay are frozen legacy artifacts — no longer
+ * regenerated on save (a later plan retires them) — but backup still copies
+ * them for continuity.
  */
 export async function backupPacks(): Promise<string> {
   const res = await fetch("/__pack/backup", { method: "POST" });
@@ -30,12 +28,11 @@ export async function backupPacks(): Promise<string> {
   return body.dir ?? "";
 }
 
-export async function savePack(editedPack: FormPack, packName: PackName = "credential"): Promise<void> {
-  const url = packName === "hint" ? "/__pack?pack=hint" : "/__pack";
-  const res = await fetch(url, {
+export async function savePack(base: FormPack): Promise<void> {
+  const res = await fetch("/__pack", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(editedPack),
+    body: JSON.stringify(base),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
