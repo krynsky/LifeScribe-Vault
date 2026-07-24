@@ -1,8 +1,21 @@
-.pack-editor { display: grid; grid-template-columns: 12rem 1fr; grid-template-rows: auto 1fr; min-height: 100vh; }
-.pack-editor__pack-selector { grid-column: 1 / -1; display: flex; gap: 4px; padding: var(--space-3) var(--space-4); border-bottom: 2px solid var(--color-border); background: var(--color-surface-sunken); }
-.pack-editor__pack-selector button { padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; cursor: pointer; color: var(--color-ink-secondary); font: inherit; font-size: var(--text-sm); }
-.pack-editor__pack-selector button[aria-current="page"] { background: var(--color-surface); border-color: var(--color-border); color: var(--color-ink); font-weight: 600; }
-.pack-editor__nav { display: flex; flex-direction: column; gap: 2px; padding: var(--space-4); border-right: 1px solid var(--color-border); }
+/* Three rails: modules (view toggles + active target) | sections | main canvas. */
+.pack-editor { display: grid; grid-template-columns: 13rem 15rem minmax(0, 1fr); min-height: 100vh; max-height: 100vh; }
+
+/* Left rail: modules panel. */
+.pack-editor__modules { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border-right: 1px solid var(--color-border); background: var(--color-surface-sunken); overflow-y: auto; min-width: 0; }
+.pack-editor__modules > button { text-align: left; padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; cursor: pointer; color: var(--color-ink); font: inherit; }
+.pack-editor__modules > button[aria-current="true"] { background: var(--color-accent-tint); border-color: var(--color-accent); color: var(--color-accent); font-weight: 600; }
+.pack-editor__module { display: flex; flex-direction: column; gap: 4px; padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
+.pack-editor__module h3 { margin: 0; font-size: var(--text-sm); }
+.pack-editor__module-select { display: flex; flex-direction: column; gap: 2px; font-size: var(--text-xs); color: var(--color-ink-secondary); }
+.pack-editor__module-select select { width: 100%; }
+.pack-editor__module-options { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.pack-editor__module-options button { width: 100%; text-align: left; padding: 3px var(--space-2); border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; cursor: pointer; color: var(--color-ink-secondary); font: inherit; font-size: var(--text-xs); }
+.pack-editor__module-options button[aria-current="true"] { background: var(--color-accent-tint); border-color: var(--color-accent); color: var(--color-accent); font-weight: 600; }
+.pack-editor__add-module { margin-top: var(--space-3); }
+
+/* Middle rail: section nav. */
+.pack-editor__nav { display: flex; flex-direction: column; gap: 2px; padding: var(--space-4); border-right: 1px solid var(--color-border); overflow-y: auto; min-width: 0; }
 .pack-editor__nav button { text-align: left; padding: var(--space-2) var(--space-3); border: none; background: transparent; border-radius: var(--radius-sm); cursor: pointer; color: var(--color-ink); }
 .section-nav__rows { list-style: none; margin: 0 0 var(--space-2); padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .section-nav__row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: var(--radius-sm); }
@@ -17,7 +30,7 @@
 .section-nav__title:focus-visible { outline: 1px solid var(--color-accent); outline-offset: 1px; }
 .section-nav__from { font-size: var(--text-xs); color: var(--color-ink-tertiary); white-space: nowrap; }
 .section-nav__add { margin-top: var(--space-2); }
-.pack-editor__main { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+.pack-editor__main { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); overflow-y: auto; min-width: 0; }
 .pack-editor__design { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--space-4); align-items: start; }
 .field-list__group { margin-bottom: var(--space-4); }
 .field-list__group-title { font-size: var(--text-xs); color: var(--color-ink-secondary); margin: 0 0 var(--space-2); }
