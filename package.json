@@ -7,7 +7,6 @@
     "test": "npm --prefix apps/desktop test",
     "typecheck": "npm --prefix apps/desktop run typecheck",
     "lint": "npm --prefix apps/desktop run lint",
-    "build:credential-pack": "npm --prefix apps/desktop run build:credential-pack",
     "pack-editor": "npm --prefix apps/desktop run pack-editor"
   },
   "workspaces": [

@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest --run",
-    "build:credential-pack": "node scripts/build-credential-pack.mjs",
     "pack-editor": "vite --config vite.pack-editor.config.ts",
     "typecheck:pack-editor": "tsc --noEmit -p tsconfig.pack-editor.json",
     "lint:pack-editor": "eslint pack-editor --no-error-on-unmatched-pattern -c eslint.pack-editor.config.js"
