@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -165,6 +166,11 @@ function SectionRow({
     opacity: isDragging ? 0.5 : undefined,
   };
   const layer = layerOf(section.source, activeTarget);
+  const [confirming, setConfirming] = useState(false);
+  const removeLabel =
+    activeTarget.kind === "module"
+      ? `${section.title} in this option`
+      : `section ${section.title}`;
 
   return (
     <li
@@ -202,18 +208,35 @@ function SectionRow({
         <span className="section-nav__from">{`from ${ownerLabel(section.source, base)}`}</span>
       ) : null}
       {showRemove ? (
-        <button
-          type="button"
-          className="button button--ghost button--small"
-          aria-label={
-            activeTarget.kind === "module"
-              ? `Remove ${section.title} in this option`
-              : `Remove section ${section.title}`
-          }
-          onClick={() => onRemove(section.sectionKey)}
-        >
-          ✕
-        </button>
+        confirming ? (
+          <span className="section-nav__confirm">
+            <button
+              type="button"
+              className="button button--ghost button--small"
+              aria-label={`Cancel removing ${removeLabel}`}
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button button--ghost button--small confirm-remove"
+              aria-label={`Confirm remove ${removeLabel}`}
+              onClick={() => onRemove(section.sectionKey)}
+            >
+              Remove
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="button button--ghost button--small"
+            aria-label={`Remove ${removeLabel}`}
+            onClick={() => setConfirming(true)}
+          >
+            ✕
+          </button>
+        )
       ) : null}
     </li>
   );

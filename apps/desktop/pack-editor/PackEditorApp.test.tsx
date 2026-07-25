@@ -724,8 +724,13 @@ describe("PackEditorApp", () => {
       const select = await screen.findByLabelText(/view selection for password manager/i);
       await userEvent.selectOptions(select, "on");
 
-      const removeButton = await screen.findByRole("button", { name: /remove contacts in this option/i });
-      await userEvent.click(removeButton);
+      // Two-step confirm before the removal takes effect.
+      await userEvent.click(
+        await screen.findByRole("button", { name: /^remove contacts in this option/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /^confirm remove contacts in this option/i }),
+      );
 
       const contactsRow = (await screen.findByLabelText(/rename section: contacts/i)).closest(
         "[data-section-key]",
@@ -742,6 +747,26 @@ describe("PackEditorApp", () => {
       expect(saved.sections.map((s) => s.sectionKey)).toEqual(
         expect.arrayContaining(["identity", "contacts"]),
       );
+    });
+
+    it("cancelling a section remove keeps the section", async () => {
+      render(<PackEditorApp />);
+      // Base target active by default; back out of removing a base section.
+      await userEvent.click(await screen.findByRole("button", { name: /^remove section contacts/i }));
+      await userEvent.click(
+        screen.getByRole("button", { name: /^cancel removing section contacts/i }),
+      );
+
+      const contactsRow = (await screen.findByLabelText(/rename section: contacts/i)).closest(
+        "[data-section-key]",
+      );
+      expect(contactsRow).not.toHaveAttribute("data-removed", "true");
+      expect(
+        screen.queryByRole("button", { name: /^confirm remove section contacts/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^remove section contacts/i }),
+      ).toBeInTheDocument();
     });
 
     it("adding a section with a module option active lands in that option's addSections, not base.sections", async () => {
@@ -783,8 +808,12 @@ describe("PackEditorApp", () => {
       const select = await screen.findByLabelText(/view selection for password manager/i);
       await userEvent.selectOptions(select, "on");
 
-      const removeButton = await screen.findByRole("button", { name: /remove wallet in this option/i });
-      await userEvent.click(removeButton);
+      await userEvent.click(
+        await screen.findByRole("button", { name: /^remove wallet in this option/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /^confirm remove wallet in this option/i }),
+      );
 
       expect(screen.queryByLabelText(/rename section: wallet/i)).not.toBeInTheDocument();
 
@@ -898,8 +927,9 @@ describe("PackEditorApp", () => {
 
       await userEvent.click(screen.getByRole("button", { name: /\+ add option/i }));
       // With three options, removing the current default ("No", the module's
-      // defaultOptionId) must not orphan defaultOptionId.
-      await userEvent.click(screen.getByRole("button", { name: /remove option no/i }));
+      // defaultOptionId) must not orphan defaultOptionId. Two-step confirm.
+      await userEvent.click(screen.getByRole("button", { name: /^remove option no/i }));
+      await userEvent.click(screen.getByRole("button", { name: /^confirm remove option no/i }));
 
       await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
       expect(mocked.savePack).toHaveBeenCalledTimes(1);
@@ -907,6 +937,24 @@ describe("PackEditorApp", () => {
       const module = saved.modules!.find((m) => m.moduleId === "secrets")!;
       expect(module.options.map((o) => o.optionId)).toContain(module.defaultOptionId);
       expect(validatePack(saved).ok).toBe(true);
+    });
+
+    it("cancelling an option remove keeps the option", async () => {
+      render(<PackEditorApp />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: /edit password manager details/i }),
+      );
+      // Add a third option so Remove controls appear, then back out of removing it.
+      await userEvent.click(screen.getByRole("button", { name: /\+ add option/i }));
+      await userEvent.click(screen.getByRole("button", { name: /^remove option new option/i }));
+      await userEvent.click(screen.getByRole("button", { name: /^cancel removing option new option/i }));
+
+      // Prompt dismissed, the option's label field is still present, and the
+      // one-click Remove control is back.
+      expect(
+        screen.queryByRole("button", { name: /^confirm remove option new option/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^remove option new option/i })).toBeInTheDocument();
     });
 
     it("deleting a module removes it from the saved pack and closes the panel", async () => {
