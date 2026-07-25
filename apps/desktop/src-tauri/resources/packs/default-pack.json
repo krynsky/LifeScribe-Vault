@@ -34,8 +34,14 @@
               "required": true,
               "protected": true,
               "options": [
-                { "value": "primary", "label": "Primary" },
-                { "value": "backup", "label": "Backup" }
+                {
+                  "value": "primary",
+                  "label": "Primary"
+                },
+                {
+                  "value": "backup",
+                  "label": "Backup"
+                }
               ],
               "order": 2
             },
@@ -112,7 +118,10 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "visibleWhen": { "field": "executorRole", "equals": "backup" },
+              "visibleWhen": {
+                "field": "executorRole",
+                "equals": "backup"
+              },
               "order": 11
             },
             {
@@ -123,8 +132,14 @@
               "required": false,
               "protected": false,
               "options": [
-                { "value": "informed", "label": "Informed" },
-                { "value": "not-informed", "label": "Not informed yet" }
+                {
+                  "value": "informed",
+                  "label": "Informed"
+                },
+                {
+                  "value": "not-informed",
+                  "label": "Not informed yet"
+                }
               ],
               "order": 12
             },
@@ -140,7 +155,12 @@
           ]
         }
       ],
-      "readinessRule": { "requiredKeys": ["executorName", "executorRole"] },
+      "readinessRule": {
+        "requiredKeys": [
+          "executorName",
+          "executorRole"
+        ]
+      },
       "kitMapping": {
         "entries": [
           {
@@ -160,7 +180,7 @@
     },
     {
       "sectionKey": "password-manager",
-      "title": "Password Manager Plan",
+      "title": "Password Manager",
       "lede": "This vault is a companion to your password manager, not a replacement for it. Your passwords stay in the manager — here you record how a trusted person would gain emergency access to it. That one plan unlocks almost everything else, so it's worth getting right.",
       "multiRecord": false,
       "order": 2,
@@ -179,17 +199,50 @@
               "required": true,
               "protected": true,
               "options": [
-                { "value": "1Password", "label": "1Password" },
-                { "value": "Bitwarden", "label": "Bitwarden" },
-                { "value": "Dashlane", "label": "Dashlane" },
-                { "value": "Keeper", "label": "Keeper" },
-                { "value": "LastPass", "label": "LastPass" },
-                { "value": "NordPass", "label": "NordPass" },
-                { "value": "Proton Pass", "label": "Proton Pass" },
-                { "value": "Apple Passwords / iCloud Keychain", "label": "Apple Passwords / iCloud Keychain" },
-                { "value": "Google Password Manager", "label": "Google Password Manager" },
-                { "value": "Microsoft Edge / Microsoft Authenticator", "label": "Microsoft Edge / Microsoft Authenticator" },
-                { "value": "Other", "label": "Other" }
+                {
+                  "value": "1Password",
+                  "label": "1Password"
+                },
+                {
+                  "value": "Bitwarden",
+                  "label": "Bitwarden"
+                },
+                {
+                  "value": "Dashlane",
+                  "label": "Dashlane"
+                },
+                {
+                  "value": "Keeper",
+                  "label": "Keeper"
+                },
+                {
+                  "value": "LastPass",
+                  "label": "LastPass"
+                },
+                {
+                  "value": "NordPass",
+                  "label": "NordPass"
+                },
+                {
+                  "value": "Proton Pass",
+                  "label": "Proton Pass"
+                },
+                {
+                  "value": "Apple Passwords / iCloud Keychain",
+                  "label": "Apple Passwords / iCloud Keychain"
+                },
+                {
+                  "value": "Google Password Manager",
+                  "label": "Google Password Manager"
+                },
+                {
+                  "value": "Microsoft Edge / Microsoft Authenticator",
+                  "label": "Microsoft Edge / Microsoft Authenticator"
+                },
+                {
+                  "value": "Other",
+                  "label": "Other"
+                }
               ],
               "order": 1
             },
@@ -199,7 +252,10 @@
               "type": "text",
               "required": false,
               "protected": false,
-              "visibleWhen": { "field": "passwordManagerProvider", "equals": "Other" },
+              "visibleWhen": {
+                "field": "passwordManagerProvider",
+                "equals": "Other"
+              },
               "order": 2
             },
             {
@@ -255,8 +311,14 @@
               "required": false,
               "protected": false,
               "options": [
-                { "value": "tested", "label": "Tested" },
-                { "value": "not-tested", "label": "Not tested yet" }
+                {
+                  "value": "tested",
+                  "label": "Tested"
+                },
+                {
+                  "value": "not-tested",
+                  "label": "Not tested yet"
+                }
               ],
               "order": 8
             },
@@ -280,7 +342,11 @@
           ]
         }
       ],
-      "readinessRule": { "requiredKeys": ["passwordManagerProvider"] },
+      "readinessRule": {
+        "requiredKeys": [
+          "passwordManagerProvider"
+        ]
+      },
       "kitMapping": {
         "entries": [
           {
@@ -300,7 +366,7 @@
     },
     {
       "sectionKey": "documents",
-      "title": "Documents & Locations",
+      "title": "Documents",
       "lede": "Wills, deeds, insurance policies, medical directives — your family will need them fast, and \"somewhere in the office\" is not a location. A short list of where each important document lives can save them days of searching at the worst possible time.",
       "multiRecord": true,
       "order": 3,
@@ -326,11 +392,26 @@
               "required": false,
               "protected": false,
               "options": [
-                { "value": "legal", "label": "Legal" },
-                { "value": "medical", "label": "Medical" },
-                { "value": "financial", "label": "Financial" },
-                { "value": "estate", "label": "Estate" },
-                { "value": "other", "label": "Other" }
+                {
+                  "value": "legal",
+                  "label": "Legal"
+                },
+                {
+                  "value": "medical",
+                  "label": "Medical"
+                },
+                {
+                  "value": "financial",
+                  "label": "Financial"
+                },
+                {
+                  "value": "estate",
+                  "label": "Estate"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
               ],
               "order": 2
             },
@@ -364,7 +445,11 @@
           ]
         }
       ],
-      "readinessRule": { "requiredKeys": ["documentTitle"] },
+      "readinessRule": {
+        "requiredKeys": [
+          "documentTitle"
+        ]
+      },
       "kitMapping": {
         "entries": [
           {
@@ -409,12 +494,30 @@
               "required": false,
               "protected": false,
               "options": [
-                { "value": "computer", "label": "Computer" },
-                { "value": "phone", "label": "Phone" },
-                { "value": "tablet", "label": "Tablet" },
-                { "value": "nas", "label": "NAS" },
-                { "value": "external-drive", "label": "External drive" },
-                { "value": "other", "label": "Other" }
+                {
+                  "value": "computer",
+                  "label": "Computer"
+                },
+                {
+                  "value": "phone",
+                  "label": "Phone"
+                },
+                {
+                  "value": "tablet",
+                  "label": "Tablet"
+                },
+                {
+                  "value": "nas",
+                  "label": "NAS"
+                },
+                {
+                  "value": "external-drive",
+                  "label": "External drive"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
               ],
               "order": 2
             },
@@ -447,7 +550,11 @@
           ]
         }
       ],
-      "readinessRule": { "requiredKeys": ["deviceName"] },
+      "readinessRule": {
+        "requiredKeys": [
+          "deviceName"
+        ]
+      },
       "kitMapping": {
         "entries": [
           {
@@ -466,7 +573,7 @@
     {
       "sectionKey": "financial-accounts",
       "title": "Financial Accounts & Subscriptions",
-      "lede": "Your family can't close, transfer, or even find what they don't know exists. You don't need account numbers or balances here — just an inventory of which institutions and subscriptions are part of your life, and what should happen to each one.",
+      "lede": "Your family can't close, transfer, or even find what they don't know exists. You don't need account numbers or balances here — just an inventory of which institutions are part of your life, and what should happen to each one.",
       "multiRecord": true,
       "order": 5,
       "groups": [
@@ -492,15 +599,42 @@
               "required": false,
               "protected": false,
               "options": [
-                { "value": "checking", "label": "Checking" },
-                { "value": "savings", "label": "Savings" },
-                { "value": "brokerage", "label": "Brokerage" },
-                { "value": "retirement", "label": "Retirement" },
-                { "value": "credit-card", "label": "Credit card" },
-                { "value": "loan", "label": "Loan" },
-                { "value": "insurance", "label": "Insurance" },
-                { "value": "subscription", "label": "Subscription" },
-                { "value": "other", "label": "Other" }
+                {
+                  "value": "checking",
+                  "label": "Checking"
+                },
+                {
+                  "value": "savings",
+                  "label": "Savings"
+                },
+                {
+                  "value": "brokerage",
+                  "label": "Brokerage"
+                },
+                {
+                  "value": "retirement",
+                  "label": "Retirement"
+                },
+                {
+                  "value": "credit-card",
+                  "label": "Credit card"
+                },
+                {
+                  "value": "loan",
+                  "label": "Loan"
+                },
+                {
+                  "value": "insurance",
+                  "label": "Insurance"
+                },
+                {
+                  "value": "subscription",
+                  "label": "Subscription"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
               ],
               "order": 2
             },
@@ -525,7 +659,11 @@
           ]
         }
       ],
-      "readinessRule": { "requiredKeys": ["accountInstitution"] },
+      "readinessRule": {
+        "requiredKeys": [
+          "accountInstitution"
+        ]
+      },
       "kitMapping": {
         "entries": [
           {
@@ -541,11 +679,86 @@
       }
     },
     {
+      "sectionKey": "subscriptions",
+      "title": "Subscriptions",
+      "lede": "Your family can't close, transfer, or even find what they don't know exists. Provide an inventory of which subscriptions are part of your life, and what should happen to each one.",
+      "multiRecord": true,
+      "order": 6,
+      "groups": [
+        {
+          "groupKey": "subscription",
+          "title": "Subscription",
+          "repeatable": false,
+          "order": 1,
+          "fields": [
+            {
+              "systemKey": "subscriptionName",
+              "label": "Subscription",
+              "helperText": "The service this entry is for — a streaming plan, a membership, a recurring app or utility.",
+              "type": "text",
+              "required": true,
+              "protected": true,
+              "order": 1
+            },
+            {
+              "systemKey": "subscriptionAction",
+              "label": "Action",
+              "helperText": "What you'd like done with this subscription when the time comes.",
+              "type": "select",
+              "required": true,
+              "protected": false,
+              "order": 2,
+              "options": [
+                {
+                  "value": "keep",
+                  "label": "Keep"
+                },
+                {
+                  "value": "cancel",
+                  "label": "Cancel"
+                },
+                {
+                  "value": "optional",
+                  "label": "Optional"
+                }
+              ]
+            },
+            {
+              "systemKey": "subscriptionNotes",
+              "label": "Notes",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "helperText": "Additional details about the subscription that may provide additional information on the action."
+            }
+          ]
+        }
+      ],
+      "readinessRule": {
+        "requiredKeys": [
+          "subscriptionName"
+        ]
+      },
+      "kitMapping": {
+        "entries": [
+          {
+            "heading": "Subscriptions",
+            "fields": [
+              "subscriptionName",
+              "subscriptionAction",
+              "subscriptionNotes"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "sectionKey": "online-accounts",
       "title": "Online Accounts & Domains",
       "lede": "Email, cloud storage, social profiles, domain names, creator and business accounts — each one is something your family may need to keep alive, hand off, or close with dignity. List what exists and what you'd like done, so nothing important quietly expires or lingers.",
       "multiRecord": true,
-      "order": 6,
+      "order": 7,
       "groups": [
         {
           "groupKey": "account",
@@ -564,19 +777,43 @@
             },
             {
               "systemKey": "onlineAccountKind",
-              "label": "Account kind",
+              "label": "Account Type",
               "type": "select",
               "required": false,
               "protected": false,
               "options": [
-                { "value": "email", "label": "Email" },
-                { "value": "cloud-storage", "label": "Cloud storage" },
-                { "value": "social", "label": "Social" },
-                { "value": "domain", "label": "Domain name" },
-                { "value": "website", "label": "Website" },
-                { "value": "creator", "label": "Creator account" },
-                { "value": "business", "label": "Business account" },
-                { "value": "other", "label": "Other" }
+                {
+                  "value": "email",
+                  "label": "Email"
+                },
+                {
+                  "value": "cloud-storage",
+                  "label": "Cloud storage"
+                },
+                {
+                  "value": "social",
+                  "label": "Social"
+                },
+                {
+                  "value": "domain",
+                  "label": "Domain name"
+                },
+                {
+                  "value": "website",
+                  "label": "Website"
+                },
+                {
+                  "value": "creator",
+                  "label": "Creator account"
+                },
+                {
+                  "value": "business",
+                  "label": "Business account"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
               ],
               "order": 2
             },
@@ -610,7 +847,11 @@
           ]
         }
       ],
-      "readinessRule": { "requiredKeys": ["onlineServiceName"] },
+      "readinessRule": {
+        "requiredKeys": [
+          "onlineServiceName"
+        ]
+      },
       "kitMapping": {
         "entries": [
           {
@@ -631,7 +872,7 @@
       "title": "Platform Legacy Tools",
       "lede": "Apple, Google, and Facebook each have a built-in legacy setting — free, official, and far easier for your family than support tickets and death certificates. Each takes about ten minutes to set up. They only cover part of the picture, but they're the easiest wins in this whole checklist.",
       "multiRecord": false,
-      "order": 7,
+      "order": 8,
       "groups": [
         {
           "groupKey": "apple",
@@ -647,9 +888,18 @@
               "required": true,
               "protected": true,
               "options": [
-                { "value": "not-set-up", "label": "Not set up" },
-                { "value": "in-progress", "label": "In progress" },
-                { "value": "completed", "label": "Completed" }
+                {
+                  "value": "not-set-up",
+                  "label": "Not set up"
+                },
+                {
+                  "value": "in-progress",
+                  "label": "In progress"
+                },
+                {
+                  "value": "completed",
+                  "label": "Completed"
+                }
               ],
               "order": 1
             },
@@ -678,9 +928,18 @@
               "required": true,
               "protected": true,
               "options": [
-                { "value": "not-set-up", "label": "Not set up" },
-                { "value": "in-progress", "label": "In progress" },
-                { "value": "completed", "label": "Completed" }
+                {
+                  "value": "not-set-up",
+                  "label": "Not set up"
+                },
+                {
+                  "value": "in-progress",
+                  "label": "In progress"
+                },
+                {
+                  "value": "completed",
+                  "label": "Completed"
+                }
               ],
               "order": 1
             },
@@ -709,9 +968,18 @@
               "required": true,
               "protected": true,
               "options": [
-                { "value": "not-set-up", "label": "Not set up" },
-                { "value": "in-progress", "label": "In progress" },
-                { "value": "completed", "label": "Completed" }
+                {
+                  "value": "not-set-up",
+                  "label": "Not set up"
+                },
+                {
+                  "value": "in-progress",
+                  "label": "In progress"
+                },
+                {
+                  "value": "completed",
+                  "label": "Completed"
+                }
               ],
               "order": 1
             },
@@ -728,7 +996,11 @@
         }
       ],
       "readinessRule": {
-        "requiredKeys": ["appleLegacyStatus", "googleLegacyStatus", "facebookLegacyStatus"]
+        "requiredKeys": [
+          "appleLegacyStatus",
+          "googleLegacyStatus",
+          "facebookLegacyStatus"
+        ]
       },
       "kitMapping": {
         "entries": [
@@ -751,7 +1023,7 @@
       "title": "Backups & Storage",
       "lede": "Backups are where the irreplaceable things live — decades of photos, tax records, the family videos. Record where each backup is, what's on it, and how to get in, so the copy you so carefully kept doesn't become one more thing nobody can open.",
       "multiRecord": true,
-      "order": 8,
+      "order": 9,
       "groups": [
         {
           "groupKey": "backup",
@@ -784,11 +1056,26 @@
               "required": false,
               "protected": false,
               "options": [
-                { "value": "continuous", "label": "Continuous" },
-                { "value": "daily", "label": "Daily" },
-                { "value": "weekly", "label": "Weekly" },
-                { "value": "monthly", "label": "Monthly" },
-                { "value": "rarely", "label": "Rarely" }
+                {
+                  "value": "continuous",
+                  "label": "Continuous"
+                },
+                {
+                  "value": "daily",
+                  "label": "Daily"
+                },
+                {
+                  "value": "weekly",
+                  "label": "Weekly"
+                },
+                {
+                  "value": "monthly",
+                  "label": "Monthly"
+                },
+                {
+                  "value": "rarely",
+                  "label": "Rarely"
+                }
               ],
               "order": 3
             },
@@ -800,9 +1087,18 @@
               "required": false,
               "protected": false,
               "options": [
-                { "value": "yes", "label": "Yes" },
-                { "value": "no", "label": "No" },
-                { "value": "unsure", "label": "Not sure" }
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                },
+                {
+                  "value": "unsure",
+                  "label": "Not sure"
+                }
               ],
               "order": 4
             },
@@ -818,7 +1114,11 @@
           ]
         }
       ],
-      "readinessRule": { "requiredKeys": ["backupLocation"] },
+      "readinessRule": {
+        "requiredKeys": [
+          "backupLocation"
+        ]
+      },
       "kitMapping": {
         "entries": [
           {
@@ -844,7 +1144,10 @@
       "order": 1,
       "defaultOptionId": "off",
       "options": [
-        { "optionId": "off", "label": "Only locations (safer)" },
+        {
+          "optionId": "off",
+          "label": "Only locations (safer)"
+        },
         {
           "optionId": "on",
           "label": "Store the actual secrets",
@@ -879,8 +1182,12 @@
             }
           ],
           "kitAdditions": {
-            "password-manager": ["passwordManagerMasterPassword"],
-            "devices": ["devicePin"]
+            "password-manager": [
+              "passwordManagerMasterPassword"
+            ],
+            "devices": [
+              "devicePin"
+            ]
           }
         }
       ]
@@ -893,11 +1200,16 @@
       "order": 2,
       "defaultOptionId": "path",
       "options": [
-        { "optionId": "path", "label": "Point to a location on disk" },
+        {
+          "optionId": "path",
+          "label": "Point to a location on disk"
+        },
         {
           "optionId": "attach",
           "label": "Attach the file into the vault",
-          "removeKeys": ["documentDigitalLocation"],
+          "removeKeys": [
+            "documentDigitalLocation"
+          ],
           "addFields": [
             {
               "sectionKey": "documents",
@@ -914,7 +1226,11 @@
               }
             }
           ],
-          "kitAdditions": { "documents": ["documentDigitalFile"] }
+          "kitAdditions": {
+            "documents": [
+              "documentDigitalFile"
+            ]
+          }
         }
       ]
     }

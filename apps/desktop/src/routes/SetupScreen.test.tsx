@@ -99,7 +99,7 @@ describe("SetupScreen", () => {
     await user.click(screen.getByText("See what this vault covers"));
 
     expect(await screen.findByText("Digital Executors")).toBeInTheDocument();
-    expect(screen.getByText("Password Manager Plan")).toBeInTheDocument();
+    expect(screen.getByText("Password Manager")).toBeInTheDocument();
     expect(screen.getByText("Backups & Storage")).toBeInTheDocument();
   });
 
@@ -108,7 +108,7 @@ describe("SetupScreen", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByText("See what this vault covers"));
-    // Hint pack: Password Manager Plan has 10 fields (no master password slot).
+    // Hint pack: Password Manager has 10 fields (no master password slot).
     await screen.findByText("10 fields");
     expect(screen.queryByText("11 fields")).not.toBeInTheDocument();
 

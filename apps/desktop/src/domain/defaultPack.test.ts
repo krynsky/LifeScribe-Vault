@@ -32,6 +32,7 @@ const EXPECTED_SECTION_KEYS = [
   "documents",
   "devices",
   "financial-accounts",
+  "subscriptions",
   "online-accounts",
   "platform-legacy",
   "backups",
@@ -85,10 +86,10 @@ describe("shipped default pack", () => {
     expect(pack.migrations).toEqual([]);
   });
 
-  it("ships exactly the eight guided sections in order", () => {
+  it("ships exactly the nine guided sections in order", () => {
     const ordered = [...pack.sections].sort((left, right) => left.order - right.order);
     expect(ordered.map((section) => section.sectionKey)).toEqual(EXPECTED_SECTION_KEYS);
-    expect(pack.sections).toHaveLength(8);
+    expect(pack.sections).toHaveLength(9);
   });
 
   it("every section has a non-empty caring lede and a kit mapping heading", () => {
