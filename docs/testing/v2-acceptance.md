@@ -103,10 +103,10 @@ For each section, open it and verify:
 - [ ] Relaunch the app; the app should fail gracefully (show an error or fallback message) rather than silently accept the corrupted pack.
 - [ ] Restore the original pack file; app relaunches normally.
 
-## 12. Creator mode is absent from the end-user build
+## 12. Pack-authoring surface is inert in the end-user build
 
-- [ ] No "Pack Editor" item appears in the sidebar.
-- [ ] Run the binary with a Tauri devtools call for `write_default_pack` (or attempt via console if devtools is enabled): the command must return "command not found" or similar — not a permission error.
+- [ ] The bundled `default-pack.json` cannot be mutated by the app: invoking `write_default_pack` (via devtools/console if available) returns a `FileOperation` error, not success — the command ships but targets a compile-time source path that is absent on an install.
+- [ ] The **Form Editor** toggle (bottom of the sidebar, off by default) edits only the user's own forms (their `customPack`); it never rewrites the bundled pack.
 
 ## 13. Uninstall / residue check
 
@@ -132,7 +132,7 @@ For each section, open it and verify:
 | 9. v1 Import | Pass / Fail / N/A | |
 | 10. Clipboard hygiene | Pass / Fail | |
 | 11. Pack integrity | Pass / Fail | |
-| 12. Creator mode absent | Pass / Fail | |
+| 12. Pack-authoring inert | Pass / Fail | |
 | 13. Uninstall residue | Pass / Fail | |
 
 **Overall: Pass / Fail**
