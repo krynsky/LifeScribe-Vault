@@ -33,6 +33,7 @@ export function ModulePropertyPanel({
 }: ModulePropertyPanelProps) {
   const canRemoveOption = module.options.length > 2;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingOptionId, setConfirmingOptionId] = useState<string | null>(null);
 
   return (
     <div className="module-panel">
@@ -89,14 +90,38 @@ export function ModulePropertyPanel({
                 onChange={(e) => onChangeOptionLabel(option.optionId, e.target.value)}
               />
               {canRemoveOption ? (
-                <button
-                  type="button"
-                  className="button button--ghost button--small"
-                  aria-label={`Remove option ${option.label ?? option.optionId}`}
-                  onClick={() => onRemoveOption(option.optionId)}
-                >
-                  ✕
-                </button>
+                confirmingOptionId === option.optionId ? (
+                  <span className="module-panel__option-confirm">
+                    <button
+                      type="button"
+                      className="button button--ghost button--small"
+                      aria-label={`Cancel removing option ${option.label ?? option.optionId}`}
+                      onClick={() => setConfirmingOptionId(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--ghost button--small confirm-remove"
+                      aria-label={`Confirm remove option ${option.label ?? option.optionId}`}
+                      onClick={() => {
+                        onRemoveOption(option.optionId);
+                        setConfirmingOptionId(null);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="button button--ghost button--small"
+                    aria-label={`Remove option ${option.label ?? option.optionId}`}
+                    onClick={() => setConfirmingOptionId(option.optionId)}
+                  >
+                    ✕
+                  </button>
+                )
               ) : null}
             </li>
           ))}
