@@ -23,7 +23,6 @@ npm run lint                   # eslint
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 npm run pack-editor            # dev-only pack editor (see "Pack editor" below)
-npm run build:credential-pack  # regenerate credential pack from hint pack + overlay
 ```
 
 ## Repository layout
@@ -40,6 +39,7 @@ apps/desktop/
       valuesStore.ts       #   records, archived answers, reconcile
       attachmentRefs.ts    #   attachment-ref bookkeeping (post-commit deletion diff)
       snapshot.ts          #   THE snapshot shape; normalize/build round-trip
+      composePack.ts       #   base pack + FormModules + selections -> concrete pack
       readiness.ts         #   section status + readiness summary
       recoveryKit.ts       #   pointer-based Kit derivation + staleness fingerprint
       loadDefaultPack.ts   #   bundled-pack loading seam (resource -> static fallback)
@@ -47,6 +47,8 @@ apps/desktop/
       packEdits.ts         #   immutable pack mutations (add/remove/update/move)
       packAutoMigrate.ts   #   derive migration ops from breaking edits
       packExport.ts        #   structure-only export/import
+      editorView.ts        #   provenance-annotated overlay view (pack editor)
+      editorEdits.ts       #   route an edit to base or a module option (pack editor)
     forms/                 # FormRenderer + field controls + structure editor
       structure/           #   FieldList / FieldPropertyPanel / SectionStructureEditor
     routes/                # Dashboard, SectionPage, SetupScreen, LockedScreen,
@@ -59,17 +61,14 @@ apps/desktop/
     draft_stash.rs         # encrypted draft stash (lock flow)
     backup.rs              # .lsvbackup create/restore, safety backup, marker
     clipboard.rs           # Win32 clipboard hygiene (exclusion formats + auto-clear)
-    pack_resources.rs      # bundled pack read (variant -> resource path)
+    pack_resources.rs      # bundled base pack read + dev write-back
     error.rs               # VaultError -> stable string error codes (IPC contract)
     tests/                 # integration tests against real SQLite (tempfile)
   src-tauri/resources/packs/
-    default-pack.json             # hint pack (base template)
-    default-pack-credential.json  # GENERATED: hint pack + credential overlay
+    default-pack.json             # the single bundled base pack (sections + FormModules)
   scripts/
-    credential-overlay.json       # source of truth for the credential delta
-    lib/                          # buildCredentialPack / deriveOverlay / artifacts
     pack-backups/                 # gitignored, written by the pack editor backup
-  pack-editor/             # dev-only Vite app for editing the bundled packs
+  pack-editor/             # dev-only Vite app for editing the bundled base pack
 ```
 
 ## Architecture laws
@@ -126,10 +125,13 @@ These invariants are load-bearing; changes that touch them need matching test ch
 
 ```
 loadVaultSnapshot (Rust: newest decryptable generation)
-  → normalizeSnapshot(raw, ownerNameHint, formModeHint)   # once per load
-  → resolveBasePack(parsed)        # customPack ?? bundled pack for profile.formMode
+  → normalizeSnapshot(raw, ownerNameHint, formModeHint)   # once per load; migrates
+                                                          #   legacy formMode -> moduleSelections
+  → resolveBasePack(parsed)        # base = customPack ?? bundled base pack, then
+      composePack(base, base.modules, profile.moduleSelections)  # module options add/remove
+                                                                 #   fields & sections
   → buildLoadedVault:
-      mergePackWithOverlay         # base + UserOverlay -> ResolvedSection[]
+      mergePackWithOverlay         # composed pack + UserOverlay -> ResolvedSection[]
       applyKeyRenames              # values follow renamed colliding custom fields
       migrateVaultValues           # stepwise schemaVersion migrations (in memory)
       reconcileSectionValues       # orphaned values -> archived answers
@@ -161,29 +163,32 @@ In-flight save completes → dirty working values stashed encrypted
 
 Defined once, in [snapshot.ts](../apps/desktop/src/domain/snapshot.ts):
 `snapshotFormat`, `schemaVersion`, `profile` (`ownerName`, `reviewCadenceMonths`,
-`formMode`, advisory `basePackId`), `values`, `sectionMeta`, optional `overlay`,
-`kitMeta`, `customPack`, plus preserved unknown fields. `basePackId` is re-stamped
-from the loaded pack on every save so a future multi-template registry can key off
-it without a snapshot migration (template family = `basePackId`, posture = `formMode`).
+`moduleSelections`, legacy `formMode`, advisory `basePackId`), `values`, `sectionMeta`,
+optional `overlay`, `kitMeta`, `customPack`, plus preserved unknown fields.
+`moduleSelections` (one option id per `FormModule`) is the privacy posture, migrated
+from a legacy `formMode` on read when absent. `basePackId` is re-stamped from the
+loaded pack on every save so a future multi-template registry can key off it without a
+snapshot migration (template family = `basePackId`, posture = `moduleSelections`).
 
 ## Form pack system
 
-### Two packs, one template
+### One base pack, composable modules
 
-`formMode` is a **privacy posture**, not a template choice:
+The app ships a **single base pack** (`default-pack.json`). Optional feature fields
+and whole sections are declared on it as **`FormModule`s** — each an onboarding
+question with mutually-exclusive options that add/remove fields and sections. At load,
+`composePack(base, base.modules, profile.moduleSelections)` resolves the base plus the
+chosen option per module into one concrete pack. `moduleSelections` is the privacy
+posture: e.g. the `secrets` module's `on` option adds the credential fields (`addFields`
+/ `kitAdditions`), `off` keeps the vault locations-only.
 
-- `hint` → `default-pack.json` (locations only) — the base template.
-- `credential` → `default-pack-credential.json` — **generated**, never hand-edited:
-  `buildCredentialPack(hintPack, credential-overlay.json)` adds the secret fields
-  (`fieldOverrides` / `addedFields` / `kitAdditions`). `deriveOverlay` is the inverse.
-
-Shared fields are single-sourced from the hint pack. To change a shared field,
-edit the hint pack; the credential pack regenerates. Only credential-only
-additions live in the overlay.
-
-Mode choice happens at setup (with a pack-content preview) and can be switched
-later; switching clears `customPack` (with a confirmation warning) and relies on
-reconcile to archive orphaned values.
+`profile.formMode` (`hint` | `credential`) is retained only as a **legacy** posture; on
+read, an absent `moduleSelections` is migrated from it (`credential` → `secrets: on`,
+otherwise `off`). The setup screen and the mode switch still present the secrets posture
+as a choice; switching clears `customPack` (with a confirmation warning) and relies on
+reconcile to archive orphaned values. Legacy `customPack`s predate modules
+(`base.modules` undefined), so `composePack` is a no-op for them — they already baked in
+their mode's fields.
 
 ### Editing surfaces
 
@@ -193,7 +198,7 @@ reconcile to archive orphaned values.
   edits emit migration ops + schemaVersion bump) and go through the normal
   validated CAS save.
 - **Pack editor** (`npm run pack-editor`): dev-only Vite app editing the *bundled*
-  packs. See below.
+  base pack and its modules. See below.
 - **Structure-only export/import** (`creator/packExport.ts`): packs contain
   structure only — never personal field values, never `custom.*` overlay keys.
 
@@ -202,27 +207,28 @@ reconcile to archive orphaned values.
 `validatePack` rejects packs whose `kitMapping.entries[].fields` or
 `readinessRule.requiredKeys` reference unknown systemKeys; `removeField` in
 `packEdits.ts` prunes both alongside the field so deletes stay saveable.
-`FieldList` deletability: `!lockedKeys.has(systemKey) && !field.protected` — the
-pack editor passes all hint-pack keys as `lockedKeys` in credential mode (shared
-fields must be deleted from the hint pack), the in-app editor passes none.
+`FieldList` deletability: `!lockedKeys.has(systemKey) && !field.protected`; the in-app
+structure editor passes no locked keys (`NO_LOCKED_KEYS`), so only protected fields are
+undeletable.
 
 ## Pack editor (dev tool)
 
-`npm run pack-editor` starts a Vite app with a dev-server plugin
-(`pack-editor/save-plugin.mjs`) exposing:
+`npm run pack-editor` starts a Vite app (port 1430) for editing the bundled base pack —
+its sections, fields, and `FormModule`s — through an **overlay editor**: the base form
+with any mix of module options toggled into view, and one active editing target that
+edits route to (base, or a specific module option). A dev-server plugin
+(`pack-editor/save-plugin.mjs`) exposes:
 
-- `GET /__pack[?pack=hint]` — reads the pack sources from disk.
-- `POST /__pack[?pack=hint]` — hint mode writes `default-pack.json` and regenerates
-  the credential pack; credential mode derives and writes `credential-overlay.json`
-  + the regenerated `default-pack-credential.json`.
-- `POST /__pack/backup` — copies all three source files into
+- `GET  /__pack` — reads `default-pack.json` from disk and returns `{ pack }`.
+- `POST /__pack` — writes the edited base pack (with its modules) straight back to
+  `default-pack.json` (2-space JSON, trailing newline).
+- `POST /__pack/backup` — copies the pack source into
   `scripts/pack-backups/<timestamp>/` (gitignored). Wired to the "Back up packs"
-  button; it copies the on-disk originals, never unsaved editor state.
+  button; it copies the on-disk original, never unsaved editor state.
 
-Pack selector labels mirror the app's wording: "Stores secrets (credential)" /
-"Locations only (hint)". Saving validates with the same `validatePack` gate the
-app uses. In dev builds the app reads packs from the source `resources/` dir, so
-pack-editor saves hot-reload into `npm run dev`.
+Saving validates with the same `validatePack` gate the app uses. In dev builds the app
+reads packs from the source `resources/` dir, so pack-editor saves hot-reload into
+`npm run dev`.
 
 ## Rust layer notes
 
