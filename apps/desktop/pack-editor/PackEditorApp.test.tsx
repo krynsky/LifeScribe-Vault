@@ -908,5 +908,74 @@ describe("PackEditorApp", () => {
       expect(module.options.map((o) => o.optionId)).toContain(module.defaultOptionId);
       expect(validatePack(saved).ok).toBe(true);
     });
+
+    it("deleting a module removes it from the saved pack and closes the panel", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: /edit password manager details/i }),
+      );
+      // Two-step confirm: reveal the prompt, then confirm.
+      await userEvent.click(
+        screen.getByRole("button", { name: /^delete module password manager$/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /confirm delete module password manager/i }),
+      );
+
+      // Panel closed and the module is gone from the modules nav.
+      expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+      expect(screen.queryByText("Password manager")).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+      expect(mocked.savePack).toHaveBeenCalledTimes(1);
+      const saved = mocked.savePack.mock.calls[0]![0];
+      expect(saved.modules ?? []).toHaveLength(0);
+      expect(validatePack(saved).ok).toBe(true);
+    });
+
+    it("cancelling the delete confirmation keeps the module", async () => {
+      render(<PackEditorApp />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: /edit password manager details/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /^delete module password manager$/i }),
+      );
+      // Back out of the confirmation.
+      await userEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+      // Prompt dismissed, module still editable, delete button back to step one.
+      expect(
+        screen.queryByRole("button", { name: /confirm delete module password manager/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Question")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^delete module password manager$/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("resets the active target to Base when the active module is deleted", async () => {
+      render(<PackEditorApp />);
+      // Make one of the module's option layers the active editing target.
+      await userEvent.click(await screen.findByRole("button", { name: /edit yes layer/i }));
+      // Open that module's panel and delete it.
+      await userEvent.click(
+        screen.getByRole("button", { name: /edit password manager details/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /^delete module password manager$/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /confirm delete module password manager/i }),
+      );
+
+      // The option-layer targets vanish and the base design surface is intact
+      // (no dangling active target pointing at the deleted module).
+      expect(screen.queryByRole("button", { name: /edit yes layer/i })).not.toBeInTheDocument();
+      expect(
+        await screen.findByRole("button", { name: /edit field Full name/i }),
+      ).toBeInTheDocument();
+    });
   });
 });

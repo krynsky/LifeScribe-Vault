@@ -262,6 +262,16 @@ export function addModule(pack: FormPack): FormPack {
   return { ...pack, modules: [...modules, newModule] };
 }
 
+/**
+ * Removes a module by id. No-op if the moduleId isn't found. A module is an
+ * independent onboarding question, so removing it drops the question and every
+ * one of its options' overlay additions (addFields/addSections) — the base
+ * sections and fields are untouched.
+ */
+export function removeModule(pack: FormPack, moduleId: string): FormPack {
+  return { ...pack, modules: (pack.modules ?? []).filter((m) => m.moduleId !== moduleId) };
+}
+
 /** Patches a module's title/question/helperText. No-op if moduleId isn't found. */
 export function updateModuleDetails(
   pack: FormPack,

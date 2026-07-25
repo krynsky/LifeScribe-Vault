@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   addModule,
   addModuleOption,
+  removeModule,
   removeModuleOption,
   setModuleDefaultOption,
   updateModuleDetails,
@@ -256,6 +257,7 @@ export function PackEditorApp() {
           <div role="tabpanel">
             {editingModuleId && (base.modules ?? []).find((m) => m.moduleId === editingModuleId) ? (
               <ModulePropertyPanel
+                key={editingModuleId}
                 module={(base.modules ?? []).find((m) => m.moduleId === editingModuleId)!}
                 onChangeDetails={(patch) => setBase(updateModuleDetails(base, editingModuleId, patch))}
                 onChangeOptionLabel={(optionId, label) =>
@@ -266,6 +268,19 @@ export function PackEditorApp() {
                 }
                 onAddOption={() => setBase(addModuleOption(base, editingModuleId))}
                 onRemoveOption={(optionId) => setBase(removeModuleOption(base, editingModuleId, optionId))}
+                onDeleteModule={() => {
+                  const removedId = editingModuleId;
+                  setBase(removeModule(base, removedId));
+                  setEditingModuleId(null);
+                  // Deleting the module invalidates any target/selection that
+                  // pointed at it: reset the active target to Base and drop its
+                  // stale view/preview keys so nothing references a gone module.
+                  if (activeTarget.kind === "module" && activeTarget.moduleId === removedId) {
+                    setActiveTarget({ kind: "base" });
+                  }
+                  setViewSelections(({ [removedId]: _removed, ...rest }) => rest);
+                  setPreviewSelections(({ [removedId]: _removed, ...rest }) => rest);
+                }}
                 onClose={() => setEditingModuleId(null)}
               />
             ) : viewSection ? (

@@ -50,6 +50,20 @@
 .field-panel__options ul { list-style: none; margin: 0 0 var(--space-2); padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .field-panel__options li { display: flex; align-items: center; justify-content: space-between; font-size: var(--text-xs); }
 .field-panel__option-add { display: flex; gap: 6px; }
+.module-panel { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); max-width: 32rem; }
+.module-panel__header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.module-panel__header h3 { margin: 0; font-size: var(--text-sm); }
+.module-panel__options { display: flex; flex-direction: column; gap: 4px; }
+.field-panel__options-title { font-size: var(--text-xs); color: var(--color-ink-secondary); }
+.module-panel__options ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.module-panel__options li { display: flex; align-items: center; gap: 8px; }
+.module-panel__options li input[type="text"] { flex: 1; min-width: 0; }
+.module-panel__footer { margin-top: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.module-panel__delete { color: var(--color-danger); }
+.module-panel__confirm { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-danger); border-radius: var(--radius-md); background: var(--color-danger-tint); font-size: var(--text-sm); }
+.module-panel__confirm-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+.module-panel__confirm .module-panel__delete { background: var(--color-danger); color: var(--color-surface); border-color: var(--color-danger); }
+
 .pack-editor__tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--color-border); padding-bottom: var(--space-2); }
 .pack-editor__tabs button { border: none; background: transparent; padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer; color: var(--color-ink-secondary); font: inherit; }
 .pack-editor__tabs button[aria-selected="true"] { background: var(--color-accent-tint); color: var(--color-accent); }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { FormModule } from "../src/domain/formModel";
 
 export interface ModulePropertyPanelProps {
@@ -7,6 +8,7 @@ export interface ModulePropertyPanelProps {
   onSetDefaultOption: (optionId: string) => void;
   onAddOption: () => void;
   onRemoveOption: (optionId: string) => void;
+  onDeleteModule: () => void;
   onClose: () => void;
 }
 
@@ -26,9 +28,11 @@ export function ModulePropertyPanel({
   onSetDefaultOption,
   onAddOption,
   onRemoveOption,
+  onDeleteModule,
   onClose,
 }: ModulePropertyPanelProps) {
   const canRemoveOption = module.options.length > 2;
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
     <div className="module-panel">
@@ -100,6 +104,40 @@ export function ModulePropertyPanel({
         <button type="button" className="button button--secondary button--small" onClick={onAddOption}>
           + Add option
         </button>
+      </div>
+
+      <div className="module-panel__footer">
+        {confirmingDelete ? (
+          <div className="module-panel__confirm" role="alertdialog" aria-label="Confirm delete module">
+            <span>{`Delete "${module.title}" and its options? This can't be undone once saved.`}</span>
+            <div className="module-panel__confirm-actions">
+              <button
+                type="button"
+                className="button button--ghost button--small"
+                onClick={() => setConfirmingDelete(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button button--small module-panel__delete"
+                aria-label={`Confirm delete module ${module.title}`}
+                onClick={onDeleteModule}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="button button--ghost button--small module-panel__delete"
+            aria-label={`Delete module ${module.title}`}
+            onClick={() => setConfirmingDelete(true)}
+          >
+            Delete module
+          </button>
+        )}
       </div>
     </div>
   );
