@@ -17,7 +17,7 @@ function uniqueFieldKey(existing: Set<string>): string {
 /**
  * Move a field within a group from one display position to another, then
  * renumber `order` to sequential integers so the group stays internally
- * consistent (array order == order-value order) — which deriveOverlay requires.
+ * consistent (array order must equal order-value order).
  */
 export function reorderFields(
   pack: FormPack,

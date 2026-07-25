@@ -3,35 +3,26 @@
  *   GET  /__pack        -> { pack } (the base pack) read from disk
  *   POST /__pack        -> writes the edited base FormPack (with its modules)
  *                          straight to default-pack.json
- *   POST /__pack/backup -> copies the three source files (hint pack,
- *                          credential pack, overlay) into a timestamped
- *                          folder under scripts/pack-backups/. The credential
- *                          pack and overlay are frozen legacy artifacts —
- *                          save no longer regenerates them (a later plan
- *                          retires them) — but backup still copies whatever
- *                          is on disk for continuity.
+ *   POST /__pack/backup -> copies the hint pack into a timestamped folder
+ *                          under scripts/pack-backups/ for continuity.
  */
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { serializePack } from "../scripts/lib/credential-pack.mjs";
+
+/** Serialize a pack the way the resource file is stored (2-space, trailing LF). */
+const serializePack = (pack) => `${JSON.stringify(pack, null, 2)}\n`;
 
 const resolvePath = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const HINT_PATH = resolvePath("../src-tauri/resources/packs/default-pack.json");
-const OVERLAY_PATH = resolvePath("../scripts/credential-overlay.json");
-const PACK_PATH = resolvePath(
-  "../src-tauri/resources/packs/default-pack-credential.json",
-);
 const BACKUP_DIR = resolvePath("../scripts/pack-backups");
 
-/** Copy the three pack source files into pack-backups/<timestamp>/. */
+/** Copy the hint pack source file into pack-backups/<timestamp>/. */
 function backupPackFiles() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const dir = join(BACKUP_DIR, stamp);
   mkdirSync(dir, { recursive: true });
-  for (const source of [HINT_PATH, OVERLAY_PATH, PACK_PATH]) {
-    copyFileSync(source, join(dir, basename(source)));
-  }
+  copyFileSync(HINT_PATH, join(dir, basename(HINT_PATH)));
   return dir;
 }
 

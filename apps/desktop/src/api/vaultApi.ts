@@ -117,14 +117,11 @@ export function discardDraft(): Promise<void> {
  * values — it cannot set the exclusion formats.
  */
 /**
- * Read the bundled default form-definition pack as a raw JSON string
- * (the frontend has no fs scope). The content is UNTRUSTED INPUT — callers
- * must run it through `validatePack` before anything renders.
+ * Read the bundled base form-definition pack as a raw JSON string (the
+ * frontend has no fs scope). UNTRUSTED INPUT — run through validatePack first.
  */
-export function readDefaultPack(
-  variant: "hint" | "credential" = "hint",
-): Promise<string> {
-  return invoke("read_default_pack", { variant });
+export function readDefaultPack(): Promise<string> {
+  return invoke("read_default_pack");
 }
 
 export function copyVaultValue(

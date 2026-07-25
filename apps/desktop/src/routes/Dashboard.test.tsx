@@ -710,7 +710,7 @@ describe("Dashboard formModeHint — credential pack on load", () => {
     render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
-    // Navigate to the Password Manager Plan section (credential-pack-only section)
+    // Navigate to the Password Manager Plan section
     await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
     // "Master password" is a field *label* exclusive to the credential pack.
     // getByLabelText looks for a form control associated with that label string.
