@@ -113,9 +113,12 @@ These invariants are load-bearing; changes that touch them need matching test ch
    mappings migrate in the same change. Protected fields cannot be removed and
    `readinessRule.requiredKeys` may only reference protected fields.
 
-8. **Creator-only code is compiled out of end-user builds** (Vite conditional
-   bundling + `creator-mode` Cargo feature). The pack editor is a dev tool, not a
-   shippable companion app — its save path writes to the source tree.
+8. **The bundled pack ships read-only to end users.** The standalone Pack Editor
+   (`npm run pack-editor`) is a separate dev app, never part of the shipped bundle.
+   `write_default_pack` is compiled in but inert in production — it writes to the
+   compile-time `CARGO_MANIFEST_DIR` source path, which is absent on an install, so
+   it cannot mutate the shipped resource. The in-app Form Editor is a shipped user
+   feature that edits only the user's own `customPack`, never the bundled pack.
 
 ## Data flows
 
