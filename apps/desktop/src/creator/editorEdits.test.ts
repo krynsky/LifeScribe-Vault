@@ -8,6 +8,7 @@ import {
   addModuleOption,
   addSectionToTarget,
   removeInTarget,
+  removeModule,
   removeModuleOption,
   removeSectionInTarget,
   renameSectionInTarget,
@@ -339,6 +340,28 @@ describe("addModule", () => {
     const twice = addModule(once);
     const ids = twice.modules!.map((m) => m.moduleId);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("removeModule", () => {
+  it("removes the module by id, leaving other modules and the base untouched", () => {
+    const twoModules = addModule(base());
+    const otherId = twoModules.modules!.find((m) => m.moduleId !== "secrets")!.moduleId;
+    const out = removeModule(twoModules, "secrets");
+    expect(out.modules!.map((m) => m.moduleId)).toEqual([otherId]);
+    expect(out.sections).toEqual(base().sections);
+  });
+
+  it("is a no-op for an unknown moduleId", () => {
+    const out = removeModule(base(), "nope");
+    expect(out.modules).toEqual(base().modules);
+  });
+
+  it("does not mutate the input pack", () => {
+    const input = base();
+    const snapshot = JSON.stringify(input);
+    removeModule(input, "secrets");
+    expect(JSON.stringify(input)).toBe(snapshot);
   });
 });
 
