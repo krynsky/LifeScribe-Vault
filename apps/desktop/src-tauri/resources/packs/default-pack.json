@@ -572,7 +572,7 @@
     },
     {
       "sectionKey": "financial-accounts",
-      "title": "Financial Accounts & Subscriptions",
+      "title": "Financial Accounts",
       "lede": "Your family can't close, transfer, or even find what they don't know exists. You don't need account numbers or balances here — just an inventory of which institutions are part of your life, and what should happen to each one.",
       "multiRecord": true,
       "order": 5,

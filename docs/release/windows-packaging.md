@@ -28,7 +28,7 @@ npm run build
 ```
 
 This runs:
-1. `npm run build` (Vite frontend build — `VITE_CREATOR_MODE` unset, so creator module is excluded)
+1. `npm run build` (Vite frontend build)
 2. `cargo tauri bundle` (Tauri 2 bundles the Rust binary + frontend + pack resource)
 
 Output directory: `apps/desktop/src-tauri/target/release/bundle/`
@@ -38,19 +38,16 @@ Output directory: `apps/desktop/src-tauri/target/release/bundle/`
 | `msi/` | `LifeScribe Vault_0.2.0_x64_en-US.msi` (per-machine, Windows Installer) |
 | `nsis/` | `LifeScribe Vault_0.2.0_x64-setup.exe` (NSIS installer, per-machine) |
 
-### Confirming creator module is excluded
+### Pack-authoring surface in the release build
 
-The end-user build must not include `CreatorModePage` or the `write_default_pack` Tauri command:
-
-```powershell
-# Rust binary — write_default_pack must not be present
-strings apps/desktop/src-tauri/target/release/lifescribe-vault-v2.exe | Select-String "write_default_pack"
-# Expected: no output
-
-# Frontend bundle — creator directory must not appear in the JS output
-Get-ChildItem apps/desktop/dist/assets/*.js | Select-String "CreatorModePage"
-# Expected: no output
-```
+The standalone Pack Editor (`npm run pack-editor`) is a **separate Vite app** and is
+never part of the shipped bundle. The `write_default_pack` Tauri command *is* compiled
+into the release binary but is **inert in production**: it resolves its target via the
+compile-time `CARGO_MANIFEST_DIR` path, which does not exist on an end-user install, so
+it returns a `FileOperation` error and cannot mutate the shipped pack. There is no
+`CreatorModePage` or `VITE_CREATOR_MODE` — the old compile-time creator mode was
+retired. No build-time exclusion step is required; see the "bundled pack ships
+read-only to end users" architecture law in [development.md](../development.md).
 
 ### Confirming pack resource is bundled
 
@@ -93,7 +90,7 @@ npm run build
 
 - [ ] Installer filename matches the version in `tauri.conf.json`
 - [ ] MSI and NSIS both present in their respective subdirectories
-- [ ] `strings` / bundle grep confirms no `write_default_pack` or `CreatorModePage` in the release binary/JS
+- [ ] Pack-authoring surface confirmed inert: the standalone pack-editor app is not part of the bundle, and `write_default_pack` targets only a dev-only path (see "Pack-authoring surface in the release build")
 - [ ] Installer runs on a clean Windows profile without additional prerequisites (WebView2 skip mode is set)
 - [ ] App launches, shows the setup wizard, and vault directory is `%APPDATA%\com.lifescribe.vault.v2\`
 - [ ] Run the [v2 acceptance checklist](../testing/v2-acceptance.md) before distributing

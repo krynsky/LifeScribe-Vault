@@ -25,7 +25,7 @@ npm run build    # Windows installers
 - Keep protected system keys stable unless all dependent save/status/recovery mappings are migrated in the same change.
 - Field-level user data is never silently dropped — orphaned values become archived answers.
 - Migrations are pure, deterministic, idempotent; migrate-on-read in memory; persist only via the normal save path.
-- Creator-only code is compiled out of end-user builds (Vite conditional bundling + `creator-mode` Cargo feature).
+- The bundled pack ships read-only to end users: the standalone Pack Editor (`npm run pack-editor`) is a separate dev app, never bundled; `write_default_pack` is compiled in but inert in production (writes to the compile-time source path, absent on an install); the in-app Form Editor edits only the user's own `customPack`, never the bundled pack.
 
 ## Sensitive Data Rules
 

@@ -26,7 +26,7 @@ Record the environment at the top of your run:
 
 - [ ] Unlock screen appears with "Create vault" option.
 - [ ] Create a vault with a strong test password (do not use a real master password).
-- [ ] Dashboard shows all eight sections in the sidebar: Digital Executors, Password Manager Plan, Documents & Locations, Device Inventory, Financial Accounts & Subscriptions, Online Accounts & Domains, Platform Legacy Tools, Backups & Storage.
+- [ ] Dashboard shows all nine sections in the sidebar: Digital Executors, Password Manager, Documents, Device Inventory, Financial Accounts, Subscriptions, Online Accounts & Domains, Platform Legacy Tools, Backups & Storage.
 - [ ] Readiness indicators are visible on the dashboard checklist.
 - [ ] Recovery Kit section is present and shows "not yet generated" state.
 
@@ -35,10 +35,11 @@ Record the environment at the top of your run:
 For each section, open it and verify:
 
 - [ ] **Digital Executors** — form renders; primary and backup executor records can be added with multi-record support.
-- [ ] **Password Manager Plan** — single-record form renders; all fields visible.
-- [ ] **Documents & Locations** — multi-record; at least one document record can be added with a physical location field.
+- [ ] **Password Manager** — single-record form renders; all fields visible.
+- [ ] **Documents** — multi-record; at least one document record can be added with a physical location field.
 - [ ] **Device Inventory** — multi-record form renders.
-- [ ] **Financial Accounts & Subscriptions** — multi-record form renders.
+- [ ] **Financial Accounts** — multi-record form renders.
+- [ ] **Subscriptions** — multi-record form renders; each entry captures the service and its keep/cancel action.
 - [ ] **Online Accounts & Domains** — multi-record form renders.
 - [ ] **Platform Legacy Tools** — checklist-style fields render; Apple/Google/Facebook entries present.
 - [ ] **Backups & Storage** — multi-record form renders; backup type field visible.
@@ -47,7 +48,7 @@ For each section, open it and verify:
 
 ## 4. Attachments
 
-- [ ] Open Documents & Locations; add an attachment to a record (any file ≤ 10 MB).
+- [ ] Open Documents; add an attachment to a record (any file ≤ 10 MB).
 - [ ] Attachment appears in the record after saving.
 - [ ] Lock and unlock; attachment is still present and downloadable.
 - [ ] Delete the attachment; verify it no longer appears and orphan sweep runs cleanly on next unlock.
@@ -89,7 +90,7 @@ For each section, open it and verify:
 
 ## 10. Clipboard hygiene
 
-- [ ] Open a section that has a "copy to clipboard" button for a sensitive value (e.g. Password Manager Plan).
+- [ ] Open a section that has a "copy to clipboard" button for a sensitive value (e.g. Password Manager).
 - [ ] Click the copy button.
 - [ ] Open Windows Clipboard History (Win + V).
 - [ ] **The copied value must not appear in Clipboard History.** (The Rust clipboard-hygiene command sets the clipboard exclusion format before writing.)
@@ -102,10 +103,10 @@ For each section, open it and verify:
 - [ ] Relaunch the app; the app should fail gracefully (show an error or fallback message) rather than silently accept the corrupted pack.
 - [ ] Restore the original pack file; app relaunches normally.
 
-## 12. Creator mode is absent from the end-user build
+## 12. Pack-authoring surface is inert in the end-user build
 
-- [ ] No "Pack Editor" item appears in the sidebar.
-- [ ] Run the binary with a Tauri devtools call for `write_default_pack` (or attempt via console if devtools is enabled): the command must return "command not found" or similar — not a permission error.
+- [ ] The bundled `default-pack.json` cannot be mutated by the app: invoking `write_default_pack` (via devtools/console if available) returns a `FileOperation` error, not success — the command ships but targets a compile-time source path that is absent on an install.
+- [ ] The **Form Editor** toggle (bottom of the sidebar, off by default) edits only the user's own forms (their `customPack`); it never rewrites the bundled pack.
 
 ## 13. Uninstall / residue check
 
@@ -131,7 +132,7 @@ For each section, open it and verify:
 | 9. v1 Import | Pass / Fail / N/A | |
 | 10. Clipboard hygiene | Pass / Fail | |
 | 11. Pack integrity | Pass / Fail | |
-| 12. Creator mode absent | Pass / Fail | |
+| 12. Pack-authoring inert | Pass / Fail | |
 | 13. Uninstall residue | Pass / Fail | |
 
 **Overall: Pass / Fail**

@@ -39,10 +39,11 @@ The sidebar shows a **guided checklist** of sections, each with a status badge, 
 The sections cover:
 
 - **Digital Executors** — who steps in, how to reach them, and what they're responsible for
-- **Password Manager Plan** — your provider, where the vault lives, and how emergency access works
-- **Documents & Locations** — wills, insurance, deeds, tax records, and where they're kept
+- **Password Manager** — your provider, where the vault lives, and how emergency access works
+- **Documents** — wills, insurance, deeds, tax records, and where they're kept
 - **Device Inventory** — the phones and computers your family would need to unlock
-- **Financial Accounts & Subscriptions** — what exists, so nothing is missed or keeps billing
+- **Financial Accounts** — the institutions and accounts that exist, so nothing is missed
+- **Subscriptions** — recurring services and what should happen to each (keep or cancel), so nothing keeps billing unnoticed
 - **Online Accounts & Domains** — email, domains, and accounts that matter
 - **Platform Legacy Tools** — Google Inactive Account Manager, Apple Legacy Contact, and similar
 - **Backups & Storage** — where your data backups live and how to get into them

@@ -1,6 +1,6 @@
 # LifeScribe Vault
 
-A Windows-first local desktop app for building an encrypted digital legacy plan. Helps you document digital executors, password manager emergency access, important document locations, backup locations, and Recovery Kit instructions — without putting any data on a server.
+A Windows-first local desktop app for building an encrypted digital legacy plan. Helps you document your digital executors, password-manager emergency access, devices, financial accounts and subscriptions, important documents, online accounts, platform legacy settings, and backups — plus a printable Recovery Kit — without putting any data on a server.
 
 **Version:** 0.2.0  
 **Platform:** Windows (x64)  
@@ -10,17 +10,21 @@ A Windows-first local desktop app for building an encrypted digital legacy plan.
 
 ## What It Does
 
-LifeScribe Vault walks you through five sections of your digital legacy plan:
+LifeScribe Vault walks you through nine guided sections of your digital legacy plan:
 
 | Section | What you capture |
 |---|---|
 | **Digital Executors** | Primary and backup executors — contact info, responsibilities, step-in notes |
-| **Password Manager Plan** | Provider, vault location, emergency access instructions, recovery codes |
-| **Documents & Locations** | Will, trusts, insurance, real estate, financial accounts, tax records |
-| **Backups & Storage** | Backup locations, types, access instructions, encryption details |
-| **Recovery Kit** | Auto-generated PDF-ready summary pulled from all four sections above |
+| **Password Manager** | Provider, vault location, and how a trusted person gains emergency access |
+| **Documents** | Wills, trusts, insurance, deeds, tax records, and where they're kept |
+| **Device Inventory** | The phones and computers your family would need to unlock |
+| **Financial Accounts** | Institutions and accounts, so nothing is missed |
+| **Subscriptions** | Recurring services and what should happen to each (keep / cancel) |
+| **Online Accounts & Domains** | Email, domains, and accounts that matter |
+| **Platform Legacy Tools** | Google Inactive Account Manager, Apple Legacy Contact, and similar |
+| **Backups & Storage** | Where backups live and how to get into them |
 
-Each section drives a dashboard health indicator. The app won't let you forget what's missing.
+A **Recovery Kit** — an auto-generated, printable summary pulled from every section — is the document your family starts from. Each section drives a dashboard readiness indicator, so the app won't let you forget what's missing.
 
 ---
 
@@ -53,7 +57,7 @@ Each section drives a dashboard health indicator. The app won't let you forget w
 The vault is stored as an encrypted opaque JSON blob (`VaultSnapshot`). Rust never inspects field names — it stores and returns bytes identically, so the TypeScript domain model is the only place the shape is defined. Unknown fields from newer app versions are preserved verbatim on every round-trip.
 
 ### Form Pack System
-Forms are driven by a versioned **FormPack** — a data-only definition of sections, groups, fields, readiness rules, and Recovery Kit mappings. The pack ships with defaults; users can apply a **UserOverlay** (relabel fields, reorder, add custom fields, hide optional ones). The overlay is constrained — it cannot delete or retype protected fields.
+Forms are driven by a versioned **FormPack** — a data-only definition of sections, groups, fields, readiness rules, and Recovery Kit mappings. Optional features (e.g. storing real secrets vs. locations only) are declared as **FormModules** and composed into the pack at load from the profile's module selections. On top of that, users can apply a **UserOverlay** (relabel fields, reorder, add custom fields, hide optional ones); the overlay is constrained — it cannot delete or retype protected fields.
 
 Pack migrations run on read, in memory, and are pure and idempotent. Changes only persist via the normal save path.
 
@@ -95,9 +99,10 @@ apps/desktop/
   src/
     api/          # Tauri IPC wrappers (vaultApi.ts)
     components/   # Shared UI components
-    creator/      # Pack editing tools (packEdits, packAutoMigrate, packExport)
-    domain/       # Pure domain logic (formModel, packMerge, packMigrations,
-    |             # packValidation, readiness, snapshot, recoveryKit)
+    creator/      # Pack editing tools (packEdits, packAutoMigrate, packExport,
+    |             # editorView, editorEdits)
+    domain/       # Pure domain logic (formModel, packMerge, composePack,
+    |             # packMigrations, packValidation, readiness, snapshot, recoveryKit)
     routes/       # Page components (Dashboard, SectionPage, BackupPage,
                   # RecoveryKitPage, LockedScreen, SetupScreen)
   src-tauri/
