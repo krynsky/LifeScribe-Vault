@@ -117,8 +117,8 @@ describe("Dashboard checklist and saving", () => {
     const values = snapshot.values as Record<string, { records: Array<{ values: Record<string, string> }> }>;
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Dana Estate");
     expect(await within(sidebarSectionButton()).findByText("Complete")).toBeInTheDocument();
-    // 1 of the pack's 8 sections ready -> 13% overall readiness.
-    expect(screen.getAllByText("13%").length).toBeGreaterThan(0);
+    // 1 of the pack's 9 sections ready -> 11% overall readiness.
+    expect(screen.getAllByText("11%").length).toBeGreaterThan(0);
   });
 
   it("blocks a save with missing required fields and shows errors inline, not as a top list", async () => {
@@ -171,8 +171,8 @@ describe("Dashboard N/A flow", () => {
       (snapshot.sectionMeta as Record<string, { na?: boolean }>)[SECTION_KEY].na,
     ).toBe(true);
     expect(await within(sidebarSectionButton()).findByText("Doesn't apply")).toBeInTheDocument();
-    // 1 of 8 sections ready (via N/A) -> 13% overall readiness.
-    expect(screen.getAllByText("13%").length).toBeGreaterThan(0);
+    // 1 of 9 sections ready (via N/A) -> 11% overall readiness.
+    expect(screen.getAllByText("11%").length).toBeGreaterThan(0);
 
     mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
     await user.click(screen.getByRole("button", { name: "It applies to me after all" }));
@@ -480,13 +480,13 @@ describe("Section multi-record toggle", () => {
     localStorage.clear();
   });
 
-  // Password Manager Plan is a true single-record section (no multiRecord,
+  // Password Manager is a true single-record section (no multiRecord,
   // no repeatable group) — the clean case for turning "add individual
   // entries" on the way Financial Accounts already works.
   async function editPasswordManagerSection(user: ReturnType<typeof userEvent.setup>) {
     renderDashboard();
     await screen.findByText("Welcome, Dana");
-    await user.click(screen.getByRole("button", { name: /^Password Manager Plan/ }));
+    await user.click(screen.getByRole("button", { name: /^Password Manager/ }));
     await user.click(await screen.findByRole("button", { name: "Edit this form" }));
   }
 
@@ -710,8 +710,8 @@ describe("Dashboard formModeHint — credential pack on load", () => {
     render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
-    // Navigate to the Password Manager Plan section
-    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
+    // Navigate to the Password Manager section
+    await userEvent.click(screen.getByRole("button", { name: /password manager/i }));
     // "Master password" is a field *label* exclusive to the credential pack.
     // getByLabelText looks for a form control associated with that label string.
     expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
@@ -734,7 +734,7 @@ describe("Dashboard formModeHint — credential pack on load", () => {
     ).toBeInTheDocument();
 
     // And the credential-only field renders, confirming pack and profile agree.
-    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
+    await userEvent.click(screen.getByRole("button", { name: /password manager/i }));
     expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
   });
 
@@ -758,7 +758,7 @@ describe("Dashboard formModeHint — credential pack on load", () => {
     render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
-    await userEvent.click(screen.getByRole("button", { name: /password manager plan/i }));
+    await userEvent.click(screen.getByRole("button", { name: /password manager/i }));
     expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
   });
 });
