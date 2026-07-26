@@ -29,6 +29,34 @@ vi.mock("./api/vaultApi", () => ({
 
 const mocked = vi.mocked(vaultApi);
 
+const SETUP_PASSWORD = "correct horse battery staple";
+
+/**
+ * Drive the setup wizard: fill step 0 (name + password + acknowledgment),
+ * then advance through each module step to the final Create action. When
+ * `chooseSecrets` is set, the secrets module's "on" option is selected on its
+ * step. The wizard shows one module per step (secrets, then file-method).
+ */
+async function completeSetupWizard(
+  user: ReturnType<typeof userEvent.setup>,
+  options: { chooseSecrets?: boolean } = {},
+) {
+  await user.type(screen.getByLabelText("Your name"), "Dana");
+  await user.type(screen.getByLabelText("Master password"), SETUP_PASSWORD);
+  await user.type(screen.getByLabelText("Confirm master password"), SETUP_PASSWORD);
+  await user.click(screen.getByLabelText(/I understand there is no recovery/i));
+  await user.click(screen.getByRole("button", { name: /^next$/i }));
+
+  // Step 1: secrets module.
+  if (options.chooseSecrets) {
+    await user.click(screen.getByRole("radio", { name: /store the actual secrets/i }));
+  }
+  await user.click(screen.getByRole("button", { name: /^next$/i }));
+
+  // Step 2 (final): file-method module — Create the vault.
+  await user.click(screen.getByRole("button", { name: "Create vault" }));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocked.loadVaultSnapshot.mockRejectedValue("NotFound");
@@ -58,17 +86,7 @@ describe("App", () => {
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Your name"), "Dana");
-    await user.type(
-      screen.getByLabelText("Master password"),
-      "correct horse battery staple",
-    );
-    await user.type(
-      screen.getByLabelText("Confirm master password"),
-      "correct horse battery staple",
-    );
-    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
-    await user.click(screen.getByRole("button", { name: "Create vault" }));
+    await completeSetupWizard(user);
 
     expect(mocked.createVault).toHaveBeenCalledWith(
       "correct horse battery staple",
@@ -95,19 +113,8 @@ describe("App", () => {
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Your name"), "Dana");
-    await user.type(
-      screen.getByLabelText("Master password"),
-      "correct horse battery staple",
-    );
-    await user.type(
-      screen.getByLabelText("Confirm master password"),
-      "correct horse battery staple",
-    );
-    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
-    // Choose credential mode at onboarding.
-    await user.click(screen.getByLabelText(/store the actual secrets/i));
-    await user.click(screen.getByRole("button", { name: "Create vault" }));
+    // Choose the secrets ("credential") option at onboarding.
+    await completeSetupWizard(user, { chooseSecrets: true });
 
     // The onboarding choice is written straight into a generation-0 CAS save,
     // so it survives a relaunch even before the user enters any data.
@@ -129,17 +136,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Your name"), "Dana");
-    await user.type(
-      screen.getByLabelText("Master password"),
-      "correct horse battery staple",
-    );
-    await user.type(
-      screen.getByLabelText("Confirm master password"),
-      "correct horse battery staple",
-    );
-    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
-    await user.click(screen.getByRole("button", { name: "Create vault" }));
+    await completeSetupWizard(user);
 
     await screen.findByText("Welcome, Dana");
     expect(localStorage.getItem("lifescribe.packEditorEnabled")).not.toBe("true");

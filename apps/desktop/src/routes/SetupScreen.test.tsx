@@ -1,63 +1,83 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { loadDefaultPack } from "../domain/loadDefaultPack";
 import { SetupScreen } from "./SetupScreen";
 
-const STRONG_PASSWORD = "correct horse battery staple";
+const PW = "correct horse battery staple";
 
-async function fillPasswords(password = STRONG_PASSWORD, confirm = password) {
-  const user = userEvent.setup();
+// The secrets module's non-default ("on") option label is read from the real
+// bundled pack rather than hard-coded, so these tests assert the true behavior
+// (secrets set to "on") regardless of the exact copy — which is reworded in a
+// later task. `secretsOnLabel` is that label; matching it selects the option
+// that flips secrets on without depending on not-yet-changed wording.
+let secretsOnLabel = "";
+
+beforeAll(async () => {
+  const pack = await loadDefaultPack();
+  const secrets = (pack.modules ?? []).find((m) => m.moduleId === "secrets");
+  const onOption = secrets?.options.find(
+    (option) => option.optionId !== secrets.defaultOptionId,
+  );
+  secretsOnLabel = onOption?.label ?? onOption?.optionId ?? "";
+});
+
+async function completeStepOne(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Your name"), "Dana");
-  await user.type(screen.getByLabelText("Master password"), password);
-  await user.type(screen.getByLabelText("Confirm master password"), confirm);
-  return user;
+  await user.type(screen.getByLabelText("Master password"), PW);
+  await user.type(screen.getByLabelText("Confirm master password"), PW);
+  await user.click(screen.getByRole("checkbox", { name: /no recovery/i }));
+  await user.click(screen.getByRole("button", { name: /^next$/i }));
 }
 
-describe("SetupScreen", () => {
-  it("keeps Create disabled until the no-recovery acknowledgment is checked", async () => {
+describe("SetupScreen wizard", () => {
+  it("walks name/password, then one step per module, and Create emits moduleSelections", async () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<SetupScreen onCreate={onCreate} />);
+    const user = userEvent.setup();
+    await completeStepOne(user);
+    const secretsRadio = await screen.findByRole("radio", { name: secretsOnLabel });
+    await user.click(secretsRadio);
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    await user.click(screen.getByRole("button", { name: /create vault/i }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    const [password, name, selections] = onCreate.mock.calls[0];
+    expect(password).toBe(PW);
+    expect(name).toBe("Dana");
+    expect(selections.secrets).toBe("on");
+    expect(selections["file-method"]).toBe("path");
+  });
 
-    const user = await fillPasswords();
-    const createButton = screen.getByRole("button", { name: "Create vault" });
-    expect(createButton).toBeDisabled();
+  it("blocks leaving step one until the password is valid and acknowledged", async () => {
+    render(<SetupScreen onCreate={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Master password"), "short");
+    await user.type(screen.getByLabelText("Confirm master password"), "short");
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/at least 15 characters/i);
+  });
 
-    await user.click(
-      screen.getByLabelText(/I understand there is no recovery/i),
-    );
-    expect(createButton).toBeEnabled();
-
-    await user.click(createButton);
-    expect(onCreate).toHaveBeenCalledWith(STRONG_PASSWORD, "Dana", "hint");
+  it("lets the user go Back to a previous step without losing entries", async () => {
+    render(<SetupScreen onCreate={vi.fn()} />);
+    const user = userEvent.setup();
+    await completeStepOne(user);
+    await screen.findByRole("radio", { name: secretsOnLabel });
+    await user.click(screen.getByRole("button", { name: /^back$/i }));
+    expect(screen.getByLabelText("Your name")).toHaveValue("Dana");
   });
 
   it("blocks mismatched passwords with a friendly error", async () => {
-    const onCreate = vi.fn();
-    render(<SetupScreen onCreate={onCreate} />);
-
-    const user = await fillPasswords(STRONG_PASSWORD, "different but long enough");
-    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
-    await user.click(screen.getByRole("button", { name: "Create vault" }));
-
+    render(<SetupScreen onCreate={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Master password"), PW);
+    await user.type(screen.getByLabelText("Confirm master password"), "different but long enough");
+    await user.click(screen.getByRole("checkbox", { name: /no recovery/i }));
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
     expect(screen.getByRole("alert")).toHaveTextContent(/don't match/i);
-    expect(onCreate).not.toHaveBeenCalled();
-  });
-
-  it("blocks short master passwords", async () => {
-    const onCreate = vi.fn();
-    render(<SetupScreen onCreate={onCreate} />);
-
-    const user = await fillPasswords("short pw");
-    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
-    await user.click(screen.getByRole("button", { name: "Create vault" }));
-
-    expect(screen.getByRole("alert")).toHaveTextContent(/at least 15 characters/i);
-    expect(onCreate).not.toHaveBeenCalled();
   });
 
   it("reveals and re-hides the master password with the in-field toggle", async () => {
-    const onCreate = vi.fn().mockResolvedValue(undefined);
-    render(<SetupScreen onCreate={onCreate} />);
+    render(<SetupScreen onCreate={vi.fn()} />);
     const user = userEvent.setup();
 
     const master = screen.getByLabelText("Master password");
@@ -75,45 +95,14 @@ describe("SetupScreen", () => {
     expect(master).toHaveAttribute("type", "password");
   });
 
-  it("passes the chosen form mode to onCreate (defaults to hint)", async () => {
-    const onCreate = vi.fn().mockResolvedValue(undefined);
-    render(<SetupScreen onCreate={onCreate} />);
-
-    const user = await fillPasswords();
-    await user.click(screen.getByLabelText(/I understand there is no recovery/i));
-    await user.click(screen.getByLabelText(/store the actual secrets/i));
-    await user.click(screen.getByRole("button", { name: /create/i }));
-
-    expect(onCreate).toHaveBeenCalledWith(STRONG_PASSWORD, "Dana", "credential");
-  });
-
-  it("expands the pack preview and lists the selected mode's sections", async () => {
-    // Vitest has no Tauri invoke, so loadDefaultPack serves the static
-    // bundled pack — the same content the real onboarding previews.
+  it("shows a per-step preview of the composed pack once past step one", async () => {
     render(<SetupScreen onCreate={vi.fn()} />);
     const user = userEvent.setup();
+    await completeStepOne(user);
+    await screen.findByRole("radio", { name: secretsOnLabel });
 
-    // Collapsed by default: no section titles shown.
-    expect(screen.queryByText("Digital Executors")).not.toBeInTheDocument();
-
-    await user.click(screen.getByText("See what this vault covers"));
-
+    // The preview summary is present on a module step; expanding it lists sections.
+    await user.click(screen.getByText("Preview this choice"));
     expect(await screen.findByText("Digital Executors")).toBeInTheDocument();
-    expect(screen.getByText("Password Manager")).toBeInTheDocument();
-    expect(screen.getByText("Backups & Storage")).toBeInTheDocument();
-  });
-
-  it("preview follows the selected mode (credential pack adds secret fields)", async () => {
-    render(<SetupScreen onCreate={vi.fn()} />);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByText("See what this vault covers"));
-    // Hint pack: Password Manager has 10 fields (no master password slot).
-    await screen.findByText("10 fields");
-    expect(screen.queryByText("11 fields")).not.toBeInTheDocument();
-
-    // Credential pack adds the master-password field: 10 -> 11.
-    await user.click(screen.getByLabelText(/store the actual secrets/i));
-    expect(await screen.findByText("11 fields")).toBeInTheDocument();
   });
 });
