@@ -697,8 +697,10 @@ describe("Form structure editor — end-to-end", () => {
   });
 });
 
-describe("Dashboard formModeHint — credential pack on load", () => {
-  it("loads the credential pack when the snapshot profile has formMode: credential", async () => {
+describe("Dashboard module selections — credential pack on load", () => {
+  it("loads the credential pack when a legacy snapshot profile has formMode: credential", async () => {
+    // Back-compat: a snapshot with only a legacy formMode (no moduleSelections)
+    // has its selections derived from it on read, composing the secret field.
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {
         profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "credential" },
@@ -707,7 +709,7 @@ describe("Dashboard formModeHint — credential pack on load", () => {
       recovered: false,
     });
     const onLocked = vi.fn();
-    render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
+    render(<Dashboard ownerNameHint="Mark" onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
     // Navigate to the Password Manager section
@@ -717,25 +719,27 @@ describe("Dashboard formModeHint — credential pack on load", () => {
     expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
   });
 
-  it("carries the onboarding formMode hint into a fresh vault's profile", async () => {
+  it("carries the onboarding module selections hint into a fresh vault's profile", async () => {
     // Fresh vault: no snapshot persisted yet (loadVaultSnapshot rejects NotFound
-    // via the default beforeEach). The ONLY source of formMode is the onboarding
-    // hint prop. The loaded profile — not just the pack — must reflect it, or the
-    // first save will persist "hint" and silently discard the user's choice.
+    // via the default beforeEach). The ONLY source of the selections is the
+    // onboarding hint prop. The loaded profile — not just the pack — must
+    // reflect it, or the first save will persist the defaults and silently
+    // discard the user's choice.
     const onLocked = vi.fn();
-    render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
+    render(<Dashboard ownerNameHint="Mark" moduleSelectionsHint={{ secrets: "on" }} onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
-    // Sidebar reads the profile mode. In credential mode the toggle offers the
-    // *reverse* switch. If the profile were stuck on "hint", this button would
-    // instead read "Switch to store actual secrets".
-    expect(
-      screen.getByRole("button", { name: "Switch to locations only" }),
-    ).toBeInTheDocument();
-
-    // And the credential-only field renders, confirming pack and profile agree.
+    // The credential-only field renders, confirming pack and profile agree.
     await userEvent.click(screen.getByRole("button", { name: /password manager/i }));
     expect(await screen.findByLabelText("Master password")).toBeInTheDocument();
+
+    // The Settings page reads the profile's selections: the "on" option is
+    // selected. If the profile were stuck on the default, this would be off.
+    await userEvent.click(screen.getByRole("button", { name: /^Settings$/ }));
+    await screen.findByRole("heading", { name: "Settings" });
+    expect(
+      await screen.findByRole("radio", { name: /store the actual secrets/i }),
+    ).toBeChecked();
   });
 
   it("composes the secret field from moduleSelections, not just formMode", async () => {
@@ -755,7 +759,7 @@ describe("Dashboard formModeHint — credential pack on load", () => {
       recovered: false,
     });
     const onLocked = vi.fn();
-    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
+    render(<Dashboard ownerNameHint="Mark" onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
     await userEvent.click(screen.getByRole("button", { name: /password manager/i }));
@@ -763,13 +767,33 @@ describe("Dashboard formModeHint — credential pack on load", () => {
   });
 });
 
-describe("Dashboard mode switch", () => {
-  it("switches from hint to credential mode: saves snapshot with formMode=credential and no customPack", async () => {
-    // Snapshot with hint mode, a customPack (to verify customPack is cleared on switch),
-    // and saved field values (to verify values round-trip through the switch unchanged).
+describe("Dashboard Settings page", () => {
+  it("opens the Settings page from the sidebar and Back returns to the dashboard", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Settings$/ }));
+
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(await screen.findByText("Vault options")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^← Back$/ }));
+    expect(await screen.findByText("Welcome, Dana")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Settings" })).not.toBeInTheDocument();
+  });
+
+  it("applying a module change from Settings saves with the new selections, clears customPack, and preserves values", async () => {
+    // Snapshot with the secrets module off, a customPack (to verify it is cleared
+    // on apply), and saved field values (to verify they round-trip unchanged).
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {
-        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "hint" },
+        profile: {
+          ownerName: "Mark",
+          reviewCadenceMonths: 12,
+          formMode: "hint",
+          moduleSelections: { secrets: "off" },
+        },
         customPack: {
           schemaVersion: 1,
           migrations: [],
@@ -796,25 +820,28 @@ describe("Dashboard mode switch", () => {
     mocked.saveVaultSnapshot.mockResolvedValue({ generation: 4 });
 
     const onLocked = vi.fn();
-    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
+    render(<Dashboard ownerNameHint="Mark" onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
-    // Find and click the mode switch button
-    const switchBtn = screen.getByRole("button", { name: "Switch to store actual secrets" });
-    await userEvent.click(switchBtn);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Settings$/ }));
+    await screen.findByRole("heading", { name: "Settings" });
 
-    // Confirm dialog should appear
-    const confirmBtn = screen.getByRole("button", { name: "Confirm" });
-    await userEvent.click(confirmBtn);
+    // Turn the secrets module on, then Apply + Confirm.
+    await user.click(await screen.findByRole("radio", { name: /store the actual secrets/i }));
+    await user.click(screen.getByRole("button", { name: /apply changes/i }));
+    await user.click(screen.getByRole("button", { name: /^confirm/i }));
 
     expect(mocked.saveVaultSnapshot).toHaveBeenCalledTimes(1);
     const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
     expect(baseGeneration).toBe(3);
     const snapshotRecord = snapshot as Record<string, unknown>;
     const profile = snapshotRecord.profile as Record<string, unknown>;
+    expect((profile.moduleSelections as Record<string, string>).secrets).toBe("on");
+    // Legacy back-compat field stays synced to the secrets selection.
     expect(profile.formMode).toBe("credential");
     expect(snapshotRecord.customPack).toBeUndefined();
-    // Field-level user data must survive the mode switch unchanged.
+    // Field-level user data must survive the options change unchanged.
     const values = snapshotRecord.values as Record<
       string,
       { records: Array<{ values: Record<string, string> }> }
@@ -822,10 +849,15 @@ describe("Dashboard mode switch", () => {
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Mark Estate");
   });
 
-  it("a save failure during mode switch shows the error banner and closes the dialog", async () => {
+  it("a save failure while applying options surfaces the common save-error banner", async () => {
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {
-        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "hint" },
+        profile: {
+          ownerName: "Mark",
+          reviewCadenceMonths: 12,
+          formMode: "hint",
+          moduleSelections: { secrets: "off" },
+        },
       },
       generation: 3,
       recovered: false,
@@ -833,68 +865,24 @@ describe("Dashboard mode switch", () => {
     mocked.saveVaultSnapshot.mockRejectedValueOnce(new Error("conflict"));
 
     const onLocked = vi.fn();
-    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
+    render(<Dashboard ownerNameHint="Mark" onLocked={onLocked} />);
     await screen.findByText("Welcome, Mark");
 
-    await userEvent.click(screen.getByRole("button", { name: "Switch to store actual secrets" }));
-    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Settings$/ }));
+    await screen.findByRole("heading", { name: "Settings" });
 
-    // Mode switch saves through the shared persist path, so it surfaces the
-    // common save-error banner.
+    await user.click(await screen.findByRole("radio", { name: /store the actual secrets/i }));
+    await user.click(screen.getByRole("button", { name: /apply changes/i }));
+    await user.click(screen.getByRole("button", { name: /^confirm/i }));
+
+    // applyModuleSelections saves through the shared persist path, which swallows
+    // the failure (returns false) and surfaces the common save-error banner on the
+    // dashboard; the Settings page closes.
     expect(
       await screen.findByText("Your changes could not be saved. Please try again."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", { name: "Confirm form detail change" })).not.toBeInTheDocument();
-  });
-
-  it("switches from credential to hint mode: saves snapshot with formMode=hint", async () => {
-    mocked.loadVaultSnapshot.mockResolvedValue({
-      snapshot: {
-        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "credential" },
-      },
-      generation: 2,
-      recovered: false,
-    });
-    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 3 });
-
-    const onLocked = vi.fn();
-    render(<Dashboard ownerNameHint="Mark" formModeHint="credential" onLocked={onLocked} />);
-    await screen.findByText("Welcome, Mark");
-
-    const switchBtn = screen.getByRole("button", { name: "Switch to locations only" });
-    await userEvent.click(switchBtn);
-
-    const confirmBtn = screen.getByRole("button", { name: "Confirm" });
-    await userEvent.click(confirmBtn);
-
-    expect(mocked.saveVaultSnapshot).toHaveBeenCalledTimes(1);
-    const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
-    expect(baseGeneration).toBe(2);
-    const snapshotRecord = snapshot as Record<string, unknown>;
-    const profile = snapshotRecord.profile as Record<string, unknown>;
-    expect(profile.formMode).toBe("hint");
-    expect(snapshotRecord.customPack).toBeUndefined();
-  });
-
-  it("Cancel button dismisses the dialog without saving", async () => {
-    mocked.loadVaultSnapshot.mockResolvedValue({
-      snapshot: {
-        profile: { ownerName: "Mark", reviewCadenceMonths: 12, formMode: "hint" },
-      },
-      generation: 1,
-      recovered: false,
-    });
-
-    const onLocked = vi.fn();
-    render(<Dashboard ownerNameHint="Mark" formModeHint="hint" onLocked={onLocked} />);
-    await screen.findByText("Welcome, Mark");
-
-    await userEvent.click(screen.getByRole("button", { name: "Switch to store actual secrets" }));
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
-    expect(mocked.saveVaultSnapshot).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Settings" })).not.toBeInTheDocument();
   });
 });
 
