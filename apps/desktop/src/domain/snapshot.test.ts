@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FormPack } from "./formModel";
-import { buildSnapshot, emptySnapshot, normalizeSnapshot } from "./snapshot";
+import { buildSnapshot, emptySnapshot, formModeFromModuleSelections, normalizeSnapshot } from "./snapshot";
 
 const MINIMAL_PACK: FormPack = {
   packId: "test-pack",
@@ -166,5 +166,19 @@ describe("moduleSelections migration", () => {
       profile: { ownerName: "Dana", formMode: "hint", moduleSelections: { secrets: "on", extra: 1 } },
     });
     expect(parsed.profile.moduleSelections).toEqual({ secrets: "off" });
+  });
+});
+
+describe("moduleSelections-first seeding", () => {
+  it("emptySnapshot seeds the profile from moduleSelections and syncs formMode from secrets", () => {
+    const snap = emptySnapshot("Dana", { secrets: "on", "file-method": "attach" });
+    expect(snap.profile.moduleSelections).toEqual({ secrets: "on", "file-method": "attach" });
+    expect(snap.profile.formMode).toBe("credential");
+  });
+
+  it("formModeFromModuleSelections maps secrets on->credential, else hint", () => {
+    expect(formModeFromModuleSelections({ secrets: "on" })).toBe("credential");
+    expect(formModeFromModuleSelections({ secrets: "off" })).toBe("hint");
+    expect(formModeFromModuleSelections({})).toBe("hint");
   });
 });
