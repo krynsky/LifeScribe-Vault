@@ -11,9 +11,13 @@ export interface VaultOptionsProps {
 
 export function VaultOptions({ base, selections, onApply }: VaultOptionsProps) {
   const modules = useMemo(() => [...(base?.modules ?? [])].sort((a, b) => a.order - b.order), [base]);
+  // Seeded once from `selections` on mount; does not react to later prop changes.
+  // Callers must remount (or reload) this component after a successful apply
+  // rather than wiring it as a persistent, always-mounted panel.
   const [working, setWorking] = useState<Record<string, string>>(selections);
   const [confirming, setConfirming] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState("");
   const { error } = useComposedPreview(base, working);
 
   const dirty = modules.some(
@@ -34,6 +38,9 @@ export function VaultOptions({ base, selections, onApply }: VaultOptionsProps) {
     try {
       await onApply(working);
       setConfirming(false);
+      setApplyError("");
+    } catch (caught) {
+      setApplyError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setApplying(false);
     }
@@ -59,6 +66,11 @@ export function VaultOptions({ base, selections, onApply }: VaultOptionsProps) {
       {confirming ? (
         <div className="settings-confirm" role="alertdialog" aria-label="Confirm vault options change">
           <p>Rebuild your forms with these options? Entered data is kept; custom form edits are replaced.</p>
+          {applyError ? (
+            <p className="form-error" role="alert">
+              {applyError}
+            </p>
+          ) : null}
           <div className="settings-confirm__actions">
             <button type="button" className="button button--ghost button--small" onClick={() => setConfirming(false)}>
               Cancel
