@@ -1332,31 +1332,39 @@ button {
   background: var(--color-accent-subtle);
 }
 
-/* --- Form-detail mode switch (sidebar) -------------------------------------- */
+/* --- Setup wizard progress + navigation (SetupScreen) ----------------------- */
 
-.sidebar__mode {
+.setup-steps {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-1) 0 var(--space-2);
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--color-border);
+  justify-content: center;
+  gap: var(--space-2);
 }
 
-.sidebar__mode-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  color: var(--color-ink-secondary);
+.setup-steps__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background var(--transition-fast);
 }
 
-.sidebar__mode-current {
-  font-size: var(--text-xs);
-  color: var(--color-ink-tertiary);
-  margin-bottom: var(--space-2);
+.setup-steps__dot--current {
+  background: var(--color-accent);
 }
 
-/* --- Onboarding form-mode choice (SetupScreen) ------------------------------ */
+.setup-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
 
-.setup-mode {
+/* --- Onboarding module question (ModuleQuestion) ---------------------------- */
+
+.module-question {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1369,7 +1377,7 @@ button {
   padding: 0;
 }
 
-.setup-mode > legend {
+.module-question__title {
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   color: var(--color-ink-secondary);
@@ -1377,7 +1385,23 @@ button {
   padding: 0;
 }
 
-.setup-mode__option {
+.module-question__prompt {
+  color: var(--color-ink);
+}
+
+.module-question__help {
+  font-size: var(--text-xs);
+  color: var(--color-ink-secondary);
+  line-height: var(--leading-base);
+}
+
+.module-question__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.module-question__option {
   display: grid;
   grid-template-columns: auto 1fr;
   column-gap: var(--space-3);
@@ -1390,16 +1414,16 @@ button {
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
-.setup-mode__option:hover {
+.module-question__option:hover {
   border-color: var(--color-border-strong);
 }
 
-.setup-mode__option:has(input:checked) {
+.module-question__option:has(input:checked) {
   border-color: var(--color-accent);
   background: var(--color-accent-tint);
 }
 
-.setup-mode__option > input {
+.module-question__option > input {
   /* Same reset as checkboxes — otherwise .vault-form input width:100% inflates
      the radio and collapses the text column. */
   width: auto;
@@ -1410,19 +1434,84 @@ button {
   accent-color: var(--color-accent);
 }
 
-.setup-mode__title {
+.module-question__option-label {
   grid-column: 2;
   grid-row: 1;
   font-weight: var(--weight-medium);
   color: var(--color-ink);
 }
 
-.setup-mode__desc {
+.module-question__option-desc {
   grid-column: 2;
   grid-row: 2;
   font-size: var(--text-xs);
   color: var(--color-ink-secondary);
   line-height: var(--leading-base);
+}
+
+/* --- Settings page (SettingsPage / VaultOptions) ---------------------------- */
+
+.settings-page {
+  max-width: 46rem;
+  padding: var(--space-7) var(--space-7) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.settings-page__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings-page__title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.settings-section__title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.settings-section__lede {
+  color: var(--color-ink-secondary);
+}
+
+.settings-section__empty {
+  color: var(--color-ink-secondary);
+  font-size: var(--text-xs);
+}
+
+.settings-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-tint);
+}
+
+.settings-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* --- Onboarding pack preview (SetupScreen) ---------------------------------- */
