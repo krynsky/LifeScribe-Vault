@@ -1138,19 +1138,19 @@
   "modules": [
     {
       "moduleId": "secrets",
-      "title": "Store secrets",
-      "question": "Do you want to store the actual secrets (passwords, PINs) in your vault, or only where to find them?",
-      "helperText": "Secrets are encrypted in this vault. Choose \"Only locations\" to keep this vault free of live credentials.",
+      "title": "Store passwords",
+      "question": "Do you want the vault to hold your actual passwords and PINs, or only where to find them?",
+      "helperText": "Passwords and PINs are encrypted in this vault. Choose \"Locations only\" to keep this vault free of live credentials.",
       "order": 1,
       "defaultOptionId": "off",
       "options": [
         {
           "optionId": "off",
-          "label": "Only locations (safer)"
+          "label": "Locations only"
         },
         {
           "optionId": "on",
-          "label": "Store the actual secrets",
+          "label": "Store the actual passwords",
           "addFields": [
             {
               "sectionKey": "password-manager",

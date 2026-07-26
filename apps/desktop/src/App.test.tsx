@@ -49,7 +49,7 @@ async function completeSetupWizard(
 
   // Step 1: secrets module.
   if (options.chooseSecrets) {
-    await user.click(screen.getByRole("radio", { name: /store the actual secrets/i }));
+    await user.click(screen.getByRole("radio", { name: /store the actual passwords/i }));
   }
   await user.click(screen.getByRole("button", { name: /^next$/i }));
 

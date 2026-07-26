@@ -738,7 +738,7 @@ describe("Dashboard module selections — credential pack on load", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Settings$/ }));
     await screen.findByRole("heading", { name: "Settings" });
     expect(
-      await screen.findByRole("radio", { name: /store the actual secrets/i }),
+      await screen.findByRole("radio", { name: /store the actual passwords/i }),
     ).toBeChecked();
   });
 
@@ -828,7 +828,7 @@ describe("Dashboard Settings page", () => {
     await screen.findByRole("heading", { name: "Settings" });
 
     // Turn the secrets module on, then Apply + Confirm.
-    await user.click(await screen.findByRole("radio", { name: /store the actual secrets/i }));
+    await user.click(await screen.findByRole("radio", { name: /store the actual passwords/i }));
     await user.click(screen.getByRole("button", { name: /apply changes/i }));
     await user.click(screen.getByRole("button", { name: /^confirm/i }));
 
@@ -872,7 +872,7 @@ describe("Dashboard Settings page", () => {
     await user.click(await screen.findByRole("button", { name: /^Settings$/ }));
     await screen.findByRole("heading", { name: "Settings" });
 
-    await user.click(await screen.findByRole("radio", { name: /store the actual secrets/i }));
+    await user.click(await screen.findByRole("radio", { name: /store the actual passwords/i }));
     await user.click(screen.getByRole("button", { name: /apply changes/i }));
     await user.click(screen.getByRole("button", { name: /^confirm/i }));
 

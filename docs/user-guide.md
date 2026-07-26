@@ -23,8 +23,8 @@ You'll be asked one important question during setup:
 
 | Choice | What it means |
 |---|---|
-| **Store locations only** (safer) | The vault records *where to find* passwords, PINs, and codes — never the secrets themselves. Your family follows the trail; the secrets stay in your password manager. |
-| **Store the actual secrets** | The vault also holds real passwords, PINs, and recovery codes, encrypted with your master password. |
+| **Locations only** (safer) | The vault records *where to find* passwords, PINs, and codes — never the passwords themselves. Your family follows the trail; the passwords stay in your password manager. |
+| **Store the actual passwords & PINs** | The vault also holds real passwords, PINs, and recovery codes, encrypted with your master password. |
 
 Click **"See what this vault covers"** under the choice to preview exactly which sections and fields each option includes before you decide.
 
@@ -80,7 +80,7 @@ When you copy a value from the vault, the app uses a protected copy path: the va
 
 ## Recovery Kit
 
-The Recovery Kit is a printable summary generated from what you've saved: contacts, instructions, and *locations* — it is deliberately structured so it never includes secret values, even in secrets mode. It's the document your family starts from.
+The Recovery Kit is a printable summary generated from what you've saved: contacts, instructions, and *locations* — it is deliberately structured so it never includes password values, even when you store passwords. It's the document your family starts from.
 
 Save the Kit from its page in the sidebar. If you later change any information the Kit draws on, the sidebar shows a **"Kit out of date"** badge until you regenerate it.
 
@@ -99,7 +99,7 @@ A good habit: create a fresh backup whenever the Recovery Kit badge reminds you 
 
 ## Changing What the Vault Stores
 
-You can switch between "locations only" and "store the actual secrets" at any time from the bottom of the sidebar. The app asks you to confirm, then rebuilds the forms for the new mode.
+You can switch between "locations only" and "store the actual passwords" at any time from **Settings** (sidebar) → **Vault options**, where this choice sits alongside the other form options — the same choice you're asked during the setup wizard. The app asks you to confirm, then rebuilds the forms for the new mode.
 
 **Nothing you've entered is deleted.** If a field doesn't exist in the new mode (for example, a stored master password after switching to locations-only), its value moves to **Archived answers**, visible at the bottom of the section — never silently discarded. If you've customized your forms, the customizations are replaced by the standard forms for the new mode (your data is kept).
 
