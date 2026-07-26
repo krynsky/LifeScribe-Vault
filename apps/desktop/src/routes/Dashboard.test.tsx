@@ -849,7 +849,7 @@ describe("Dashboard Settings page", () => {
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Mark Estate");
   });
 
-  it("a save failure while applying options surfaces the common save-error banner", async () => {
+  it("keeps the Settings page open with an inline error when the apply save fails", async () => {
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {
         profile: {
@@ -876,13 +876,11 @@ describe("Dashboard Settings page", () => {
     await user.click(screen.getByRole("button", { name: /apply changes/i }));
     await user.click(screen.getByRole("button", { name: /^confirm/i }));
 
-    // applyModuleSelections saves through the shared persist path, which swallows
-    // the failure (returns false) and surfaces the common save-error banner on the
-    // dashboard; the Settings page closes.
-    expect(
-      await screen.findByText("Your changes could not be saved. Please try again."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Settings" })).not.toBeInTheDocument();
+    // applyModuleSelections returns false on a failed persist; the onApply wrapper
+    // throws so VaultOptions surfaces its inline, retryable error and the Settings
+    // page stays open. (No compose error here, so the only alert is the inline one.)
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be saved/i);
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
   });
 });
 

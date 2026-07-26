@@ -520,11 +520,11 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
    * committed save. customPack is cleared so the vault rebuilds from the base
    * pack composed with the new selections.
    */
-  async function applyModuleSelections(next: Record<string, string>) {
-    if (!loaded) return;
+  async function applyModuleSelections(next: Record<string, string>): Promise<boolean> {
+    if (!loaded) return false;
     const current = loaded.vault.profile.moduleSelections;
     const unchanged = Object.keys({ ...current, ...next }).every((k) => current[k] === next[k]);
-    if (unchanged) return;
+    if (unchanged) return true;
     // Best-effort: stamp the base pack id; if the pack can't be loaded the id
     // is dropped and the post-reload save re-stamps it.
     let nextBasePackId: string | undefined;
@@ -557,6 +557,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
       setPhase("loading");
       setLoadKey((k) => k + 1);
     }
+    return ok;
   }
 
   function sectionWorkingValues(sectionKey: string): SectionValues {
@@ -891,8 +892,15 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
       <SettingsPage
         selections={loaded.vault.profile.moduleSelections}
         onApply={async (next) => {
-          await applyModuleSelections(next);
-          setShowSettings(false);
+          const ok = await applyModuleSelections(next);
+          if (ok) {
+            setShowSettings(false);
+          } else {
+            // Keep the user on Settings; VaultOptions catches this and shows its
+            // inline, retryable error. (persist also set the dashboard banner
+            // underneath, visible if they later go Back.)
+            throw new Error("Your changes could not be saved. Please try again.");
+          }
         }}
         onBack={() => setShowSettings(false)}
       />
