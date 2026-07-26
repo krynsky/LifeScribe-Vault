@@ -1579,7 +1579,7 @@ button {
   color: var(--color-ink-tertiary);
 }
 
-/* --- Modal dialog (confirm form-detail switch) ------------------------------ */
+/* --- Modal dialog (attachment open/replace confirmations) ------------------- */
 
 .modal {
   position: fixed;

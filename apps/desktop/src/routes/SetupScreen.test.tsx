@@ -8,9 +8,9 @@ const PW = "correct horse battery staple";
 
 // The secrets module's non-default ("on") option label is read from the real
 // bundled pack rather than hard-coded, so these tests assert the true behavior
-// (secrets set to "on") regardless of the exact copy — which is reworded in a
-// later task. `secretsOnLabel` is that label; matching it selects the option
-// that flips secrets on without depending on not-yet-changed wording.
+// (secrets set to "on") regardless of the exact copy. `secretsOnLabel` is that
+// label; matching it selects the option that flips secrets on without coupling
+// the test to the module's display wording.
 let secretsOnLabel = "";
 
 beforeAll(async () => {
