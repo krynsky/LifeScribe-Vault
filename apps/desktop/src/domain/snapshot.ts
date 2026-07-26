@@ -46,11 +46,16 @@ export type FormMode = "hint" | "credential";
 export interface VaultProfile {
   ownerName: string;
   reviewCadenceMonths: number;
+  /**
+   * Legacy back-compat field, kept loosely synced to `moduleSelections.secrets`
+   * on read. `moduleSelections` is the source of truth; nothing reads `formMode`
+   * for behavior. A snapshot with only a legacy `formMode` (no `moduleSelections`)
+   * has its selections derived from it on read.
+   */
   formMode: FormMode;
   /**
-   * moduleId -> selected optionId for composable form modules. Seeded from the
-   * legacy `formMode` on read when absent. `formMode` is retained for now and
-   * removed in a later change once onboarding/switch UI drives selections.
+   * moduleId -> selected optionId for composable form modules — the source of
+   * truth for composition. Derived from a legacy `formMode` on read when absent.
    */
   moduleSelections: Record<string, string>;
   /**
