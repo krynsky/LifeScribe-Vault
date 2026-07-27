@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -17,7 +16,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   addSectionToTarget,
-  removeSectionInTarget,
   renameSectionInTarget,
   type EditTarget,
 } from "../src/creator/editorEdits";
@@ -134,10 +132,8 @@ interface RowProps {
   active: boolean;
   editable: boolean;
   reorderable: boolean;
-  showRemove: boolean;
   onSelect: (sectionKey: string) => void;
   onRename: (sectionKey: string, title: string) => void;
-  onRemove: (sectionKey: string) => void;
 }
 
 function SectionRow({
@@ -147,10 +143,8 @@ function SectionRow({
   active,
   editable,
   reorderable,
-  showRemove,
   onSelect,
   onRename,
-  onRemove,
 }: RowProps) {
   // useSortable's `disabled` shorthand only disables DRAGGING when passed a
   // plain boolean (droppable stays enabled for backwards compatibility), so a
@@ -166,11 +160,6 @@ function SectionRow({
     opacity: isDragging ? 0.5 : undefined,
   };
   const layer = layerOf(section.source, activeTarget);
-  const [confirming, setConfirming] = useState(false);
-  const removeLabel =
-    activeTarget.kind === "module"
-      ? `${section.title} in this option`
-      : `section ${section.title}`;
 
   return (
     <li
@@ -207,37 +196,6 @@ function SectionRow({
       {section.source.kind !== "base" ? (
         <span className="section-nav__from">{`from ${ownerLabel(section.source, base)}`}</span>
       ) : null}
-      {showRemove ? (
-        confirming ? (
-          <span className="section-nav__confirm">
-            <button
-              type="button"
-              className="button button--ghost button--small"
-              aria-label={`Cancel removing ${removeLabel}`}
-              onClick={() => setConfirming(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="button button--ghost button--small confirm-remove"
-              aria-label={`Confirm remove ${removeLabel}`}
-              onClick={() => onRemove(section.sectionKey)}
-            >
-              Remove
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            className="button button--ghost button--small"
-            aria-label={`Remove ${removeLabel}`}
-            onClick={() => setConfirming(true)}
-          >
-            ✕
-          </button>
-        )
-      ) : null}
     </li>
   );
 }
@@ -266,10 +224,6 @@ export function SectionNav({
     onChangeBase(renameSectionInTarget(base, activeTarget, sectionKey, title));
   }
 
-  function handleRemove(sectionKey: string) {
-    onChangeBase(removeSectionInTarget(base, activeTarget, sectionKey));
-  }
-
   function handleAdd() {
     const existingKeys = new Set(view.sections.map((s) => s.sectionKey));
     const order = maxOrder(view.sections) + 1;
@@ -287,15 +241,6 @@ export function SectionNav({
               const owner = isActiveOwner(section.source, activeTarget);
               const reorderable = section.source.kind === "base" && !section.removed;
               const editable = owner && !section.removed;
-              // removeSectionInTarget's module branch just records a
-              // removeSectionKeys entry — it never silently no-ops, regardless
-              // of which layer the section came from, so any row is
-              // actionable while a module option is active. Its base branch
-              // only mutates base.sections, so with the base target active,
-              // Remove is only actionable for sections the base target
-              // actually owns.
-              const removalActionable = activeTarget.kind === "module" || owner;
-              const showRemove = !section.removed && removalActionable;
               return (
                 <SectionRow
                   key={section.sectionKey}
@@ -305,10 +250,8 @@ export function SectionNav({
                   active={section.sectionKey === activeSection}
                   editable={editable}
                   reorderable={reorderable}
-                  showRemove={showRemove}
                   onSelect={onSelectSection}
                   onRename={handleRename}
-                  onRemove={handleRemove}
                 />
               );
             })}

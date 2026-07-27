@@ -724,12 +724,14 @@ describe("PackEditorApp", () => {
       const select = await screen.findByLabelText(/view selection for password manager/i);
       await userEvent.selectOptions(select, "on");
 
-      // Two-step confirm before the removal takes effect.
+      // Select contacts in the nav (base section, module target active → locked panel + remove button).
+      await userEvent.click(await screen.findByLabelText(/rename section: contacts/i));
+      // Two-step confirm in the right pane.
       await userEvent.click(
-        await screen.findByRole("button", { name: /^remove contacts in this option/i }),
+        await screen.findByRole("button", { name: /^remove section contacts/i }),
       );
       await userEvent.click(
-        screen.getByRole("button", { name: /^confirm remove contacts in this option/i }),
+        screen.getByRole("button", { name: /^confirm remove section contacts/i }),
       );
 
       const contactsRow = (await screen.findByLabelText(/rename section: contacts/i)).closest(
@@ -751,10 +753,13 @@ describe("PackEditorApp", () => {
 
     it("cancelling a section remove keeps the section", async () => {
       render(<PackEditorApp />);
-      // Base target active by default; back out of removing a base section.
-      await userEvent.click(await screen.findByRole("button", { name: /^remove section contacts/i }));
+      // Base target active by default; select contacts then back out of removing it.
+      await userEvent.click(await screen.findByLabelText(/rename section: contacts/i));
       await userEvent.click(
-        screen.getByRole("button", { name: /^cancel removing section contacts/i }),
+        await screen.findByRole("button", { name: /^remove section contacts/i }),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /^cancel remove section contacts/i }),
       );
 
       const contactsRow = (await screen.findByLabelText(/rename section: contacts/i)).closest(
@@ -808,11 +813,13 @@ describe("PackEditorApp", () => {
       const select = await screen.findByLabelText(/view selection for password manager/i);
       await userEvent.selectOptions(select, "on");
 
+      // Select the wallet section (module-added, owned by this option) in the nav.
+      await userEvent.click(await screen.findByLabelText(/rename section: wallet/i));
       await userEvent.click(
-        await screen.findByRole("button", { name: /^remove wallet in this option/i }),
+        await screen.findByRole("button", { name: /^remove section wallet/i }),
       );
       await userEvent.click(
-        screen.getByRole("button", { name: /^confirm remove wallet in this option/i }),
+        screen.getByRole("button", { name: /^confirm remove section wallet/i }),
       );
 
       expect(screen.queryByLabelText(/rename section: wallet/i)).not.toBeInTheDocument();

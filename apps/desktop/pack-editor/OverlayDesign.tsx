@@ -16,9 +16,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
 import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
+import { useState } from "react";
 import {
   addFieldToTarget,
   removeInTarget,
+  removeSectionInTarget,
   updateFieldInTarget,
   updateSectionInTarget,
   type EditTarget,
@@ -216,6 +218,48 @@ function FieldRow({
   );
 }
 
+/** Two-step remove button for sections that are locked (not owned by the active
+ *  target) but still removable — e.g. a base section while a module option is
+ *  active. Mirrors SectionPropertyPanel's confirm UI without the property fields. */
+function LockedSectionRemoveButton({ title, onRemove }: { title: string; onRemove: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  if (confirming) {
+    return (
+      <div className="module-panel__confirm" role="alert">
+        <p>Remove section <strong>{title}</strong>? This cannot be undone until you close the editor without saving.</p>
+        <div className="module-panel__confirm-actions">
+          <button
+            type="button"
+            className="button button--ghost button--small"
+            aria-label={`Cancel remove section ${title}`}
+            onClick={() => setConfirming(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="button button--small module-panel__delete"
+            aria-label={`Confirm remove section ${title}`}
+            onClick={onRemove}
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="button button--ghost button--small module-panel__delete"
+      aria-label={`Remove section ${title}`}
+      onClick={() => setConfirming(true)}
+    >
+      Remove section
+    </button>
+  );
+}
+
 export function OverlayDesign({
   base,
   view,
@@ -235,6 +279,13 @@ export function OverlayDesign({
   // active section itself — gated by the same ownership rule as fields, so an
   // enabled panel is never a dead end for a section this target doesn't own.
   const sectionEditable = isActiveOwner(viewSection.source, activeTarget) && !viewSection.removed;
+  // removeSectionInTarget's module branch just records a removeSectionKeys
+  // entry regardless of which layer the section came from, so any section is
+  // removable while a module option is active. Its base branch only mutates
+  // base.sections, so remove is only actionable for sections the base target
+  // actually owns.
+  const sectionRemovable =
+    !viewSection.removed && (activeTarget.kind === "module" || sectionEditable);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -245,6 +296,10 @@ export function OverlayDesign({
     onChangeBase(
       updateSectionInTarget(base, activeTarget, viewSection.sectionKey, (s) => ({ ...s, ...patch })),
     );
+  }
+
+  function handleRemoveSection() {
+    onChangeBase(removeSectionInTarget(base, activeTarget, viewSection.sectionKey));
   }
 
   function handleAdd(groupKey: string, type: FieldType) {
@@ -389,6 +444,7 @@ export function OverlayDesign({
         <SectionPropertyPanel
           section={{ title: viewSection.title, lede: viewSection.lede, multiRecord: viewSection.multiRecord }}
           onChange={handleSectionChange}
+          onRemove={sectionRemovable ? handleRemoveSection : undefined}
         />
       ) : (
         <div className="field-panel field-panel--locked" role="note">
@@ -397,6 +453,9 @@ export function OverlayDesign({
               ? "This section has been removed here. It cannot be edited while removed."
               : `This section comes from ${ownerLabel(viewSection.source, base)}. Switch the active target to edit it.`}
           </p>
+          {sectionRemovable ? (
+            <LockedSectionRemoveButton title={viewSection.title} onRemove={handleRemoveSection} />
+          ) : null}
         </div>
       )}
     </div>
