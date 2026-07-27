@@ -852,6 +852,70 @@ describe("Dashboard Settings page", () => {
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Mark Estate");
   });
 
+  it("caps record schemaVersions to the base pack when clearing a higher-versioned customPack", async () => {
+    // Simulates the "schema v4; this app reads up to v1" regression: the user had
+    // a customPack with schemaVersion 4, records were stamped at 4, then they
+    // applied a module settings change which cleared customPack. Without the cap,
+    // the next load would block because records(v4) > basePack(v1).
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        profile: {
+          ownerName: "Mark",
+          reviewCadenceMonths: 12,
+          formMode: "hint",
+          moduleSelections: { secrets: "off" },
+        },
+        customPack: {
+          packId: "custom",
+          packVersion: "4.0.0",
+          schemaVersion: 4,
+          minAppVersion: "0.0.0",
+          migrations: [],
+          sections: [],
+        },
+        values: {
+          [SECTION_KEY]: {
+            sectionKey: SECTION_KEY,
+            records: [
+              {
+                id: "record-1",
+                groupKey: "executor",
+                schemaVersion: 4,
+                values: { executorName: "Mark Estate" },
+              },
+            ],
+            archivedAnswers: [],
+          },
+        },
+      },
+      generation: 7,
+      recovered: false,
+    });
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 8 });
+
+    render(<Dashboard ownerNameHint="Mark" onLocked={vi.fn()} />);
+    await screen.findByText("Welcome, Mark");
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Settings$/ }));
+    await screen.findByRole("heading", { name: "Settings" });
+
+    await user.click(await screen.findByRole("radio", { name: /store the actual passwords/i }));
+    await user.click(screen.getByRole("button", { name: /apply changes/i }));
+    await user.click(screen.getByRole("button", { name: /^confirm/i }));
+
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalledTimes(1);
+    const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
+    const values = (snapshot as Record<string, unknown>).values as Record<
+      string,
+      { records: Array<{ schemaVersion: number; values: Record<string, string> }> }
+    >;
+    // Record must be capped at the base pack's schemaVersion (1), not left at 4.
+    expect(values[SECTION_KEY].records[0].schemaVersion).toBe(1);
+    // User data must be preserved.
+    expect(values[SECTION_KEY].records[0].values.executorName).toBe("Mark Estate");
+  });
+
   it("keeps the Settings page open and shows the save-error banner when the apply save fails", async () => {
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {

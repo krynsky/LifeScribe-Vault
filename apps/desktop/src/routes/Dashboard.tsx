@@ -40,7 +40,11 @@ import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
 import { composePack } from "../domain/composePack";
-import { migrateVaultValues } from "../domain/packMigrations";
+import {
+  capRecordSchemaVersions,
+  migrateVaultValues,
+  SNAPSHOT_SCHEMA_TOO_NEW,
+} from "../domain/packMigrations";
 import { mergePackWithOverlay } from "../domain/packMerge";
 import {
   readinessSummary,
@@ -157,9 +161,20 @@ function buildLoadedVault(
   const merge = mergePackWithOverlay(pack, parsed.overlay, parsed.values);
   let values = applyKeyRenames(parsed.values, merge.keyRenames);
 
-  const migrated = migrateVaultValues(values, pack);
+  let migrated = migrateVaultValues(values, pack);
   if (!migrated.ok) {
-    return { blocked: migrated.error.message };
+    // If records carry a higher schemaVersion than the base pack but there is
+    // no customPack, this was almost certainly caused by a now-cleared
+    // customPack that left its schemaVersion stamp on the records. Cap and
+    // retry so the vault remains accessible. If a customPack IS present, the
+    // block is genuine (an incompatibly newer app wrote those records).
+    if (migrated.error.code === SNAPSHOT_SCHEMA_TOO_NEW && !parsed.customPack) {
+      values = capRecordSchemaVersions(values, pack.schemaVersion);
+      migrated = migrateVaultValues(values, pack);
+    }
+    if (!migrated.ok) {
+      return { blocked: migrated.error.message };
+    }
   }
   values = migrated.values;
 
@@ -525,16 +540,24 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     const current = loaded.vault.profile.moduleSelections;
     const unchanged = Object.keys({ ...current, ...next }).every((k) => current[k] === next[k]);
     if (unchanged) return true;
-    // Best-effort: stamp the base pack id; if the pack can't be loaded the id
-    // is dropped and the post-reload save re-stamps it.
+    // Best-effort: stamp the base pack id and schemaVersion; if the pack can't
+    // be loaded the id is dropped and the post-reload save re-stamps it.
     let nextBasePackId: string | undefined;
+    let baseSchemaVersion = loaded.schemaVersion;
     try {
-      nextBasePackId = (await loadDefaultPack()).packId;
+      const basePack = await loadDefaultPack();
+      nextBasePackId = basePack.packId;
+      baseSchemaVersion = basePack.schemaVersion;
     } catch {
       nextBasePackId = undefined;
     }
+    // Cap records at the base pack's schemaVersion. When the user had a
+    // customPack with a higher schemaVersion, records carry its stamp; without
+    // capping, checkSnapshotReadable would block the next load.
+    const nextValues = capRecordSchemaVersions(loaded.vault.savedValues, baseSchemaVersion);
     const nextLoaded: LoadedVault = {
       ...loaded,
+      schemaVersion: baseSchemaVersion,
       vault: {
         ...loaded.vault,
         profile: {
@@ -548,7 +571,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     };
     const ok = await persist(
       nextLoaded,
-      loaded.vault.savedValues,
+      nextValues,
       loaded.vault.sectionMeta,
       null,
     );
