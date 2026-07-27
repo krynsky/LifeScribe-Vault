@@ -768,18 +768,21 @@ describe("Dashboard module selections — credential pack on load", () => {
 });
 
 describe("Dashboard Settings page", () => {
-  it("opens the Settings page from the sidebar and Back returns to the dashboard", async () => {
+  it("shows Settings in the main pane with the sidebar nav intact, and a section returns to the dashboard", async () => {
     renderDashboard();
     await screen.findByText("Welcome, Dana");
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: /^Settings$/ }));
 
+    // Settings renders in the right pane...
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
     expect(await screen.findByText("Vault options")).toBeInTheDocument();
+    // ...while the left navigation stays put (a guided-checklist section is still there).
+    expect(sidebarSectionButton()).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /^← Back$/ }));
-    expect(await screen.findByText("Welcome, Dana")).toBeInTheDocument();
+    // Navigating to a section from the sidebar leaves Settings.
+    await user.click(sidebarSectionButton());
     expect(screen.queryByRole("heading", { name: "Settings" })).not.toBeInTheDocument();
   });
 
@@ -849,7 +852,7 @@ describe("Dashboard Settings page", () => {
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Mark Estate");
   });
 
-  it("keeps the Settings page open with an inline error when the apply save fails", async () => {
+  it("keeps the Settings page open and shows the save-error banner when the apply save fails", async () => {
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {
         profile: {
@@ -876,11 +879,12 @@ describe("Dashboard Settings page", () => {
     await user.click(screen.getByRole("button", { name: /apply changes/i }));
     await user.click(screen.getByRole("button", { name: /^confirm/i }));
 
-    // applyModuleSelections returns false on a failed persist; the onApply wrapper
-    // throws so VaultOptions surfaces its inline, retryable error and the Settings
-    // page stays open. (No compose error here, so the only alert is the inline one.)
-    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be saved/i);
+    // A failed persist leaves the route on "settings" (no reload), so the Settings
+    // pane stays open, and the shared save-error banner — rendered above the pane —
+    // reports the failure. The confirm dialog closes so the user can retry.
+    expect(await screen.findByText(/could not be saved/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /apply changes/i })).toBeInTheDocument();
   });
 });
 

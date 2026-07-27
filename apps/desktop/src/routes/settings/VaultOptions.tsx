@@ -17,7 +17,6 @@ export function VaultOptions({ base, selections, onApply }: VaultOptionsProps) {
   const [working, setWorking] = useState<Record<string, string>>(selections);
   const [confirming, setConfirming] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [applyError, setApplyError] = useState("");
   const { error } = useComposedPreview(base, working);
 
   const dirty = modules.some(
@@ -36,11 +35,11 @@ export function VaultOptions({ base, selections, onApply }: VaultOptionsProps) {
   async function handleApply() {
     setApplying(true);
     try {
+      // The caller reports failures via the dashboard's shared save-error banner
+      // (visible above this pane) and leaves the user here to retry; on success
+      // it reloads and this component remounts with the new selections.
       await onApply(working);
       setConfirming(false);
-      setApplyError("");
-    } catch (caught) {
-      setApplyError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setApplying(false);
     }
@@ -66,11 +65,6 @@ export function VaultOptions({ base, selections, onApply }: VaultOptionsProps) {
       {confirming ? (
         <div className="settings-confirm" role="alertdialog" aria-label="Confirm vault options change">
           <p>Rebuild your forms with these options? Entered data is kept; custom form edits are replaced.</p>
-          {applyError ? (
-            <p className="form-error" role="alert">
-              {applyError}
-            </p>
-          ) : null}
           <div className="settings-confirm__actions">
             <button type="button" className="button button--ghost button--small" onClick={() => setConfirming(false)}>
               Cancel

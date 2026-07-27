@@ -89,7 +89,8 @@ type Route =
   | { kind: "welcome" }
   | { kind: "section"; sectionKey: string }
   | { kind: "recovery-kit" }
-  | { kind: "backup" };
+  | { kind: "backup" }
+  | { kind: "settings" };
 
 interface VaultState {
   generation: number;
@@ -222,7 +223,6 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
   const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
   const [packEditError, setPackEditError] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -887,26 +887,6 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     );
   }
 
-  if (showSettings) {
-    return (
-      <SettingsPage
-        selections={loaded.vault.profile.moduleSelections}
-        onApply={async (next) => {
-          const ok = await applyModuleSelections(next);
-          if (ok) {
-            setShowSettings(false);
-          } else {
-            // Keep the user on Settings; VaultOptions catches this and shows its
-            // inline, retryable error. (persist also set the dashboard banner
-            // underneath, visible if they later go Back.)
-            throw new Error("Your changes could not be saved. Please try again.");
-          }
-        }}
-        onBack={() => setShowSettings(false)}
-      />
-    );
-  }
-
   const now = new Date();
   const cadence = loaded.vault.profile.reviewCadenceMonths;
   const orderedSections = [...loaded.sections].sort((a, b) => a.order - b.order);
@@ -1032,9 +1012,14 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
           </li>
           <li>
             <button
-              className="sidebar__item"
+              aria-current={route.kind === "settings" ? "page" : undefined}
+              className={
+                route.kind === "settings"
+                  ? "sidebar__item sidebar__item--active"
+                  : "sidebar__item"
+              }
               type="button"
-              onClick={() => setShowSettings(true)}
+              onClick={() => setRoute({ kind: "settings" })}
             >
               <span className="sidebar__item-title">Settings</span>
             </button>
@@ -1316,6 +1301,19 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     );
   } else if (route.kind === "backup") {
     content = <BackupPage />;
+  } else if (route.kind === "settings") {
+    content = (
+      <SettingsPage
+        selections={loaded.vault.profile.moduleSelections}
+        onApply={async (next) => {
+          // On failure applyModuleSelections leaves the vault unchanged and the
+          // shared save-error banner set (rendered above this pane), and the
+          // route stays "settings" so the user can retry. On success it reloads
+          // and the Settings pane remounts with the new selections.
+          await applyModuleSelections(next);
+        }}
+      />
+    );
   }
 
   if (!content) {

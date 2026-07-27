@@ -37,17 +37,6 @@ describe("VaultOptions", () => {
     expect(onApply).toHaveBeenCalledWith({ secrets: "off", "file-method": "attach" });
   });
 
-  it("surfaces an error and keeps the dialog open when onApply rejects", async () => {
-    const onApply = vi.fn().mockRejectedValue(new Error("save failed"));
-    render(<VaultOptions base={packWithTwoModules()} selections={{ secrets: "off", "file-method": "path" }} onApply={onApply} />);
-    await userEvent.click(screen.getByRole("radio", { name: /attach files/i }));
-    await userEvent.click(screen.getByRole("button", { name: /apply changes/i }));
-    await userEvent.click(screen.getByRole("button", { name: /^confirm/i }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/save failed/i);
-    // dialog stays open (Confirm still present) so the user can retry
-    expect(screen.getByRole("button", { name: /^confirm/i })).toBeInTheDocument();
-  });
-
   it("shows an empty state when the pack has no modules", () => {
     const noModules: FormPack = { ...packWithTwoModules(), modules: [] };
     render(<VaultOptions base={noModules} selections={{}} onApply={vi.fn()} />);
