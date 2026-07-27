@@ -755,7 +755,7 @@
     },
     {
       "sectionKey": "online-accounts",
-      "title": "Online Accounts & Domains",
+      "title": "Online Accounts",
       "lede": "Email, cloud storage, social profiles, domain names, creator and business accounts — each one is something your family may need to keep alive, hand off, or close with dignity. List what exists and what you'd like done, so nothing important quietly expires or lingers.",
       "multiRecord": true,
       "order": 7,
