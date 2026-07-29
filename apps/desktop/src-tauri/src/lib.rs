@@ -7,6 +7,7 @@ pub mod draft_stash;
 pub mod error;
 pub mod pack_resources;
 pub mod repository;
+pub mod vault_location;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -68,4 +69,6 @@ mod tests {
     mod snapshot_tests;
     #[path = "vault_lifecycle_tests.rs"]
     mod vault_lifecycle_tests;
+    #[path = "vault_location_tests.rs"]
+    mod vault_location_tests;
 }
