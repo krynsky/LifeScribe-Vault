@@ -205,6 +205,39 @@ describe("App", () => {
     expect(screen.queryByText(/old copies could not be removed/i)).not.toBeInTheDocument();
   });
 
+  it("an unreachable vault folder outranks every other status", async () => {
+    // vaultExists is true, so without the availability check this would route to
+    // the locked screen; if the backend had fallen back to the default folder it
+    // would route to first-run setup. Neither is acceptable — name the folder.
+    const AWAY = "E:\\Vault";
+    mocked.getVaultStatus
+      .mockResolvedValueOnce({ unlocked: false, vaultExists: true, vaultDir: AWAY, vaultDirAvailable: false })
+      .mockResolvedValueOnce({ unlocked: false, vaultExists: true, vaultDir: AWAY, vaultDirAvailable: true });
+    render(<App />);
+
+    expect(await screen.findByText("Your vault folder can't be reached")).toBeInTheDocument();
+    expect(screen.getByText(AWAY)).toBeInTheDocument();
+    expect(screen.queryByText("Vault locked")).not.toBeInTheDocument();
+    expect(screen.queryByText("Let's set up your vault")).not.toBeInTheDocument();
+
+    // Drive reconnected: Retry re-checks and hands off to unlock.
+    await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Vault locked")).toBeInTheDocument();
+  });
+
+  it("an unlocked vault whose folder vanished still shows the recovery screen", async () => {
+    mocked.getVaultStatus.mockResolvedValue({
+      unlocked: true,
+      vaultExists: true,
+      vaultDir: "E:\\Vault",
+      vaultDirAvailable: false,
+    });
+    render(<App />);
+
+    expect(await screen.findByText("Your vault folder can't be reached")).toBeInTheDocument();
+    expect(screen.queryByText(/Welcome/)).not.toBeInTheDocument();
+  });
+
   it("surfaces a status error with a retry", async () => {
     mocked.getVaultStatus
       .mockRejectedValueOnce("StorageError")
