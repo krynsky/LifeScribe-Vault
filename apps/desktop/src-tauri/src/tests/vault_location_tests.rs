@@ -61,7 +61,8 @@ fn vault_file_in_appends_the_database_name() {
 }
 
 use crate::commands::{
-    create_vault_at_path, get_status_for_session, set_vault_location_for_session, VaultSession,
+    create_vault_at_path, get_status_for_session, relocate_vault_for_session,
+    set_vault_location_for_session, VaultSession,
 };
 use crate::error::command_error_code;
 
@@ -379,6 +380,44 @@ fn set_location_refuses_while_unlocked() {
     assert!(session.is_unlocked(), "create leaves the session unlocked");
 
     let error = set_vault_location_for_session(&mut session, target.path()).unwrap_err();
+
+    assert_eq!(command_error_code(error), "VaultLocked");
+    assert_eq!(session.vault_path, vault_path, "session must not be repointed");
+}
+
+#[test]
+fn relocate_command_moves_the_vault_and_repoints_the_session() {
+    let home = tempdir().unwrap();
+    let target_root = tempdir().unwrap();
+    let target = target_root.path().join("moved");
+    seed_vault(home.path());
+    let mut session =
+        VaultSession::with_config_dir(vault_file_in(home.path()), home.path().to_path_buf());
+
+    let response = relocate_vault_for_session(&mut session, &target).unwrap();
+
+    assert_eq!(response.vault_dir, target.to_string_lossy());
+    assert!(response.originals_removed);
+    assert_eq!(session.vault_path, vault_file_in(&target));
+    let stored = read_location(home.path()).expect("pointer must be written");
+    assert_eq!(
+        fs::canonicalize(&stored).unwrap(),
+        fs::canonicalize(&target).unwrap(),
+        "pointer must name the destination",
+    );
+    assert!(vault_file_in(&target).exists());
+}
+
+#[test]
+fn relocate_command_refuses_while_unlocked() {
+    let home = tempdir().unwrap();
+    let target = tempdir().unwrap();
+    let vault_path = vault_file_in(home.path());
+    let mut session =
+        VaultSession::with_config_dir(vault_path.clone(), home.path().to_path_buf());
+    create_vault_at_path(&vault_path, &mut session, PASSWORD, "Owner").unwrap();
+
+    let error = relocate_vault_for_session(&mut session, target.path()).unwrap_err();
 
     assert_eq!(command_error_code(error), "VaultLocked");
     assert_eq!(session.vault_path, vault_path, "session must not be repointed");

@@ -31,6 +31,7 @@ pub fn run() {
             commands::unlock_vault,
             commands::lock_vault,
             commands::set_vault_location,
+            commands::relocate_vault,
             commands::save_vault_snapshot,
             commands::load_vault_snapshot,
             commands::stash_draft,

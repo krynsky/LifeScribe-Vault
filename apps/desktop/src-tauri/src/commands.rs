@@ -424,6 +424,53 @@ pub fn set_vault_location(
     set_vault_location_for_session(&mut session, Path::new(&dir)).map_err(command_error_code)
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RelocateResponse {
+    pub vault_dir: String,
+    /// False when the old copies could not be deleted (Windows may hold files
+    /// open). Not an error: the move is already committed. The UI states that
+    /// the originals remain, rather than silently leaving a second copy of
+    /// vault data behind.
+    pub originals_removed: bool,
+}
+
+/// Move the vault's data files to `dir` and repoint the session.
+///
+/// Requires a LOCKED vault: copying a database with a save in flight is not
+/// worth the risk, and the caller (Settings) locks first. Because vault files
+/// are encrypted at rest, this never needs the master password.
+pub fn relocate_vault_for_session(
+    session: &mut VaultSession,
+    dir: &Path,
+) -> VaultResult<RelocateResponse> {
+    if session.is_unlocked() {
+        return Err(VaultError::Locked);
+    }
+    let from_dir = session
+        .vault_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| VaultError::FileOperation("vault path has no parent".to_string()))?;
+    let config_dir = session.config_dir.clone();
+
+    let originals_removed = crate::vault_location::relocate(&config_dir, &from_dir, dir)?;
+    session.vault_path = crate::vault_location::vault_file_in(dir);
+
+    Ok(RelocateResponse {
+        vault_dir: dir.to_string_lossy().into_owned(),
+        originals_removed,
+    })
+}
+
+#[tauri::command]
+pub fn relocate_vault(
+    dir: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<RelocateResponse, String> {
+    let mut session = lock_state(&session)?;
+    relocate_vault_for_session(&mut session, Path::new(&dir)).map_err(command_error_code)
+}
 
 #[tauri::command]
 pub fn save_vault_snapshot(
