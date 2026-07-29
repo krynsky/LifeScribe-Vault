@@ -10,7 +10,10 @@ Everything stays on your computer. There is no cloud account, no sync, and no co
 
 ### 1. Create your vault
 
-The first time you open the app you'll be asked for:
+The first time you open the app you'll be asked where the vault should live —
+the default folder is fine for most people, and you can change it later (see
+[Where your vault is stored](#where-your-vault-is-stored)). Then you'll be
+asked for:
 
 - **Your name** — used to personalize the app and your Recovery Kit.
 - **A master password** — at least 15 characters. A passphrase of a few unrelated words (like `correct horse battery staple`, but your own) is strong and easy to remember. Pasting from a password manager works too.
@@ -88,12 +91,62 @@ Save the Kit from its page in the sidebar. If you later change any information t
 
 ## Backups
 
-Your vault lives only on this computer — **you are responsible for backups**, and the app makes that easy:
+Your vault lives in one folder you control and nowhere else — **you are responsible for backups**, and the app makes that easy:
 
 - **Create a backup** (Backup page): produces a single `.lsvbackup` file containing your entire vault and all attachments, encrypted with your master password. Store it anywhere — an external drive, a USB stick in a safe, even cloud storage — the file is useless without the password.
 - **Restore a backup**: enter the password that was in effect *when the backup was made*. Before anything is replaced, the app makes a safety copy of your current vault and tells you where it is; the safety copy is cleaned up automatically after your next successful unlock.
 
 A good habit: create a fresh backup whenever the Recovery Kit badge reminds you something changed.
+
+---
+
+## Where Your Vault Is Stored
+
+During setup you choose the folder that holds your vault. The default is a
+private application folder on this computer, which is right for most people.
+You might choose your own folder to keep the vault on an external drive, or in
+a folder you already back up.
+
+Whatever you choose holds everything: the encrypted vault file, all encrypted
+attachments, and the app's own working files such as stashed drafts and safety
+copies.
+
+### Changing the folder later
+
+**Settings → Vault location → Move vault…**
+
+Choosing a new folder **locks the vault**, so you'll enter your master password
+again afterwards. This is deliberate: it guarantees nothing is being written
+while your files are copied.
+
+The move is careful about ordering. Your files are copied to the new folder and
+checked there first; only once that succeeds does the app start using the new
+location and remove the old copies. If the app closes partway through, one
+complete copy always remains.
+
+If the old copies can't be removed — usually because another program has a file
+open — the app tells you so, so you can delete the old folder's contents
+yourself.
+
+If the move fails, nothing changes: your vault still lives where it did, and
+the app says so.
+
+### If the folder isn't available
+
+If your vault is on an external drive and you open the app without it
+connected, you'll see "Your vault folder can't be reached", showing the folder
+it's looking for. Reconnect the drive and choose **Retry**, or use **Choose
+folder** if you've moved the vault yourself.
+
+**Nothing is deleted in this state**, and the app will not create a new empty
+vault behind your back.
+
+### Moving to a new computer
+
+Choosing a folder that already contains a LifeScribe vault opens that vault
+rather than replacing it — during setup you'll be sent to the unlock screen
+instead. Restoring from a backup remains the recommended path for moving to a
+new machine.
 
 ---
 
@@ -129,10 +182,13 @@ A few fields are **protected** because the Recovery Kit and readiness tracking d
 ## Frequently Asked Questions
 
 **Where is my data stored?**
-In an encrypted database file (plus encrypted attachment files) in the app's data folder on this computer. The files are unreadable without your master password.
+In an encrypted database file (plus encrypted attachment files) in the folder you chose during setup — by default a private application folder on this computer. Settings → Vault location shows the exact path, and lets you change it. The files are unreadable without your master password.
+
+**Can I keep my vault on an external drive?**
+Yes. Choose that folder during setup, or move it later from Settings → Vault location. When the drive isn't connected the app says so plainly instead of starting a new vault.
 
 **Can I move my vault to a new computer?**
-Yes — create a backup, install LifeScribe Vault on the new machine, and restore the `.lsvbackup` file.
+Yes — create a backup, install LifeScribe Vault on the new machine, and restore the `.lsvbackup` file. Moving the vault folder is for relocating it on the *same* computer (or onto a drive attached to it), not for migrating machines.
 
 **What happens if the app crashes while saving?**
 Saves are atomic and the previous few saved versions are retained. If the newest save is ever unreadable, the app automatically recovers the most recent good one and tells you so.
