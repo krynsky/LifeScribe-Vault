@@ -387,6 +387,44 @@ pub fn lock_vault(session: State<'_, SharedVaultSession>) -> Result<VaultStatusR
     lock_session(&mut session).map_err(command_error_code)
 }
 
+/// Point the session at a different vault directory WITHOUT moving any data.
+///
+/// Refuses while unlocked — satisfiable at both call sites, since onboarding
+/// has no vault yet and the unavailable-folder recovery screen precedes
+/// unlock. The returned status carries `vault_exists`, so the caller can route
+/// to the unlock screen when the chosen folder already holds a vault; that
+/// makes accidental overwrite structurally impossible.
+pub fn set_vault_location_for_session(
+    session: &mut VaultSession,
+    dir: &Path,
+) -> VaultResult<VaultStatusResponse> {
+    if session.is_unlocked() {
+        return Err(VaultError::Locked);
+    }
+    std::fs::create_dir_all(dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+
+    // Probe writability rather than trusting the path: a read-only or
+    // disconnected location must fail here, not at the first save.
+    let probe = dir.join(".lifescribe-write-probe");
+    std::fs::write(&probe, b"probe").map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let _ = std::fs::remove_file(&probe);
+
+    let config_dir = session.config_dir.clone();
+    crate::vault_location::write_location(&config_dir, dir)?;
+    session.vault_path = crate::vault_location::vault_file_in(dir);
+    Ok(get_status_for_session(session))
+}
+
+#[tauri::command]
+pub fn set_vault_location(
+    dir: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<VaultStatusResponse, String> {
+    let mut session = lock_state(&session)?;
+    set_vault_location_for_session(&mut session, Path::new(&dir)).map_err(command_error_code)
+}
+
+
 #[tauri::command]
 pub fn save_vault_snapshot(
     snapshot: Value,

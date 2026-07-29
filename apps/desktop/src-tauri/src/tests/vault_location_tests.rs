@@ -60,7 +60,9 @@ fn vault_file_in_appends_the_database_name() {
     assert_eq!(vault_file_in(dir.path()), dir.path().join("vault.sqlite3"));
 }
 
-use crate::commands::{create_vault_at_path, get_status_for_session, VaultSession};
+use crate::commands::{
+    create_vault_at_path, get_status_for_session, set_vault_location_for_session, VaultSession,
+};
 use crate::error::command_error_code;
 
 const PASSWORD: &str = "test-master-password-relocate";
@@ -333,4 +335,51 @@ fn moved_database_still_contains_no_plaintext() {
     let haystack = String::from_utf8_lossy(&bytes);
     assert!(!haystack.contains(PASSWORD), "password must never appear in the file");
     assert!(!haystack.contains("Owner"), "owner name must never appear in the file");
+}
+
+#[test]
+fn set_location_creates_the_directory_writes_the_pointer_and_repoints_the_session() {
+    let config = tempdir().unwrap();
+    let target_root = tempdir().unwrap();
+    let target = target_root.path().join("new-home");
+    let mut session =
+        VaultSession::with_config_dir(vault_file_in(config.path()), config.path().to_path_buf());
+
+    let status = set_vault_location_for_session(&mut session, &target).unwrap();
+
+    assert!(target.is_dir(), "the directory is created when absent");
+    assert_eq!(read_location(config.path()), Some(target.clone()));
+    assert_eq!(session.vault_path, vault_file_in(&target));
+    assert!(!status.vault_exists, "an empty folder holds no vault");
+    assert!(status.vault_dir_available);
+}
+
+#[test]
+fn set_location_reports_an_existing_vault_so_the_ui_can_offer_unlock() {
+    let config = tempdir().unwrap();
+    let target = tempdir().unwrap();
+    seed_vault(target.path());
+    let mut session =
+        VaultSession::with_config_dir(vault_file_in(config.path()), config.path().to_path_buf());
+
+    let status = set_vault_location_for_session(&mut session, target.path()).unwrap();
+
+    assert!(status.vault_exists, "the caller routes to unlock on this");
+    assert!(!status.unlocked);
+}
+
+#[test]
+fn set_location_refuses_while_unlocked() {
+    let config = tempdir().unwrap();
+    let target = tempdir().unwrap();
+    let vault_path = vault_file_in(config.path());
+    let mut session =
+        VaultSession::with_config_dir(vault_path.clone(), config.path().to_path_buf());
+    create_vault_at_path(&vault_path, &mut session, PASSWORD, "Owner").unwrap();
+    assert!(session.is_unlocked(), "create leaves the session unlocked");
+
+    let error = set_vault_location_for_session(&mut session, target.path()).unwrap_err();
+
+    assert_eq!(command_error_code(error), "VaultLocked");
+    assert_eq!(session.vault_path, vault_path, "session must not be repointed");
 }
