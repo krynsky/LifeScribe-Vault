@@ -9,6 +9,12 @@
 //! The pointer cannot live inside the vault (it is needed to find the vault),
 //! so it lives in `config_dir`. A missing OR unparseable pointer degrades to
 //! the default directory — never a panic, never a hard failure.
+//!
+//! This module also performs relocation (`relocate`), which copies a vault's
+//! data files to a new directory and then repoints. Writing the pointer is the
+//! single atomic commit point: everything before it is reversible and leaves
+//! the old location authoritative, and nothing after it can lose data. No step
+//! may be reordered across that line.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -103,12 +109,19 @@ pub fn resolve_vault_dir(config_dir: &Path) -> PathBuf {
 /// move is already committed and the caller should tell the user the old copy
 /// remains.
 ///
-/// The caller is responsible for ensuring the vault is LOCKED. This function
-/// never touches key material: vault files are already encrypted at rest, so
-/// relocation needs no master password.
+/// The caller is responsible for ensuring the vault is LOCKED, and for
+/// serializing concurrent invocations — two overlapping relocations of the
+/// same vault are not defended against here. This function never touches key
+/// material: vault files are already encrypted at rest, so relocation needs no
+/// master password.
 ///
 /// `config_dir` is where the pointer lives, which is NOT necessarily
 /// `from_dir` — it is passed in rather than guessed.
+///
+/// Only the known vault entries are ever created or removed. The source and
+/// destination DIRECTORIES themselves are deliberately never removed: the
+/// source may be `config_dir` (which still holds the pointer), and either may
+/// hold unrelated user files that are none of this function's business.
 pub fn relocate(config_dir: &Path, from_dir: &Path, to_dir: &Path) -> VaultResult<bool> {
     if crate::backup::restore_in_progress(from_dir) {
         return Err(VaultError::RestoreConflict);
@@ -126,10 +139,13 @@ pub fn relocate(config_dir: &Path, from_dir: &Path, to_dir: &Path) -> VaultResul
     if from_canon == to_canon {
         return Ok(true); // No-op, not an error.
     }
-    if to_canon.starts_with(&from_canon) {
-        return Err(VaultError::FileOperation(
-            "The new folder is inside the current vault folder.".to_string(),
-        ));
+    // Neither direction of nesting is workable: a destination inside the
+    // source would be copied into itself, and a source inside the destination
+    // means the rollback path would be reaching across the live vault. Both
+    // are user mistakes with a clear fix, so they get their own error code
+    // rather than being flattened into a generic storage failure.
+    if to_canon.starts_with(&from_canon) || from_canon.starts_with(&to_canon) {
+        return Err(VaultError::InvalidVaultLocation);
     }
     if vault_file_in(&to_canon).exists() {
         return Err(VaultError::VaultAlreadyExists);
@@ -160,14 +176,11 @@ pub fn relocate(config_dir: &Path, from_dir: &Path, to_dir: &Path) -> VaultResul
     }
     entry_names.push("attachments".to_string());
 
-    for name in &entry_names {
-        let source = from_canon.join(name);
-        if source.is_dir() {
-            copy_dir_recursive(&source, &to_canon.join(name))?;
-        } else if source.exists() {
-            fs::copy(&source, to_canon.join(name))
-                .map_err(|e| VaultError::FileOperation(e.to_string()))?;
-        }
+    if let Err(error) = copy_entries(&from_canon, &to_canon, &entry_names) {
+        // Pre-commit: roll the destination back so a retry is not blocked by a
+        // half-copied vault.sqlite3 tripping the VaultAlreadyExists precheck.
+        remove_entries(&to_canon, &entry_names);
+        return Err(error);
     }
 
     // VERIFY before committing: the destination database must genuinely open.
@@ -176,31 +189,74 @@ pub fn relocate(config_dir: &Path, from_dir: &Path, to_dir: &Path) -> VaultResul
         .and_then(|repository| repository.vault_header_exists())
         .unwrap_or(false);
     if !opens {
-        // Nothing is committed yet — leave the source untouched and clean up.
-        let _ = fs::remove_dir_all(&to_canon);
+        // Nothing is committed yet. Roll back by removing ONLY the entries this
+        // call wrote: `to_canon` is a user-picked folder that may hold unrelated
+        // files, so `remove_dir_all(&to_canon)` would destroy user data.
+        remove_entries(&to_canon, &entry_names);
         return Err(VaultError::CorruptVault);
     }
 
     // COMMIT POINT.
-    write_location(config_dir, &to_canon)?;
+    //
+    // The pointer stores the SIMPLIFIED path, not the verbatim `\\?\` form
+    // `canonicalize` produces. `\\?\` works for `fs::*`, but it is what the
+    // Settings screen shows and what an "open folder" shell call receives, and
+    // Explorer rejects it — `\\?\UNC\server\share` most of all. It also makes a
+    // plain PathBuf comparison against a folder-picker result spuriously
+    // unequal. `simplified` returns the input unchanged when the path cannot be
+    // safely de-prefixed, so correctness never depends on the strip succeeding.
+    write_location(config_dir, dunce::simplified(&to_canon))?;
 
     // Past the commit point, failures are reported, not propagated.
-    let mut originals_removed = true;
-    for name in &entry_names {
-        let source = from_canon.join(name);
-        let removed = if source.is_dir() {
-            fs::remove_dir_all(&source).is_ok()
-        } else if source.exists() {
-            fs::remove_file(&source).is_ok()
-        } else {
-            true
-        };
-        if !removed {
-            originals_removed = false;
+    Ok(remove_entries(&from_canon, &entry_names))
+}
+
+/// Copy every named entry that exists from `from_dir` into `to_dir`.
+///
+/// Absence is the ONLY acceptable reason to skip an entry. `exists()` and
+/// `is_dir()` collapse every metadata error into `false`, which would silently
+/// skip an unreadable `attachments/` — and since verification only checks that
+/// the database opens, the relocate would then commit and orphan every
+/// attachment at the old path while reporting success. So the kind is
+/// classified explicitly and anything other than not-found is an error.
+fn copy_entries(from_dir: &Path, to_dir: &Path, entry_names: &[String]) -> VaultResult<()> {
+    for name in entry_names {
+        let source = from_dir.join(name);
+        match fs::symlink_metadata(&source) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {} // absent: fine
+            Err(e) => return Err(VaultError::FileOperation(e.to_string())),
+            Ok(meta) if meta.is_dir() => copy_dir_recursive(&source, &to_dir.join(name))?,
+            Ok(_) => {
+                fs::copy(&source, to_dir.join(name))
+                    .map_err(|e| VaultError::FileOperation(e.to_string()))?;
+            }
         }
     }
+    Ok(())
+}
 
-    Ok(originals_removed)
+/// Remove every named entry from `dir`, returning whether all of them are gone.
+///
+/// Never propagates: it serves both the pre-commit rollback (where the original
+/// error is what matters) and the post-commit cleanup (where the move has
+/// already succeeded and a leftover is a report, not a failure). A metadata
+/// error is counted as NOT removed — assuming otherwise would under-report
+/// leftovers to the user.
+pub(crate) fn remove_entries(dir: &Path, entry_names: &[String]) -> bool {
+    let mut all_removed = true;
+    for name in entry_names {
+        let target = dir.join(name);
+        let removed = match fs::symlink_metadata(&target) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => true, // already gone
+            Err(_) => false,
+            Ok(meta) if meta.is_dir() => fs::remove_dir_all(&target).is_ok(),
+            Ok(_) => fs::remove_file(&target).is_ok(),
+        };
+        if !removed {
+            all_removed = false;
+        }
+    }
+    all_removed
 }
 
 /// Recursively copy a directory. Used for `attachments/` and the attachments
@@ -210,12 +266,23 @@ fn copy_dir_recursive(source: &Path, destination: &Path) -> VaultResult<()> {
     let entries = fs::read_dir(source).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     for entry in entries {
         let entry = entry.map_err(|e| VaultError::FileOperation(e.to_string()))?;
+        let path = entry.path();
         let target = destination.join(entry.file_name());
-        if entry.path().is_dir() {
-            copy_dir_recursive(&entry.path(), &target)?;
+        // `file_type` does NOT follow symlinks, unlike `path().is_dir()`. That
+        // matters: a directory symlink would otherwise copy its target's
+        // contents (possibly from outside the vault entirely), and a symlink
+        // cycle would recurse until the stack is exhausted. The vault never
+        // creates links, so anything here is foreign and is skipped.
+        let file_type = entry
+            .file_type()
+            .map_err(|e| VaultError::FileOperation(e.to_string()))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            copy_dir_recursive(&path, &target)?;
         } else {
-            fs::copy(entry.path(), &target)
-                .map_err(|e| VaultError::FileOperation(e.to_string()))?;
+            fs::copy(&path, &target).map_err(|e| VaultError::FileOperation(e.to_string()))?;
         }
     }
     Ok(())

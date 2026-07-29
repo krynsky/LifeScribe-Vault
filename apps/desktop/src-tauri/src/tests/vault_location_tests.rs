@@ -5,7 +5,7 @@ use std::fs;
 use tempfile::tempdir;
 
 use crate::vault_location::{
-    read_location, relocate, resolve_vault_dir, vault_file_in, write_location,
+    read_location, relocate, remove_entries, resolve_vault_dir, vault_file_in, write_location,
 };
 
 #[test]
@@ -116,8 +116,23 @@ fn relocate_rejects_a_destination_nested_inside_the_source() {
     let nested = from.path().join("inner");
     let error = relocate(from.path(), from.path(), &nested).unwrap_err();
 
-    assert_eq!(command_error_code(error), "StorageError");
+    assert_eq!(command_error_code(error), "InvalidVaultLocation");
     assert!(vault_file_in(from.path()).exists(), "source must be untouched");
+}
+
+#[test]
+fn relocate_rejects_a_destination_that_contains_the_source() {
+    // The mirror of the nesting guard. Without it, picking the PARENT of the
+    // vault folder would put the rollback path across the live vault.
+    let parent = tempdir().unwrap();
+    let from = parent.path().join("vault");
+    fs::create_dir_all(&from).unwrap();
+    seed_vault(&from);
+
+    let error = relocate(&from, &from, parent.path()).unwrap_err();
+
+    assert_eq!(command_error_code(error), "InvalidVaultLocation");
+    assert!(vault_file_in(&from).exists(), "source must be untouched");
 }
 
 #[test]
@@ -186,6 +201,83 @@ fn relocate_carries_the_safety_backup_directory_rather_than_stranding_it() {
     );
     assert!(moved_dir.join("vault-safety-backup.sqlite3").exists());
     assert!(!safety_att.exists(), "the original safety-backup directory must be gone");
+}
+
+#[test]
+fn relocate_rejects_a_destination_that_fails_verification() {
+    // THE core safety property: the pointer is written only AFTER the moved
+    // database is proven to open. If `write_location` ever drifts above the
+    // verification block, the final assertion here fails.
+    let from = tempdir().unwrap();
+    let to = tempdir().unwrap();
+    fs::write(vault_file_in(from.path()), b"not-a-sqlite-database").unwrap();
+
+    let error = relocate(from.path(), from.path(), &to.path().join("moved")).unwrap_err();
+
+    assert_eq!(command_error_code(error), "CorruptVault");
+    assert!(vault_file_in(from.path()).exists(), "source must be untouched");
+    assert!(read_location(from.path()).is_none(), "the pointer must NOT be written");
+}
+
+#[test]
+fn failed_verification_does_not_delete_unrelated_files_at_the_destination() {
+    // The destination is a folder the USER PICKED, and the only precheck is
+    // "no vault.sqlite3 here" — so it may be full of unrelated documents.
+    // Rollback must remove only what this call wrote.
+    let from = tempdir().unwrap();
+    let to = tempdir().unwrap();
+    fs::write(vault_file_in(from.path()), b"not-a-sqlite-database").unwrap();
+    let bystander = to.path().join("tax-return-2025.pdf");
+    fs::write(&bystander, b"important-user-document").unwrap();
+
+    relocate(from.path(), from.path(), to.path()).unwrap_err();
+
+    assert!(bystander.exists(), "unrelated user files must survive a rollback");
+    assert_eq!(fs::read(&bystander).unwrap(), b"important-user-document");
+    assert!(to.path().exists(), "the destination directory itself must survive");
+    assert!(
+        !vault_file_in(to.path()).exists(),
+        "the half-copied database must be rolled back so a retry is not blocked",
+    );
+}
+
+#[test]
+fn relocate_stores_a_pointer_without_the_verbatim_prefix() {
+    // `fs::canonicalize` yields `\\?\C:\...` on Windows. Explorer and the shell
+    // reject that form, and it compares unequal to a folder-picker result.
+    let from = tempdir().unwrap();
+    let to = tempdir().unwrap();
+    seed_vault(from.path());
+
+    relocate(from.path(), from.path(), &to.path().join("moved")).unwrap();
+
+    let stored = read_location(from.path()).expect("pointer must be written");
+    assert!(
+        !stored.to_string_lossy().starts_with(r"\\?\"),
+        "stored pointer must not keep the verbatim prefix: {stored:?}",
+    );
+    assert!(vault_file_in(&stored).exists(), "the stored path must still resolve");
+}
+
+#[test]
+fn remove_entries_reports_success_when_nothing_is_there() {
+    let dir = tempdir().unwrap();
+    assert!(remove_entries(dir.path(), &["absent.sqlite3".to_string()]));
+}
+
+#[test]
+fn remove_entries_removes_both_files_and_directories() {
+    let dir = tempdir().unwrap();
+    fs::write(dir.path().join("a-file"), b"x").unwrap();
+    fs::create_dir_all(dir.path().join("a-dir").join("nested")).unwrap();
+    fs::write(dir.path().join("a-dir").join("nested").join("b"), b"y").unwrap();
+
+    let names = vec!["a-file".to_string(), "a-dir".to_string(), "absent".to_string()];
+    assert!(remove_entries(dir.path(), &names));
+
+    assert!(!dir.path().join("a-file").exists());
+    assert!(!dir.path().join("a-dir").exists());
+    assert!(dir.path().exists(), "the containing directory must remain");
 }
 
 #[test]

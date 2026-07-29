@@ -1881,6 +1881,7 @@ dependencies = [
  "base64 0.22.1",
  "chacha20poly1305",
  "dirs 5.0.1",
+ "dunce",
  "filetime",
  "open",
  "rand",
