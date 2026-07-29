@@ -92,6 +92,60 @@ pub fn resolve_vault_dir(config_dir: &Path) -> PathBuf {
     read_location(config_dir).unwrap_or_else(|| config_dir.to_path_buf())
 }
 
+/// The destination rules for a move, shared by `relocate` and the pre-flight
+/// check (`check_vault_location`) so the two can never disagree about which
+/// folders are acceptable.
+///
+/// Creates `to_dir` if absent (the picker may return a folder the user just
+/// made) and probes writability, so a read-only or disconnected destination
+/// fails here rather than partway through a copy.
+///
+/// The same-directory case is a SUCCESS, not an error: `relocate` treats it as
+/// a no-op, and the pre-flight must agree.
+///
+/// Needs no locked vault and moves nothing, so the UI can reject a bad folder
+/// while the user is still unlocked instead of charging them a password
+/// re-entry to discover a one-click mistake.
+pub fn check_destination(from_dir: &Path, to_dir: &Path) -> VaultResult<()> {
+    if crate::backup::restore_in_progress(from_dir) {
+        return Err(VaultError::RestoreConflict);
+    }
+
+    fs::create_dir_all(to_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+
+    // Canonicalize only after both exist, so nesting/equality comparisons are
+    // done on real paths rather than on lexical ones.
+    let from_canon =
+        fs::canonicalize(from_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let to_canon =
+        fs::canonicalize(to_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+
+    if from_canon == to_canon {
+        return Ok(()); // No-op, not an error.
+    }
+    // Neither direction of nesting is workable: a destination inside the
+    // source would be copied into itself, and a source inside the destination
+    // means the rollback path would be reaching across the live vault. Both
+    // are user mistakes with a clear fix, so they get their own error code
+    // rather than being flattened into a generic storage failure.
+    if to_canon.starts_with(&from_canon) || from_canon.starts_with(&to_canon) {
+        return Err(VaultError::InvalidVaultLocation);
+    }
+    if vault_file_in(&to_canon).exists() {
+        return Err(VaultError::VaultAlreadyExists);
+    }
+
+    // Probe writability rather than trusting the path: a read-only or
+    // disconnected destination must fail before anything is copied. The probe
+    // name carries a fresh UUID so a leftover from an interrupted check can
+    // never collide with — or be mistaken for — a later one.
+    let probe = to_canon.join(format!(".lifescribe-write-probe-{}", uuid::Uuid::new_v4()));
+    fs::write(&probe, b"probe").map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let _ = fs::remove_file(&probe);
+
+    Ok(())
+}
+
 /// Move a vault's data files from `from_dir` to `to_dir`.
 ///
 /// Sequence: validate -> copy -> VERIFY -> write pointer -> delete originals.
@@ -123,14 +177,11 @@ pub fn resolve_vault_dir(config_dir: &Path) -> PathBuf {
 /// source may be `config_dir` (which still holds the pointer), and either may
 /// hold unrelated user files that are none of this function's business.
 pub fn relocate(config_dir: &Path, from_dir: &Path, to_dir: &Path) -> VaultResult<bool> {
-    if crate::backup::restore_in_progress(from_dir) {
-        return Err(VaultError::RestoreConflict);
-    }
+    // Single source of truth for the destination rules, shared with the
+    // pre-flight check the UI runs while still unlocked.
+    check_destination(from_dir, to_dir)?;
 
-    fs::create_dir_all(to_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
-
-    // Canonicalize only after both exist, so nesting/equality comparisons are
-    // done on real paths rather than on lexical ones.
+    // `check_destination` has already created `to_dir`, so both canonicalize.
     let from_canon =
         fs::canonicalize(from_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     let to_canon =
@@ -138,17 +189,6 @@ pub fn relocate(config_dir: &Path, from_dir: &Path, to_dir: &Path) -> VaultResul
 
     if from_canon == to_canon {
         return Ok(true); // No-op, not an error.
-    }
-    // Neither direction of nesting is workable: a destination inside the
-    // source would be copied into itself, and a source inside the destination
-    // means the rollback path would be reaching across the live vault. Both
-    // are user mistakes with a clear fix, so they get their own error code
-    // rather than being flattened into a generic storage failure.
-    if to_canon.starts_with(&from_canon) || from_canon.starts_with(&to_canon) {
-        return Err(VaultError::InvalidVaultLocation);
-    }
-    if vault_file_in(&to_canon).exists() {
-        return Err(VaultError::VaultAlreadyExists);
     }
 
     // An EXPLICIT list, never a directory sweep: in the default configuration

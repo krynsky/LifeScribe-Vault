@@ -103,13 +103,28 @@ function App() {
       // Non-fatal: the vault exists; the selections are held in
       // moduleSelectionsHint until the first save writes them.
     }
+    setVaultDir(status.vaultDir);
     setScreen(screenFromStatus(status));
   }
 
   async function handleUnlock(masterPassword: string) {
-    const status = await unlockVault(masterPassword);
-    setLockNotice("");
-    setScreen(screenFromStatus(status));
+    try {
+      const status = await unlockVault(masterPassword);
+      setVaultDir(status.vaultDir);
+      setLockNotice("");
+      setScreen(screenFromStatus(status));
+    } catch (caught) {
+      // An unlock failure may mean the folder went away mid-session (a drive
+      // unplugged after the lock screen appeared). Re-check before letting the
+      // generic "could not be read" message imply the vault is damaged.
+      const probe = await getVaultStatus().catch(() => null);
+      if (probe && !probe.vaultDirAvailable) {
+        setVaultDir(probe.vaultDir);
+        setScreen("vault-unavailable");
+        return;
+      }
+      throw caught; // LockedScreen still shows genuine password errors.
+    }
   }
 
   if (screen === "loading") {
@@ -159,7 +174,18 @@ function App() {
   }
 
   if (screen === "setup") {
-    return <SetupScreen onCreate={handleCreate} onVaultFound={() => setScreen("locked")} />;
+    return (
+      <SetupScreen
+        onCreate={handleCreate}
+        onVaultFound={() => {
+          // Say WHY setup handed off to the unlock screen — otherwise a user who
+          // picked a folder that already holds a vault sees a password prompt
+          // appear for no stated reason.
+          setLockNotice("That folder already holds a vault — unlock it to continue.");
+          setScreen("locked");
+        }}
+      />
+    );
   }
 
   if (screen === "locked") {

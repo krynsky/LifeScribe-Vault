@@ -28,6 +28,7 @@ vi.mock("./api/vaultApi", () => ({
   // Vault location — the setup wizard's folder step only calls these when the
   // user picks a folder; App-level tests accept the default.
   setVaultLocation: vi.fn(),
+  checkVaultLocation: vi.fn(),
   relocateVault: vi.fn(),
 }));
 
@@ -236,6 +237,56 @@ describe("App", () => {
 
     expect(await screen.findByText("Your vault folder can't be reached")).toBeInTheDocument();
     expect(screen.queryByText(/Welcome/)).not.toBeInTheDocument();
+  });
+
+  it("a wrong password still says so rather than routing to the recovery screen", async () => {
+    // The unlock path re-checks availability on failure; that must NOT swallow a
+    // genuine password error.
+    const HERE = "C:\\Users\\test\\AppData\\Roaming\\LifeScribe";
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: HERE, vaultDirAvailable: true });
+    mocked.unlockVault.mockRejectedValue(new Error("InvalidMasterPassword"));
+    render(<App />);
+
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Master password"), "wrong password!!");
+    await user.click(screen.getByRole("button", { name: "Unlock" }));
+
+    expect(await screen.findByText(/didn't unlock the vault/i)).toBeInTheDocument();
+    expect(screen.queryByText("Your vault folder can't be reached")).not.toBeInTheDocument();
+  });
+
+  it("an unlock that fails because the folder vanished shows the recovery screen, not a corruption warning", async () => {
+    // The drive was unplugged after the locked screen appeared, so the vault is
+    // intact — "restore from a backup" would be the worst possible advice.
+    const AWAY = "E:\\Vault";
+    mocked.getVaultStatus
+      .mockResolvedValueOnce({ unlocked: false, vaultExists: true, vaultDir: AWAY, vaultDirAvailable: true })
+      .mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: AWAY, vaultDirAvailable: false });
+    mocked.unlockVault.mockRejectedValue(new Error("CorruptVault"));
+    render(<App />);
+
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Master password"), "right password!!");
+    await user.click(screen.getByRole("button", { name: "Unlock" }));
+
+    expect(await screen.findByText("Your vault folder can't be reached")).toBeInTheDocument();
+    expect(screen.getByText(AWAY)).toBeInTheDocument();
+    expect(screen.queryByText(/restore from a backup/i)).not.toBeInTheDocument();
+  });
+
+  it("says why setup handed off to the unlock screen when the chosen folder already holds a vault", async () => {
+    const HERE = "C:\\Users\\test\\AppData\\Roaming\\LifeScribe";
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false, vaultDir: HERE, vaultDirAvailable: true });
+    mocked.setVaultLocation.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: "E:\\Existing", vaultDirAvailable: true });
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(open).mockResolvedValue("E:\\Existing");
+
+    render(<App />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /change folder/i }));
+
+    expect(await screen.findByText("Vault locked")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/already holds a vault/i);
   });
 
   it("surfaces a status error with a retry", async () => {

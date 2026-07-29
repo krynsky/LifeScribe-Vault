@@ -5,7 +5,8 @@ use std::fs;
 use tempfile::tempdir;
 
 use crate::vault_location::{
-    read_location, relocate, remove_entries, resolve_vault_dir, vault_file_in, write_location,
+    check_destination, read_location, relocate, remove_entries, resolve_vault_dir, vault_file_in,
+    write_location,
 };
 
 #[test]
@@ -421,4 +422,94 @@ fn relocate_command_refuses_while_unlocked() {
 
     assert_eq!(command_error_code(error), "VaultLocked");
     assert_eq!(session.vault_path, vault_path, "session must not be repointed");
+}
+
+// ---------------------------------------------------------------------------
+// The pre-flight destination check. Same rules as `relocate`, no data moved —
+// so the UI can reject a bad folder before charging a password re-entry.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_destination_accepts_a_usable_empty_folder_and_leaves_no_probe_behind() {
+    let from = tempdir().unwrap();
+    let to_root = tempdir().unwrap();
+    let to = to_root.path().join("new-home");
+    seed_vault(from.path());
+
+    check_destination(from.path(), &to).expect("an empty writable folder is usable");
+
+    assert!(to.is_dir(), "the folder is created when the picker names a new one");
+    let leftovers: Vec<_> = fs::read_dir(&to).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert!(leftovers.is_empty(), "the write probe must be cleaned up: {leftovers:?}");
+}
+
+#[test]
+fn check_destination_agrees_with_relocate_that_the_same_directory_is_fine() {
+    // Must stay a SUCCESS: `relocate` treats it as a no-op, and a pre-flight
+    // that rejected it would block a harmless re-pick of the current folder.
+    let from = tempdir().unwrap();
+    seed_vault(from.path());
+
+    check_destination(from.path(), from.path())
+        .expect("the same directory is a no-op, not an error");
+}
+
+#[test]
+fn check_destination_rejects_nesting_in_both_directions_without_moving_anything() {
+    let parent = tempdir().unwrap();
+    let from = parent.path().join("vault");
+    fs::create_dir_all(&from).unwrap();
+    seed_vault(&from);
+
+    let inside = check_destination(&from, &from.join("inner")).unwrap_err();
+    assert_eq!(command_error_code(inside), "InvalidVaultLocation");
+
+    let containing = check_destination(&from, parent.path()).unwrap_err();
+    assert_eq!(command_error_code(containing), "InvalidVaultLocation");
+
+    assert!(vault_file_in(&from).exists(), "nothing is moved by a check");
+}
+
+#[test]
+fn check_destination_rejects_a_folder_that_already_holds_a_vault() {
+    let from = tempdir().unwrap();
+    let to = tempdir().unwrap();
+    seed_vault(from.path());
+    seed_vault(to.path());
+
+    let error = check_destination(from.path(), to.path()).unwrap_err();
+
+    assert_eq!(command_error_code(error), "VaultAlreadyExists");
+}
+
+#[test]
+fn check_destination_refuses_while_a_restore_is_in_progress() {
+    let from = tempdir().unwrap();
+    let to = tempdir().unwrap();
+    seed_vault(from.path());
+    fs::write(from.path().join(crate::backup::RESTORE_MARKER_NAME), b"{}").unwrap();
+
+    let error = check_destination(from.path(), to.path()).unwrap_err();
+
+    assert_eq!(command_error_code(error), "RestoreConflict");
+}
+
+#[test]
+fn check_destination_refuses_a_destination_it_cannot_write_to() {
+    // Stands in for the not-writable refusal. A genuinely read-only directory
+    // cannot be produced portably (on Windows the read-only attribute does not
+    // stop writes INTO a directory, and ACL edits are not portable), so this
+    // exercises the same fail-before-touching-anything path with a destination
+    // whose parent is a FILE: creation fails and the check errors out before
+    // any copying could begin.
+    let from = tempdir().unwrap();
+    let blocker_root = tempdir().unwrap();
+    let blocker = blocker_root.path().join("not-a-directory");
+    fs::write(&blocker, b"file").unwrap();
+    seed_vault(from.path());
+
+    let error = check_destination(from.path(), &blocker.join("child")).unwrap_err();
+
+    assert_eq!(command_error_code(error), "StorageError");
+    assert!(vault_file_in(from.path()).exists(), "source must be untouched");
 }

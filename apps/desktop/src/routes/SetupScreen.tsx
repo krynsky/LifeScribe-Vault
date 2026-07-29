@@ -261,7 +261,14 @@ export function SetupScreen({ onCreate, onVaultFound }: SetupScreenProps) {
           ) : null}
           {onFinalStep ? (
             <button type="button" className="button button--primary"
-              disabled={isSubmitting || Boolean(composeError)}
+              disabled={
+                isSubmitting ||
+                Boolean(composeError) ||
+                // Step 1 is the identity step. It is only ALSO the final step
+                // when the pack failed to load (no module steps), and the
+                // acknowledgment must still gate the button there.
+                (step === 1 && !acknowledgedNoRecovery)
+              }
               onClick={() => void handleCreate()}>
               {isSubmitting ? "Creating your vault…" : "Create vault"}
             </button>

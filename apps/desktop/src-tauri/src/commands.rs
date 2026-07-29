@@ -399,13 +399,19 @@ pub fn set_vault_location_for_session(
     dir: &Path,
 ) -> VaultResult<VaultStatusResponse> {
     if session.is_unlocked() {
+        // NOTE the inversion: `VaultError::Locked` (wire code "VaultLocked")
+        // is the refusal for a vault that is UNLOCKED. The variant reads as a
+        // state, not as a precondition. The code is part of the frozen IPC
+        // contract, so it stays as-is.
         return Err(VaultError::Locked);
     }
     std::fs::create_dir_all(dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
 
     // Probe writability rather than trusting the path: a read-only or
-    // disconnected location must fail here, not at the first save.
-    let probe = dir.join(".lifescribe-write-probe");
+    // disconnected location must fail here, not at the first save. The UUID
+    // suffix keeps a leftover probe from an interrupted call from ever
+    // colliding with a later one.
+    let probe = dir.join(format!(".lifescribe-write-probe-{}", uuid::Uuid::new_v4()));
     std::fs::write(&probe, b"probe").map_err(|e| VaultError::FileOperation(e.to_string()))?;
     let _ = std::fs::remove_file(&probe);
 
@@ -422,6 +428,33 @@ pub fn set_vault_location(
 ) -> Result<VaultStatusResponse, String> {
     let mut session = lock_state(&session)?;
     set_vault_location_for_session(&mut session, Path::new(&dir)).map_err(command_error_code)
+}
+
+/// Check whether `dir` is a usable relocation destination, WITHOUT moving
+/// anything and without requiring a locked vault.
+///
+/// Lets the UI reject a bad folder (nested inside the vault folder, already
+/// holding a vault, not writable, restore in progress) while the user is still
+/// unlocked, instead of charging them a full password re-entry to discover a
+/// one-click mistake. Shares its rules with `relocate` so the pre-flight and
+/// the move can never disagree.
+#[tauri::command]
+pub fn check_vault_location(
+    dir: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    let from_dir = session
+        .vault_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| {
+            command_error_code(VaultError::FileOperation(
+                "vault path has no parent".to_string(),
+            ))
+        })?;
+    crate::vault_location::check_destination(&from_dir, Path::new(&dir))
+        .map_err(command_error_code)
 }
 
 #[derive(Debug, Serialize)]
@@ -445,6 +478,10 @@ pub fn relocate_vault_for_session(
     dir: &Path,
 ) -> VaultResult<RelocateResponse> {
     if session.is_unlocked() {
+        // NOTE the inversion: `VaultError::Locked` (wire code "VaultLocked")
+        // is the refusal for a vault that is UNLOCKED — relocation REQUIRES a
+        // locked vault. The code is part of the frozen IPC contract, so the
+        // misleading variant name stays.
         return Err(VaultError::Locked);
     }
     let from_dir = session

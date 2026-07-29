@@ -28,6 +28,9 @@ vi.mock("../api/vaultApi", () => ({
   restoreBackup: vi.fn(),
   // Vault location — Settings reads the directory; relocation is user-driven.
   setVaultLocation: vi.fn(),
+  // The chosen folder is pre-flighted before the confirmation appears; a plain
+  // vi.fn() resolves undefined, i.e. "usable".
+  checkVaultLocation: vi.fn(),
   relocateVault: vi.fn(),
 }));
 

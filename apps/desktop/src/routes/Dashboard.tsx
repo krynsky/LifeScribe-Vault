@@ -632,7 +632,12 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
    * second copy of encrypted vault data is left on disk.
    */
   async function handleRelocate(dir: string): Promise<void> {
-    await lockWithoutNavigating();
+    if (!(await lockWithoutNavigating())) {
+      // A lock is already in flight, so the session may still be unlocked —
+      // relocate_vault would refuse. Bail with the same no-harm-done notice.
+      onLocked("The vault could not be moved, so it still lives where it did. Nothing has been changed.");
+      return;
+    }
     try {
       const result = await relocateVault(dir);
       onLocked(

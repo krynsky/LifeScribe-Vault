@@ -251,6 +251,19 @@ export function setVaultLocation(dir: string): Promise<VaultStatusResponse> {
   return invoke("set_vault_location", { dir });
 }
 
+/**
+ * Pre-flight a relocation destination without moving anything.
+ *
+ * Needs no locked vault, so Settings can reject a bad folder (nested, already
+ * holds a vault, not writable, restore in progress) while the user is still
+ * unlocked — rather than locking first and charging a password re-entry to
+ * learn about a one-click mistake. Rejects with the same codes as
+ * `relocateVault`.
+ */
+export function checkVaultLocation(dir: string): Promise<void> {
+  return invoke("check_vault_location", { dir });
+}
+
 /** Move the vault's data files. Requires a locked vault. */
 export function relocateVault(dir: string): Promise<RelocateResponse> {
   return invoke("relocate_vault", { dir });
