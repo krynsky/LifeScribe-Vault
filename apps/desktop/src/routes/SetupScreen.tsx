@@ -51,39 +51,6 @@ function RevealToggle({
   );
 }
 
-/**
- * Collapsible outline of what the current module selections compose into:
- * section titles and field counts, read from the validated bundled pack via
- * the shared composed-preview hook. An invalid combination degrades to a short
- * notice (the preview is informative only — setup still works without it).
- */
-function PackPreview({ base, selections }: { base: FormPack | null; selections: Record<string, string> }) {
-  const [open, setOpen] = useState(false);
-  const { sections, error } = useComposedPreview(base, selections);
-  return (
-    <details className="setup-preview" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary className="setup-preview__summary">Preview this choice</summary>
-      {error ? (
-        <p className="setup-preview__status">{`This combination isn't valid: ${error}`}</p>
-      ) : (
-        <ul className="setup-preview__sections">
-          {sections.map((section) => {
-            const fieldCount = section.groups.reduce((c, g) => c + g.fields.length, 0);
-            return (
-              <li key={section.sectionKey} className="setup-preview__section">
-                <span className="setup-preview__section-title">
-                  {section.title}
-                  <span className="setup-preview__count">{fieldCount} {fieldCount === 1 ? "field" : "fields"}</span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </details>
-  );
-}
-
 const MIN_MASTER_PASSWORD_LENGTH = 15;
 const GUIDANCE_ID = "setup-password-guidance";
 const ERROR_ID = "setup-error";
@@ -99,8 +66,9 @@ function createErrorMessage(error: unknown): string {
 /**
  * First-run setup as a stepped wizard: step 0 collects name + master password +
  * the "there is no recovery" acknowledgment; steps 1..N present one onboarding
- * module question each (defaults pre-selected) with a per-step composed preview.
- * The final step creates the vault, emitting the module selections map.
+ * module question each (defaults pre-selected). The final step creates the
+ * vault, emitting the module selections map. A combination the pack rejects
+ * blocks Create (composeError) rather than failing silently at load.
  */
 export function SetupScreen({ onCreate }: SetupScreenProps) {
   const [base, setBase] = useState<FormPack | null>(null);
@@ -231,7 +199,6 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
               selected={selections[currentModule.moduleId] ?? currentModule.defaultOptionId}
               onChange={(optionId) => setSelections((prev) => ({ ...prev, [currentModule.moduleId]: optionId }))}
             />
-            <PackPreview base={base} selections={selections} />
           </div>
         ) : null}
 

@@ -95,14 +95,13 @@ describe("SetupScreen wizard", () => {
     expect(master).toHaveAttribute("type", "password");
   });
 
-  it("shows a per-step preview of the composed pack once past step one", async () => {
+  it("presents the module question alone, with no composed-pack preview", async () => {
     render(<SetupScreen onCreate={vi.fn()} />);
     const user = userEvent.setup();
     await completeStepOne(user);
     await screen.findByRole("radio", { name: secretsOnLabel });
 
-    // The preview summary is present on a module step; expanding it lists sections.
-    await user.click(screen.getByText("Preview this choice"));
-    expect(await screen.findByText("Digital Executors")).toBeInTheDocument();
+    expect(screen.queryByText("Preview this choice")).not.toBeInTheDocument();
+    expect(screen.queryByText("Digital Executors")).not.toBeInTheDocument();
   });
 });
