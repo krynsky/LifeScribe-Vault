@@ -29,13 +29,13 @@ const DEFAULT_PACK_PATH = resolve(process.cwd(), "src-tauri/resources/packs/defa
 const EXPECTED_SECTION_KEYS = [
   "digital-executors",
   "password-manager",
-  "documents",
   "devices",
   "financial-accounts",
   "subscriptions",
   "online-accounts",
-  "platform-legacy",
+  "documents",
   "backups",
+  "platform-legacy",
 ];
 
 const V1_PROVIDER_VALUES = [

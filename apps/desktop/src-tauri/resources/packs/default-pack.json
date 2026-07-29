@@ -323,14 +323,6 @@
               "order": 8
             },
             {
-              "systemKey": "passwordManagerLastTestedAt",
-              "label": "Last tested date",
-              "type": "date",
-              "required": false,
-              "protected": false,
-              "order": 9
-            },
-            {
               "systemKey": "passwordManagerExecutorInstructions",
               "label": "Executor instructions",
               "helperText": "Plain-language steps your executor should follow first, written for someone who may not be technical.",
@@ -365,112 +357,11 @@
       }
     },
     {
-      "sectionKey": "documents",
-      "title": "Documents",
-      "lede": "Wills, deeds, insurance policies, medical directives — your family will need them fast, and \"somewhere in the office\" is not a location. A short list of where each important document lives can save them days of searching at the worst possible time.",
-      "multiRecord": true,
-      "order": 3,
-      "groups": [
-        {
-          "groupKey": "document",
-          "title": "Document",
-          "repeatable": false,
-          "order": 1,
-          "fields": [
-            {
-              "systemKey": "documentTitle",
-              "label": "Document title",
-              "type": "text",
-              "required": true,
-              "protected": true,
-              "order": 1
-            },
-            {
-              "systemKey": "documentCategory",
-              "label": "Category",
-              "type": "select",
-              "required": false,
-              "protected": false,
-              "options": [
-                {
-                  "value": "legal",
-                  "label": "Legal"
-                },
-                {
-                  "value": "medical",
-                  "label": "Medical"
-                },
-                {
-                  "value": "financial",
-                  "label": "Financial"
-                },
-                {
-                  "value": "estate",
-                  "label": "Estate"
-                },
-                {
-                  "value": "other",
-                  "label": "Other"
-                }
-              ],
-              "order": 2
-            },
-            {
-              "systemKey": "documentPhysicalLocation",
-              "label": "Physical location",
-              "helperText": "For example: the fireproof box in the hall closet, the safe-deposit box at First National, or your attorney's office.",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 3
-            },
-            {
-              "systemKey": "documentDigitalLocation",
-              "label": "Digital location",
-              "helperText": "Where a scanned or digital copy lives — a folder path, cloud drive, or shared family folder. Use Choose folder / Choose file to pick it, or type the path.",
-              "type": "path",
-              "required": false,
-              "protected": false,
-              "order": 4
-            },
-            {
-              "systemKey": "documentAccessNotes",
-              "label": "Access notes",
-              "helperText": "Anything needed to reach it — who has the safe key, which attorney to call, whose name the box is under.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 5
-            }
-          ]
-        }
-      ],
-      "readinessRule": {
-        "requiredKeys": [
-          "documentTitle"
-        ]
-      },
-      "kitMapping": {
-        "entries": [
-          {
-            "heading": "Important documents and where they live",
-            "fields": [
-              "documentTitle",
-              "documentCategory",
-              "documentPhysicalLocation",
-              "documentDigitalLocation",
-              "documentAccessNotes"
-            ]
-          }
-        ]
-      }
-    },
-    {
       "sectionKey": "devices",
       "title": "Device Inventory",
       "lede": "A locked phone is one of the first walls families hit — photos, messages, and authenticator apps all behind one passcode. List the devices that matter and where a hint to each one is kept, so your family isn't locked out of your life's records.",
       "multiRecord": true,
-      "order": 4,
+      "order": 3,
       "groups": [
         {
           "groupKey": "device",
@@ -575,7 +466,7 @@
       "title": "Financial Accounts",
       "lede": "Your family can't close, transfer, or even find what they don't know exists. You don't need account numbers or balances here — just an inventory of which institutions are part of your life, and what should happen to each one.",
       "multiRecord": true,
-      "order": 5,
+      "order": 4,
       "groups": [
         {
           "groupKey": "account",
@@ -683,7 +574,7 @@
       "title": "Subscriptions",
       "lede": "Your family can't close, transfer, or even find what they don't know exists. Provide an inventory of which subscriptions are part of your life, and what should happen to each one.",
       "multiRecord": true,
-      "order": 6,
+      "order": 5,
       "groups": [
         {
           "groupKey": "subscription",
@@ -724,12 +615,21 @@
               ]
             },
             {
+              "systemKey": "field_1785343571564_a2230",
+              "label": "Cost",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "helperText": "Monthly or annual cost with any additional details."
+            },
+            {
               "systemKey": "subscriptionNotes",
               "label": "Notes",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 3,
+              "order": 4,
               "helperText": "Additional details about the subscription that may provide additional information on the action."
             }
           ]
@@ -758,7 +658,7 @@
       "title": "Online Accounts",
       "lede": "Email, cloud storage, social profiles, domain names, creator and business accounts — each one is something your family may need to keep alive, hand off, or close with dignity. List what exists and what you'd like done, so nothing important quietly expires or lingers.",
       "multiRecord": true,
-      "order": 7,
+      "order": 6,
       "groups": [
         {
           "groupKey": "account",
@@ -827,13 +727,31 @@
               "order": 3
             },
             {
+              "systemKey": "field_1785343366863_1eerk",
+              "label": "Access stored in password manager?",
+              "type": "select",
+              "required": true,
+              "protected": false,
+              "order": 4,
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                }
+              ]
+            },
+            {
               "systemKey": "onlineAccessLocation",
               "label": "Where access info lives",
-              "helperText": "For example \"in my password manager\". A pointer only — never the password itself.",
+              "helperText": "Access location if not stored in password manager.",
               "type": "text",
               "required": false,
               "protected": false,
-              "order": 4
+              "order": 5
             },
             {
               "systemKey": "onlineWishes",
@@ -842,7 +760,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 5
+              "order": 6
             }
           ]
         }
@@ -868,11 +786,237 @@
       }
     },
     {
+      "sectionKey": "documents",
+      "title": "Documents",
+      "lede": "Wills, deeds, insurance policies, medical directives — your family will need them fast, and \"somewhere in the office\" is not a location. A short list of where each important document lives can save them days of searching at the worst possible time.",
+      "multiRecord": true,
+      "order": 7,
+      "groups": [
+        {
+          "groupKey": "document",
+          "title": "Document",
+          "repeatable": false,
+          "order": 1,
+          "fields": [
+            {
+              "systemKey": "documentTitle",
+              "label": "Document title",
+              "type": "text",
+              "required": true,
+              "protected": true,
+              "order": 1
+            },
+            {
+              "systemKey": "documentCategory",
+              "label": "Category",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "options": [
+                {
+                  "value": "legal",
+                  "label": "Legal"
+                },
+                {
+                  "value": "medical",
+                  "label": "Medical"
+                },
+                {
+                  "value": "financial",
+                  "label": "Financial"
+                },
+                {
+                  "value": "estate",
+                  "label": "Estate"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
+              ],
+              "order": 2
+            },
+            {
+              "systemKey": "documentPhysicalLocation",
+              "label": "Physical location",
+              "helperText": "For example: the fireproof box in the hall closet, the safe-deposit box at First National, or your attorney's office.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 3
+            },
+            {
+              "systemKey": "documentDigitalLocation",
+              "label": "Digital location",
+              "helperText": "Where a scanned or digital copy lives — a folder path, cloud drive, or shared family folder. Use Choose folder / Choose file to pick it, or type the path.",
+              "type": "path",
+              "required": false,
+              "protected": false,
+              "order": 4
+            },
+            {
+              "systemKey": "documentAccessNotes",
+              "label": "Notes",
+              "helperText": "Anything needed to reach it — who has the safe key, which attorney to call, whose name the box is under.",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "order": 5
+            }
+          ]
+        }
+      ],
+      "readinessRule": {
+        "requiredKeys": [
+          "documentTitle"
+        ]
+      },
+      "kitMapping": {
+        "entries": [
+          {
+            "heading": "Important documents and where they live",
+            "fields": [
+              "documentTitle",
+              "documentCategory",
+              "documentPhysicalLocation",
+              "documentDigitalLocation",
+              "documentAccessNotes"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "sectionKey": "backups",
+      "title": "Backups & Storage",
+      "lede": "Backups are where the irreplaceable things live — decades of photos, tax records, the family videos. Record where each backup is, what's on it, and how to get in, so the copy you so carefully kept doesn't become one more thing nobody can open.",
+      "multiRecord": true,
+      "order": 8,
+      "groups": [
+        {
+          "groupKey": "backup",
+          "title": "Backup",
+          "repeatable": false,
+          "order": 1,
+          "fields": [
+            {
+              "systemKey": "backupLocation",
+              "label": "Backup physical location",
+              "helperText": "Where it physically or digitally lives — \"the black external drive in the desk drawer\", \"My desktop computer\", \"Backblaze under my main email\".",
+              "type": "textarea",
+              "required": true,
+              "protected": true,
+              "order": 1
+            },
+            {
+              "systemKey": "field_1785342259535_nbwd2",
+              "label": "Backup computer location",
+              "type": "path",
+              "required": false,
+              "protected": false,
+              "order": 2,
+              "helperText": "Location on computer where data is backed up."
+            },
+            {
+              "systemKey": "backupContents",
+              "label": "What's backed up",
+              "helperText": "Photos, documents, the whole computer — whatever your family would look for here.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 3
+            },
+            {
+              "systemKey": "backupFrequency",
+              "label": "How often",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "options": [
+                {
+                  "value": "continuous",
+                  "label": "Continuous"
+                },
+                {
+                  "value": "daily",
+                  "label": "Daily"
+                },
+                {
+                  "value": "weekly",
+                  "label": "Weekly"
+                },
+                {
+                  "value": "monthly",
+                  "label": "Monthly"
+                },
+                {
+                  "value": "rarely",
+                  "label": "Rarely"
+                }
+              ],
+              "order": 4
+            },
+            {
+              "systemKey": "backupEncrypted",
+              "label": "Encrypted",
+              "helperText": "If it's encrypted, make sure the unlock plan is covered in your password manager or device sections.",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                },
+                {
+                  "value": "unsure",
+                  "label": "Not sure"
+                }
+              ],
+              "order": 5
+            },
+            {
+              "systemKey": "backupAccessNotes",
+              "label": "Access notes",
+              "helperText": "How to get in — which account it's under, where the drive key is kept, restore steps. Pointers only, never passwords.",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "order": 6
+            }
+          ]
+        }
+      ],
+      "readinessRule": {
+        "requiredKeys": [
+          "backupLocation"
+        ]
+      },
+      "kitMapping": {
+        "entries": [
+          {
+            "heading": "Backups and storage",
+            "fields": [
+              "backupLocation",
+              "backupContents",
+              "backupFrequency",
+              "backupEncrypted",
+              "backupAccessNotes"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "sectionKey": "platform-legacy",
       "title": "Platform Legacy Tools",
       "lede": "Apple, Google, and Facebook each have a built-in legacy setting — free, official, and far easier for your family than support tickets and death certificates. Each takes about ten minutes to set up. They only cover part of the picture, but they're the easiest wins in this whole checklist.",
       "multiRecord": false,
-      "order": 8,
+      "order": 9,
       "groups": [
         {
           "groupKey": "apple",
@@ -1013,122 +1157,6 @@
               "googleLegacyNotes",
               "facebookLegacyStatus",
               "facebookLegacyNotes"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "sectionKey": "backups",
-      "title": "Backups & Storage",
-      "lede": "Backups are where the irreplaceable things live — decades of photos, tax records, the family videos. Record where each backup is, what's on it, and how to get in, so the copy you so carefully kept doesn't become one more thing nobody can open.",
-      "multiRecord": true,
-      "order": 9,
-      "groups": [
-        {
-          "groupKey": "backup",
-          "title": "Backup",
-          "repeatable": false,
-          "order": 1,
-          "fields": [
-            {
-              "systemKey": "backupLocation",
-              "label": "Backup location",
-              "helperText": "Where it physically or digitally lives — \"the black external drive in the desk drawer\", \"Backblaze under my main email\".",
-              "type": "textarea",
-              "required": true,
-              "protected": true,
-              "order": 1
-            },
-            {
-              "systemKey": "backupContents",
-              "label": "What's backed up",
-              "helperText": "Photos, documents, the whole computer — whatever your family would look for here.",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 2
-            },
-            {
-              "systemKey": "backupFrequency",
-              "label": "How often",
-              "type": "select",
-              "required": false,
-              "protected": false,
-              "options": [
-                {
-                  "value": "continuous",
-                  "label": "Continuous"
-                },
-                {
-                  "value": "daily",
-                  "label": "Daily"
-                },
-                {
-                  "value": "weekly",
-                  "label": "Weekly"
-                },
-                {
-                  "value": "monthly",
-                  "label": "Monthly"
-                },
-                {
-                  "value": "rarely",
-                  "label": "Rarely"
-                }
-              ],
-              "order": 3
-            },
-            {
-              "systemKey": "backupEncrypted",
-              "label": "Encrypted",
-              "helperText": "If it's encrypted, make sure the unlock plan is covered in your password manager or device sections.",
-              "type": "select",
-              "required": false,
-              "protected": false,
-              "options": [
-                {
-                  "value": "yes",
-                  "label": "Yes"
-                },
-                {
-                  "value": "no",
-                  "label": "No"
-                },
-                {
-                  "value": "unsure",
-                  "label": "Not sure"
-                }
-              ],
-              "order": 4
-            },
-            {
-              "systemKey": "backupAccessNotes",
-              "label": "Access notes",
-              "helperText": "How to get in — which account it's under, where the drive key is kept, restore steps. Pointers only, never passwords.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 5
-            }
-          ]
-        }
-      ],
-      "readinessRule": {
-        "requiredKeys": [
-          "backupLocation"
-        ]
-      },
-      "kitMapping": {
-        "entries": [
-          {
-            "heading": "Backups and storage",
-            "fields": [
-              "backupLocation",
-              "backupContents",
-              "backupFrequency",
-              "backupEncrypted",
-              "backupAccessNotes"
             ]
           }
         ]
