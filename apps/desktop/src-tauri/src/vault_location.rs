@@ -49,20 +49,30 @@ pub fn read_location(config_dir: &Path) -> Option<PathBuf> {
     Some(PathBuf::from(pointer.vault_dir))
 }
 
+fn temp_pointer_path(final_path: &Path) -> PathBuf {
+    let mut name = final_path.as_os_str().to_owned();
+    name.push(format!(".tmp-{}", uuid::Uuid::new_v4()));
+    PathBuf::from(name)
+}
+
 /// Write the pointer atomically (temp + rename), so a crash mid-write can
-/// never leave a truncated pointer behind.
+/// never leave a truncated pointer behind. The temp filename embeds a fresh
+/// UUID so concurrent calls (e.g. from `relocate`) never race on a shared
+/// path.
 pub fn write_location(config_dir: &Path, vault_dir: &Path) -> VaultResult<()> {
     fs::create_dir_all(config_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     let pointer = LocationPointer {
+        // `to_string_lossy` can lose data for a path containing unpaired
+        // UTF-16 surrogates, but JSON requires valid UTF-8 and paths handed
+        // to us via a folder-picker dialog are always well-formed, so the
+        // lossy conversion never actually loses anything in practice.
         vault_dir: vault_dir.to_string_lossy().into_owned(),
     };
     let bytes =
         serde_json::to_vec_pretty(&pointer).map_err(|e| VaultError::FileOperation(e.to_string()))?;
 
     let final_path = pointer_path(config_dir);
-    let mut tmp_name = final_path.as_os_str().to_owned();
-    tmp_name.push(".tmp");
-    let tmp_path = PathBuf::from(tmp_name);
+    let tmp_path = temp_pointer_path(&final_path);
 
     fs::write(&tmp_path, &bytes).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     fs::rename(&tmp_path, &final_path).map_err(|e| {

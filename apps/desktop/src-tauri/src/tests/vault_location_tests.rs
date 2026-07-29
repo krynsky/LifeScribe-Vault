@@ -44,6 +44,17 @@ fn pointer_with_wrong_shape_degrades_to_the_default() {
 }
 
 #[test]
+fn write_location_creates_the_config_directory_when_absent() {
+    let root = tempdir().unwrap();
+    let config = root.path().join("not-yet-created");
+    let target = tempdir().unwrap();
+
+    write_location(&config, target.path()).unwrap();
+
+    assert_eq!(read_location(&config), Some(target.path().to_path_buf()));
+}
+
+#[test]
 fn vault_file_in_appends_the_database_name() {
     let dir = tempdir().unwrap();
     assert_eq!(vault_file_in(dir.path()), dir.path().join("vault.sqlite3"));
