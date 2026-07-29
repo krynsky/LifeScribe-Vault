@@ -1625,3 +1625,28 @@ button {
   margin: 0;
   color: var(--color-ink-secondary);
 }
+
+/* --- Setup: vault location step -------------------------------------------- */
+
+.setup-location__heading {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+}
+
+.setup-location__lede {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-secondary);
+  line-height: var(--leading-base);
+}
+
+.setup-location__path {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}

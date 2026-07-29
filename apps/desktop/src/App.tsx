@@ -132,7 +132,7 @@ function App() {
   }
 
   if (screen === "setup") {
-    return <SetupScreen onCreate={handleCreate} />;
+    return <SetupScreen onCreate={handleCreate} onVaultFound={() => setScreen("locked")} />;
   }
 
   if (screen === "locked") {
