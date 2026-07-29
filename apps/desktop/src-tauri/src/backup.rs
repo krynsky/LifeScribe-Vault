@@ -44,6 +44,12 @@ pub const RESTORE_MARKER_NAME: &str = "restore-in-progress.json";
 const SAFETY_BACKUP_DB_NAME: &str = "vault-safety-backup.sqlite3";
 const SAFETY_BACKUP_ATT_NAME: &str = "attachments-safety-backup";
 
+/// Transient restore artifacts that live in the vault directory. Exposed so
+/// relocation can carry them rather than stranding them at the old path.
+pub fn safety_backup_names() -> [&'static str; 2] {
+    [SAFETY_BACKUP_DB_NAME, SAFETY_BACKUP_ATT_NAME]
+}
+
 // ---------------------------------------------------------------------------
 // On-disk types
 // ---------------------------------------------------------------------------

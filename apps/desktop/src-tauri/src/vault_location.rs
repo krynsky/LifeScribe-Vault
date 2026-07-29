@@ -85,3 +85,138 @@ pub fn write_location(config_dir: &Path, vault_dir: &Path) -> VaultResult<()> {
 pub fn resolve_vault_dir(config_dir: &Path) -> PathBuf {
     read_location(config_dir).unwrap_or_else(|| config_dir.to_path_buf())
 }
+
+/// Move a vault's data files from `from_dir` to `to_dir`.
+///
+/// Sequence: validate -> copy -> VERIFY -> write pointer -> delete originals.
+/// Writing the pointer is the single atomic commit point, which makes every
+/// crash window safe:
+/// - before it: pointer names the old folder, originals untouched, the
+///   destination holds an ignorable orphan;
+/// - after it: data is verified present at the destination, and leftover
+///   originals are an orphan rather than a loss.
+///
+/// `fs::rename` is deliberately NOT used: it fails across volumes, and
+/// external drives are the motivating case. Copy-then-delete throughout.
+///
+/// Returns whether the originals were removed. `false` is not an error — the
+/// move is already committed and the caller should tell the user the old copy
+/// remains.
+///
+/// The caller is responsible for ensuring the vault is LOCKED. This function
+/// never touches key material: vault files are already encrypted at rest, so
+/// relocation needs no master password.
+///
+/// `config_dir` is where the pointer lives, which is NOT necessarily
+/// `from_dir` — it is passed in rather than guessed.
+pub fn relocate(config_dir: &Path, from_dir: &Path, to_dir: &Path) -> VaultResult<bool> {
+    if crate::backup::restore_in_progress(from_dir) {
+        return Err(VaultError::RestoreConflict);
+    }
+
+    fs::create_dir_all(to_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+
+    // Canonicalize only after both exist, so nesting/equality comparisons are
+    // done on real paths rather than on lexical ones.
+    let from_canon =
+        fs::canonicalize(from_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let to_canon =
+        fs::canonicalize(to_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+
+    if from_canon == to_canon {
+        return Ok(true); // No-op, not an error.
+    }
+    if to_canon.starts_with(&from_canon) {
+        return Err(VaultError::FileOperation(
+            "The new folder is inside the current vault folder.".to_string(),
+        ));
+    }
+    if vault_file_in(&to_canon).exists() {
+        return Err(VaultError::VaultAlreadyExists);
+    }
+
+    // An EXPLICIT list, never a directory sweep: in the default configuration
+    // `from_dir` also contains vault-location.json, and copying that would
+    // leave a stale pointer at the destination.
+    //
+    // The -wal / -shm sidecars matter: SQLite may hold committed data in the
+    // write-ahead log, so copying the database alone can silently lose writes.
+    //
+    // Entries may be files OR directories: the attachments safety backup is a
+    // directory, so each entry is dispatched on its own kind.
+    let mut entry_names: Vec<String> = vec![
+        VAULT_FILE_NAME.to_string(),
+        format!("{VAULT_FILE_NAME}-wal"),
+        format!("{VAULT_FILE_NAME}-shm"),
+    ];
+    if let Some(stash_name) = crate::draft_stash::draft_stash_path(&vault_file_in(&from_canon))
+        .file_name()
+        .and_then(|n| n.to_str())
+    {
+        entry_names.push(stash_name.to_string());
+    }
+    for name in crate::backup::safety_backup_names() {
+        entry_names.push(name.to_string());
+    }
+    entry_names.push("attachments".to_string());
+
+    for name in &entry_names {
+        let source = from_canon.join(name);
+        if source.is_dir() {
+            copy_dir_recursive(&source, &to_canon.join(name))?;
+        } else if source.exists() {
+            fs::copy(&source, to_canon.join(name))
+                .map_err(|e| VaultError::FileOperation(e.to_string()))?;
+        }
+    }
+
+    // VERIFY before committing: the destination database must genuinely open.
+    let moved_vault = vault_file_in(&to_canon);
+    let opens = crate::repository::VaultRepository::open_existing(&moved_vault)
+        .and_then(|repository| repository.vault_header_exists())
+        .unwrap_or(false);
+    if !opens {
+        // Nothing is committed yet — leave the source untouched and clean up.
+        let _ = fs::remove_dir_all(&to_canon);
+        return Err(VaultError::CorruptVault);
+    }
+
+    // COMMIT POINT.
+    write_location(config_dir, &to_canon)?;
+
+    // Past the commit point, failures are reported, not propagated.
+    let mut originals_removed = true;
+    for name in &entry_names {
+        let source = from_canon.join(name);
+        let removed = if source.is_dir() {
+            fs::remove_dir_all(&source).is_ok()
+        } else if source.exists() {
+            fs::remove_file(&source).is_ok()
+        } else {
+            true
+        };
+        if !removed {
+            originals_removed = false;
+        }
+    }
+
+    Ok(originals_removed)
+}
+
+/// Recursively copy a directory. Used for `attachments/` and the attachments
+/// safety backup, both flat today; recursion keeps it correct if that changes.
+fn copy_dir_recursive(source: &Path, destination: &Path) -> VaultResult<()> {
+    fs::create_dir_all(destination).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let entries = fs::read_dir(source).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| VaultError::FileOperation(e.to_string()))?;
+        let target = destination.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_recursive(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target)
+                .map_err(|e| VaultError::FileOperation(e.to_string()))?;
+        }
+    }
+    Ok(())
+}
