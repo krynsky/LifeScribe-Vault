@@ -79,8 +79,8 @@ describe("App", () => {
   });
 
   it("walks setup through to the dashboard welcome state", async () => {
-    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false });
-    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true });
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
+    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
     render(<App />);
 
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
@@ -106,8 +106,8 @@ describe("App", () => {
   });
 
   it("persists the chosen form mode into an initial snapshot on create", async () => {
-    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false });
-    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true });
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
+    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
     render(<App />);
 
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
@@ -130,8 +130,8 @@ describe("App", () => {
     // A previous vault on this machine left the editor enabled; a new vault
     // must not inherit it (localStorage is app-global, not vault-scoped).
     localStorage.setItem("lifescribe.packEditorEnabled", "true");
-    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false });
-    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true });
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
+    mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
     render(<App />);
 
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
@@ -148,8 +148,8 @@ describe("App", () => {
   });
 
   it("shows the locked screen for an existing vault and reaches the dashboard on unlock", async () => {
-    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: true });
-    mocked.unlockVault.mockResolvedValue({ unlocked: true, vaultExists: true });
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
+    mocked.unlockVault.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
     render(<App />);
 
     expect(await screen.findByText("Vault locked")).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe("App", () => {
   it("surfaces a status error with a retry", async () => {
     mocked.getVaultStatus
       .mockRejectedValueOnce("StorageError")
-      .mockResolvedValueOnce({ unlocked: false, vaultExists: false });
+      .mockResolvedValueOnce({ unlocked: false, vaultExists: false, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
     render(<App />);
 
     expect(await screen.findByText("Vault status unavailable")).toBeInTheDocument();

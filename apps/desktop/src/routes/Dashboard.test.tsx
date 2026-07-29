@@ -66,7 +66,7 @@ beforeEach(() => {
   mocked.takeDraft.mockResolvedValue(emptyDraftResponse());
   mocked.discardDraft.mockResolvedValue(undefined);
   mocked.stashDraft.mockResolvedValue(undefined);
-  mocked.lockVault.mockResolvedValue({ unlocked: false, vaultExists: true });
+  mocked.lockVault.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
   mocked.saveVaultSnapshot.mockResolvedValue({ generation: 1 });
 });
 
