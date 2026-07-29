@@ -16,11 +16,12 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let app_data_dir = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&app_data_dir)?;
-            let vault_path = app_data_dir.join("vault.sqlite3");
+            let config_dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&config_dir)?;
+            let vault_dir = vault_location::resolve_vault_dir(&config_dir);
+            let vault_path = vault_location::vault_file_in(&vault_dir);
             app.manage(commands::SharedVaultSession::new(
-                commands::VaultSession::new(vault_path),
+                commands::VaultSession::with_config_dir(vault_path, config_dir),
             ));
             Ok(())
         })

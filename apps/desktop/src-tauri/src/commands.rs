@@ -55,10 +55,26 @@ pub struct VaultSession {
     /// launching (the reader would race the delete), so the session owns them
     /// and purges them on lock — plaintext never outlives the unlocked session.
     pub external_temp_dirs: Vec<PathBuf>,
+    /// Where the location pointer lives. Distinct from the vault directory:
+    /// the pointer is needed to FIND the vault, so it cannot live inside it.
+    pub config_dir: PathBuf,
 }
 
 impl VaultSession {
+    /// `config_dir` defaults to the vault file's parent — the relationship
+    /// that held before the location was configurable. Existing callers and
+    /// tests keep working unchanged.
     pub fn new(vault_path: PathBuf) -> Self {
+        let config_dir = vault_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        Self::with_config_dir(vault_path, config_dir)
+    }
+
+    /// Used by real startup, where the pointer lives in the OS app-data
+    /// directory and the vault may live anywhere.
+    pub fn with_config_dir(vault_path: PathBuf, config_dir: PathBuf) -> Self {
         Self {
             vault_path,
             key: None,
@@ -66,6 +82,7 @@ impl VaultSession {
             loaded_generation: 0,
             recovered: false,
             external_temp_dirs: Vec::new(),
+            config_dir,
         }
     }
 

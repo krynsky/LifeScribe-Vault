@@ -281,6 +281,24 @@ fn remove_entries_removes_both_files_and_directories() {
 }
 
 #[test]
+fn session_derives_config_dir_from_the_vault_parent_by_default() {
+    let dir = tempdir().unwrap();
+    let session = VaultSession::new(vault_file_in(dir.path()));
+    assert_eq!(session.config_dir, dir.path().to_path_buf());
+}
+
+#[test]
+fn session_accepts_an_explicit_config_dir_distinct_from_the_vault_dir() {
+    let config = tempdir().unwrap();
+    let vault = tempdir().unwrap();
+    let session =
+        VaultSession::with_config_dir(vault_file_in(vault.path()), config.path().to_path_buf());
+
+    assert_eq!(session.config_dir, config.path().to_path_buf());
+    assert_eq!(session.vault_path, vault_file_in(vault.path()));
+}
+
+#[test]
 fn moved_database_still_contains_no_plaintext() {
     let from = tempdir().unwrap();
     let to = tempdir().unwrap();
