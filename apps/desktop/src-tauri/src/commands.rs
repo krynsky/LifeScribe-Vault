@@ -98,6 +98,13 @@ pub type SharedVaultSession = Mutex<VaultSession>;
 pub struct VaultStatusResponse {
     pub unlocked: bool,
     pub vault_exists: bool,
+    /// The directory holding the vault's data files.
+    pub vault_dir: String,
+    /// False when that directory cannot be reached (unplugged drive, deleted
+    /// or renamed folder). Distinguishes "unreachable" from "present but
+    /// empty" — conflating them would send a user with an intact vault to
+    /// first-run setup.
+    pub vault_dir_available: bool,
 }
 
 /// No `Debug` derive — carries the master password.
@@ -137,9 +144,16 @@ pub struct LoadSnapshotResponse {
 // ---------------------------------------------------------------------------
 
 pub fn get_status_for_session(session: &VaultSession) -> VaultStatusResponse {
+    let vault_dir = session
+        .vault_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_default();
     VaultStatusResponse {
         unlocked: session.is_unlocked(),
         vault_exists: vault_header_exists_at_path(&session.vault_path),
+        vault_dir: vault_dir.to_string_lossy().into_owned(),
+        vault_dir_available: vault_dir.is_dir(),
     }
 }
 

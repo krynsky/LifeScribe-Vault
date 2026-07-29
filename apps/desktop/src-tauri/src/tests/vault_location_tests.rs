@@ -60,7 +60,7 @@ fn vault_file_in_appends_the_database_name() {
     assert_eq!(vault_file_in(dir.path()), dir.path().join("vault.sqlite3"));
 }
 
-use crate::commands::{create_vault_at_path, VaultSession};
+use crate::commands::{create_vault_at_path, get_status_for_session, VaultSession};
 use crate::error::command_error_code;
 
 const PASSWORD: &str = "test-master-password-relocate";
@@ -296,6 +296,29 @@ fn session_accepts_an_explicit_config_dir_distinct_from_the_vault_dir() {
 
     assert_eq!(session.config_dir, config.path().to_path_buf());
     assert_eq!(session.vault_path, vault_file_in(vault.path()));
+}
+
+#[test]
+fn status_reports_the_vault_directory_and_marks_it_available() {
+    let dir = tempdir().unwrap();
+    let session = VaultSession::new(vault_file_in(dir.path()));
+
+    let status = get_status_for_session(&session);
+
+    assert_eq!(status.vault_dir, dir.path().to_string_lossy());
+    assert!(status.vault_dir_available, "an existing directory is available");
+}
+
+#[test]
+fn status_marks_a_missing_vault_directory_unavailable() {
+    let dir = tempdir().unwrap();
+    let missing = dir.path().join("unplugged-drive");
+    let session = VaultSession::new(vault_file_in(&missing));
+
+    let status = get_status_for_session(&session);
+
+    assert!(!status.vault_dir_available, "a missing directory is unavailable");
+    assert!(!status.vault_exists, "and it certainly holds no vault");
 }
 
 #[test]
