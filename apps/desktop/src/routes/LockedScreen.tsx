@@ -2,6 +2,8 @@ import { type FormEvent, useState } from "react";
 
 export interface LockedScreenProps {
   onUnlock: (masterPassword: string) => Promise<void>;
+  /** One-off message explaining why the vault locked (e.g. after a move). */
+  notice?: string;
 }
 
 const ERROR_ID = "unlock-error";
@@ -21,7 +23,7 @@ function unlockErrorMessage(error: unknown): string {
  * Lock screen. Deliberately renders no vault plaintext anywhere — nothing
  * here is copyable vault content (clipboard-hygiene law).
  */
-export function LockedScreen({ onUnlock }: LockedScreenProps) {
+export function LockedScreen({ onUnlock, notice }: LockedScreenProps) {
   const [masterPassword, setMasterPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,6 +53,12 @@ export function LockedScreen({ onUnlock }: LockedScreenProps) {
           Your information is encrypted and safe. Enter your master password
           to pick up where you left off.
         </p>
+
+        {notice ? (
+          <p className="vault-panel__lede" role="status">
+            {notice}
+          </p>
+        ) : null}
 
         <form className="vault-form" onSubmit={handleSubmit}>
           <div className="vault-form__field">

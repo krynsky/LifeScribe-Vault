@@ -26,7 +26,12 @@ vi.mock("../api/vaultApi", () => ({
   // Backup commands — not asserted in Dashboard tests.
   createBackup: vi.fn(),
   restoreBackup: vi.fn(),
+  // Vault location — Settings reads the directory; relocation is user-driven.
+  setVaultLocation: vi.fn(),
+  relocateVault: vi.fn(),
 }));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
 const mocked = vi.mocked(vaultApi);
 
@@ -67,6 +72,7 @@ beforeEach(() => {
   mocked.discardDraft.mockResolvedValue(undefined);
   mocked.stashDraft.mockResolvedValue(undefined);
   mocked.lockVault.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
+  mocked.getVaultStatus.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
   mocked.saveVaultSnapshot.mockResolvedValue({ generation: 1 });
 });
 
@@ -949,6 +955,107 @@ describe("Dashboard Settings page", () => {
     expect(await screen.findByText(/could not be saved/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /apply changes/i })).toBeInTheDocument();
+  });
+});
+
+describe("Dashboard vault relocation", () => {
+  async function openMoveConfirmation(onLocked: (notice?: string) => void) {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(open).mockResolvedValue("E:\\NewHome");
+
+    render(<Dashboard ownerNameHint="Dana" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Settings$/ }));
+    await screen.findByRole("heading", { name: "Settings" });
+    // The section shows the directory the status command reported.
+    expect(
+      await screen.findByText("C:\\Users\\test\\AppData\\Roaming\\LifeScribe"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /move vault/i }));
+    await screen.findByRole("button", { name: /^move and lock$/i });
+    return user;
+  }
+
+  it("locks BEFORE moving, then reports the new home on the locked screen", async () => {
+    const calls: string[] = [];
+    mocked.lockVault.mockImplementation(async () => {
+      calls.push("lock");
+      return { unlocked: false, vaultExists: true, vaultDir: "C:\\Old", vaultDirAvailable: true };
+    });
+    mocked.relocateVault.mockImplementation(async () => {
+      calls.push("relocate");
+      return { vaultDir: "E:\\NewHome", originalsRemoved: true };
+    });
+
+    const onLocked = vi.fn();
+    const user = await openMoveConfirmation(onLocked);
+    await user.click(screen.getByRole("button", { name: /^move and lock$/i }));
+
+    // relocate_vault rejects on an unlocked vault, so the order is load-bearing.
+    expect(calls).toEqual(["lock", "relocate"]);
+    expect(mocked.relocateVault).toHaveBeenCalledWith("E:\\NewHome");
+    expect(onLocked).toHaveBeenCalledWith("Your vault now lives in E:\\NewHome.");
+  });
+
+  it("says so when the old copies could not be removed", async () => {
+    mocked.relocateVault.mockResolvedValue({
+      vaultDir: "E:\\NewHome",
+      originalsRemoved: false,
+    });
+
+    const onLocked = vi.fn();
+    const user = await openMoveConfirmation(onLocked);
+    await user.click(screen.getByRole("button", { name: /^move and lock$/i }));
+
+    // A second copy of encrypted vault data is left on disk: the user is told
+    // where, rather than the notice being swallowed.
+    expect(onLocked).toHaveBeenCalledWith(
+      expect.stringContaining("The old copies could not be removed automatically"),
+    );
+    expect(onLocked).toHaveBeenCalledWith(expect.stringContaining("E:\\NewHome"));
+  });
+
+  it("reports a failed move on the locked screen (the lock already happened)", async () => {
+    mocked.relocateVault.mockRejectedValue(new Error("StorageError"));
+
+    const onLocked = vi.fn();
+    const user = await openMoveConfirmation(onLocked);
+    await user.click(screen.getByRole("button", { name: /^move and lock$/i }));
+
+    expect(onLocked).toHaveBeenCalledWith(expect.stringContaining("could not be moved"));
+  });
+
+  it("stashes dirty edits before locking to move", async () => {
+    mocked.relocateVault.mockResolvedValue({
+      vaultDir: "E:\\NewHome",
+      originalsRemoved: true,
+    });
+
+    const onLocked = vi.fn();
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(open).mockResolvedValue("E:\\NewHome");
+
+    render(<Dashboard ownerNameHint="Dana" onLocked={onLocked} />);
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    // Make an unsaved edit, then move the vault from Settings.
+    await user.click(sidebarSectionButton());
+    await user.click(await screen.findByRole("button", { name: "Add Executor" }));
+    fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Unsaved" } });
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/ }));
+    await screen.findByRole("heading", { name: "Settings" });
+    await user.click(screen.getByRole("button", { name: /move vault/i }));
+    await user.click(await screen.findByRole("button", { name: /^move and lock$/i }));
+
+    // The move goes through the normal lock path, so unsaved work is stashed
+    // encrypted rather than discarded.
+    expect(mocked.stashDraft).toHaveBeenCalled();
+    expect(onLocked).toHaveBeenCalledWith("Your vault now lives in E:\\NewHome.");
   });
 });
 

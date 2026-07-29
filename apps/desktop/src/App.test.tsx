@@ -31,6 +31,8 @@ vi.mock("./api/vaultApi", () => ({
   relocateVault: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+
 const mocked = vi.mocked(vaultApi);
 
 const SETUP_PASSWORD = "correct horse battery staple";
@@ -165,6 +167,42 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Unlock" }));
 
     expect(await screen.findByText(/Welcome/)).toBeInTheDocument();
+  });
+
+  it("moving the vault from Settings lands on the locked screen carrying the notice", async () => {
+    const HERE = "C:\\Users\\test\\AppData\\Roaming\\LifeScribe";
+    mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: HERE, vaultDirAvailable: true });
+    mocked.unlockVault.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: HERE, vaultDirAvailable: true });
+    mocked.lockVault.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: HERE, vaultDirAvailable: true });
+    // The move succeeded but the old copies survived — the user must be told.
+    mocked.relocateVault.mockResolvedValue({ vaultDir: "E:\\NewHome", originalsRemoved: false });
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(open).mockResolvedValue("E:\\NewHome");
+
+    render(<App />);
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Master password"), "right password!!");
+    await user.click(screen.getByRole("button", { name: "Unlock" }));
+    await screen.findByText(/Welcome/);
+
+    await user.click(screen.getByRole("button", { name: /^Settings$/ }));
+    await screen.findByRole("heading", { name: "Settings" });
+    await user.click(screen.getByRole("button", { name: /move vault/i }));
+    await user.click(await screen.findByRole("button", { name: /^move and lock$/i }));
+
+    // Back on the locked screen, with the leftover-copies warning actually
+    // rendered — not merely built and dropped.
+    expect(await screen.findByText("Vault locked")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /old copies could not be removed automatically/i,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("E:\\NewHome");
+
+    // A successful unlock clears it, so it never outlives the move it describes.
+    await user.type(screen.getByLabelText("Master password"), "right password!!");
+    await user.click(screen.getByRole("button", { name: "Unlock" }));
+    await screen.findByText(/Welcome/);
+    expect(screen.queryByText(/old copies could not be removed/i)).not.toBeInTheDocument();
   });
 
   it("surfaces a status error with a retry", async () => {

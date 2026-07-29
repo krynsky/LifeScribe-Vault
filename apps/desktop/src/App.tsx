@@ -37,6 +37,10 @@ function App() {
   const [screen, setScreen] = useState<AppScreen>("loading");
   const [ownerNameHint, setOwnerNameHint] = useState("");
   const [moduleSelectionsHint, setModuleSelectionsHint] = useState<Record<string, string>>({ secrets: "off" });
+  // One-off explanation for a lock the user did not ask for directly (a vault
+  // move locks as a precondition). Cleared on the next successful unlock so it
+  // never outlives the event it describes.
+  const [lockNotice, setLockNotice] = useState("");
 
   useEffect(() => {
     let isCurrent = true;
@@ -92,6 +96,7 @@ function App() {
 
   async function handleUnlock(masterPassword: string) {
     const status = await unlockVault(masterPassword);
+    setLockNotice("");
     setScreen(screenFromStatus(status));
   }
 
@@ -136,11 +141,18 @@ function App() {
   }
 
   if (screen === "locked") {
-    return <LockedScreen onUnlock={handleUnlock} />;
+    return <LockedScreen onUnlock={handleUnlock} notice={lockNotice} />;
   }
 
   return (
-    <Dashboard ownerNameHint={ownerNameHint} moduleSelectionsHint={moduleSelectionsHint} onLocked={() => setScreen("locked")} />
+    <Dashboard
+      ownerNameHint={ownerNameHint}
+      moduleSelectionsHint={moduleSelectionsHint}
+      onLocked={(notice) => {
+        setLockNotice(notice ?? "");
+        setScreen("locked");
+      }}
+    />
   );
 }
 

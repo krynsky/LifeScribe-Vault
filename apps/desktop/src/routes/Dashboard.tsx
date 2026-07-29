@@ -13,8 +13,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   deleteAttachment,
   discardDraft,
+  getVaultStatus,
   loadVaultSnapshot,
   lockVault,
+  relocateVault,
   saveVaultSnapshot,
   stashDraft,
   sweepOrphanedAttachments,
@@ -85,8 +87,11 @@ export interface DashboardProps {
   ownerNameHint?: string;
   /** Module selections chosen at setup; seed the profile until the first snapshot exists. */
   moduleSelectionsHint?: Record<string, string>;
-  /** Called once the vault is locked (auto or manual). */
-  onLocked: () => void;
+  /**
+   * Called once the vault is locked (auto or manual). The optional notice
+   * explains why, when the lock was a side effect of something else (a move).
+   */
+  onLocked: (notice?: string) => void;
 }
 
 type Route =
@@ -238,6 +243,25 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
   const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
   const [packEditError, setPackEditError] = useState<string | null>(null);
+  const [vaultDir, setVaultDir] = useState("");
+
+  // Where the vault's data files live, for the Settings "Vault location"
+  // section. Re-read on reload so it reflects a move made this session.
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadVaultDir() {
+      try {
+        const status = await getVaultStatus();
+        if (isCurrent) setVaultDir(status.vaultDir);
+      } catch {
+        // Settings shows an empty path; "Move vault…" still works.
+      }
+    }
+    void loadVaultDir();
+    return () => {
+      isCurrent = false;
+    };
+  }, [loadKey]);
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -359,9 +383,17 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
   // with the still-live data key) -> lock zeroizes the key.
   // -------------------------------------------------------------------------
-  const performLock = async () => {
+  /**
+   * Stash-then-lock, WITHOUT notifying the parent. Split out of `performLock`
+   * so the relocation flow can lock (relocate_vault requires a locked vault)
+   * and only navigate to the locked screen once the move has resolved — it
+   * needs to carry a notice explaining why the vault locked.
+   *
+   * Returns false when a lock is already in progress.
+   */
+  const lockWithoutNavigating = async (): Promise<boolean> => {
     if (lockingRef.current) {
-      return;
+      return false;
     }
     lockingRef.current = true;
     setLocking(true);
@@ -393,7 +425,13 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     } catch {
       // Even if the IPC errors, treat the session as locked in the UI.
     }
-    onLocked();
+    return true;
+  };
+
+  const performLock = async () => {
+    if (await lockWithoutNavigating()) {
+      onLocked();
+    }
   };
   const performLockRef = useRef(performLock);
   useEffect(() => {
@@ -581,6 +619,32 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
       setLoadKey((k) => k + 1);
     }
     return ok;
+  }
+
+  /**
+   * Move the vault's data files. Relocation requires a locked vault, so this
+   * locks first (via the normal lock path, which completes an in-flight save
+   * and stashes dirty drafts), then moves, then leaves the user on the locked
+   * screen.
+   *
+   * When the old copies could not be deleted the move still succeeded, so this
+   * is a notice rather than an error — but it must be said, not swallowed: a
+   * second copy of encrypted vault data is left on disk.
+   */
+  async function handleRelocate(dir: string): Promise<void> {
+    await lockWithoutNavigating();
+    try {
+      const result = await relocateVault(dir);
+      onLocked(
+        result.originalsRemoved
+          ? `Your vault now lives in ${result.vaultDir}.`
+          : `Your vault now lives in ${result.vaultDir}. The old copies could not be removed automatically — you can delete them yourself.`,
+      );
+    } catch {
+      // The move did not commit, but the vault is locked now either way — so
+      // the notice goes on the locked screen, not the (unmounting) dashboard.
+      onLocked("The vault could not be moved, so it still lives where it did. Nothing has been changed.");
+    }
   }
 
   function sectionWorkingValues(sectionKey: string): SectionValues {
@@ -1335,6 +1399,8 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
           // and the Settings pane remounts with the new selections.
           await applyModuleSelections(next);
         }}
+        vaultDir={vaultDir}
+        onRelocate={handleRelocate}
       />
     );
   }

@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import type { FormPack } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
+import { VaultLocation } from "./settings/VaultLocation";
 import { VaultOptions } from "./settings/VaultOptions";
 
 export interface SettingsPageProps {
   selections: Record<string, string>;
   onApply: (next: Record<string, string>) => Promise<void>;
+  /** Folder the vault's data files currently live in. */
+  vaultDir: string;
+  /** Locks the vault, moves the data, and lands on the locked screen. */
+  onRelocate: (dir: string) => Promise<void>;
 }
 
 /**
@@ -14,7 +19,7 @@ export interface SettingsPageProps {
  * definitions and renders the generic Vault options section. Future settings
  * sections (e.g. change master password) stack below as siblings.
  */
-export function SettingsPage({ selections, onApply }: SettingsPageProps) {
+export function SettingsPage({ selections, onApply, vaultDir, onRelocate }: SettingsPageProps) {
   const [base, setBase] = useState<FormPack | null>(null);
   useEffect(() => {
     let isCurrent = true;
@@ -30,6 +35,7 @@ export function SettingsPage({ selections, onApply }: SettingsPageProps) {
         <h1 className="settings-page__title">Settings</h1>
       </header>
       <VaultOptions base={base} selections={selections} onApply={onApply} />
+      <VaultLocation vaultDir={vaultDir} onRelocate={onRelocate} />
     </div>
   );
 }
