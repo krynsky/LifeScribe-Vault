@@ -50,6 +50,11 @@ pub struct VaultSession {
     /// generation; the next save supersedes those generations (repository
     /// CAS semantics) instead of conflicting forever.
     pub recovered: bool,
+    /// Temp directories holding decrypted plaintext handed to an external app
+    /// via `open_attachment_external`. They cannot be deleted right after
+    /// launching (the reader would race the delete), so the session owns them
+    /// and purges them on lock — plaintext never outlives the unlocked session.
+    pub external_temp_dirs: Vec<PathBuf>,
 }
 
 impl VaultSession {
@@ -60,6 +65,7 @@ impl VaultSession {
             vault_id: None,
             loaded_generation: 0,
             recovered: false,
+            external_temp_dirs: Vec::new(),
         }
     }
 
@@ -594,16 +600,19 @@ pub fn read_attachment(
 
 /// Decrypt an attachment to a temporary plaintext file and open it in the OS
 /// default application. WARNING: this writes decrypted plaintext to disk — the
-/// UI MUST confirm with the user before calling it. Best-effort cleanup removes
-/// the temp file after launching; a file still held open by the external app is
-/// an accepted limitation.
+/// UI MUST confirm with the user before calling it.
+///
+/// The temp directory is retained for the rest of the unlocked session and
+/// purged on lock. Deleting it here would race the external app: `open::that`
+/// returns once the launcher is dispatched, NOT once the app has opened the
+/// file, so an eager delete makes the reader fail with "file not found".
 #[tauri::command]
 pub fn open_attachment_external(
     attachment_id: String,
     file_name: String,
     session: State<'_, SharedVaultSession>,
 ) -> Result<(), String> {
-    let session = lock_state(&session)?;
+    let mut session = lock_state(&session)?;
     let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
     let vault_id = session
         .vault_id
@@ -613,16 +622,33 @@ pub fn open_attachment_external(
     let path =
         crate::attachments::decrypt_to_temp(&att_dir, &attachment_id, &file_name, key, vault_id)
             .map_err(command_error_code)?;
-    open::that(&path).map_err(|e| command_error_code(VaultError::FileOperation(e.to_string())))?;
-    // Best-effort cleanup: the OS app has typically read the file by now.
-    let _ = std::fs::remove_file(&path);
-    let _ = std::fs::remove_dir(path.parent().unwrap_or(&att_dir));
-    Ok(())
+
+    // Record before launching: if `open::that` fails we still own the plaintext
+    // and must guarantee it is purged on lock rather than leaked.
+    if let Some(parent) = path.parent() {
+        session.external_temp_dirs.push(parent.to_path_buf());
+    }
+
+    match open::that(&path) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            // No external app took the file — purge it now instead of waiting
+            // for lock, since nothing is going to read it.
+            if let Some(parent) = path.parent() {
+                crate::attachments::purge_external_temp_dir(parent);
+                session.external_temp_dirs.pop();
+            }
+            Err(command_error_code(VaultError::FileOperation(e.to_string())))
+        }
+    }
 }
 
 /// Sweep orphaned attachment files (present on disk but absent from
 /// `referenced_ids`). Called once after unlock + snapshot load. Returns the
 /// count of swept files. No-op while a restore marker is present.
+///
+/// Also sweeps stale external-open temp directories, so decrypted plaintext a
+/// previous run left behind (crash or kill before its lock) does not linger.
 #[tauri::command]
 pub fn sweep_orphaned_attachments(
     referenced_ids: Vec<String>,
@@ -640,6 +666,7 @@ pub fn sweep_orphaned_attachments(
     if crate::backup::restore_in_progress(&app_data_dir) {
         return Ok(0);
     }
+    crate::attachments::sweep_stale_external_temp_dirs();
     let att_dir = crate::attachments::attachment_dir(&session.vault_path);
     crate::attachments::sweep_orphaned_attachments(&att_dir, &referenced_ids)
         .map_err(command_error_code)
@@ -655,6 +682,12 @@ fn lock_session_state(session: &mut VaultSession) {
     session.vault_id = None;
     session.loaded_generation = 0;
     session.recovered = false;
+    // Decrypted plaintext handed to external apps must not outlive the unlocked
+    // session. Best-effort: a file the external app still holds open cannot be
+    // deleted on Windows; the stale sweep on a later unlock catches it.
+    for dir in session.external_temp_dirs.drain(..) {
+        crate::attachments::purge_external_temp_dir(&dir);
+    }
 }
 
 fn ensure_parent_dir(vault_path: &Path) -> VaultResult<()> {

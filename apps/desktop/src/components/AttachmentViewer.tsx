@@ -56,7 +56,7 @@ export function AttachmentViewer({ attachmentId, fileName, onClose }: Attachment
   }, [attachmentId, fileName, kind]);
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label={`View ${fileName}`}>
+    <div className="modal modal--viewer" role="dialog" aria-modal="true" aria-label={`View ${fileName}`}>
       <div className="modal__body attachment-viewer">
         <div className="attachment-viewer__header">
           <span>{fileName}</span>

@@ -24,6 +24,14 @@ use crate::error::{VaultError, VaultResult};
 /// treated as orphaned — protects attachments whose snapshot save is in flight.
 const GRACE_SECS: u64 = 120;
 
+/// Prefix of the per-open temp directories `decrypt_to_temp` creates.
+const EXTERNAL_TEMP_PREFIX: &str = "lifescribe-";
+
+/// A leftover external-open temp directory is only swept once it is older than
+/// this. Guards against deleting a directory another running instance just
+/// created; this session's own directories are purged deterministically on lock.
+const EXTERNAL_TEMP_STALE_SECS: u64 = 3600;
+
 pub struct AttachmentMeta {
     pub id: String,
     pub file_name: String,
@@ -129,6 +137,13 @@ pub fn decrypt_attachment(
 /// the right extension). Returns the temp file path for the caller to open and
 /// later clean up. This is the ONLY sanctioned plaintext-to-disk path and MUST
 /// be gated behind explicit user confirmation at the UI layer.
+///
+/// The caller MUST NOT delete the file immediately after launching the external
+/// app: `open::that` returns once the launcher is dispatched, not once the app
+/// has read the file, so an eager delete races the reader (Chrome et al. report
+/// ERR_FILE_NOT_FOUND). Ownership of the returned directory passes to the
+/// session, which purges it on lock; `sweep_stale_external_temp_dirs` covers
+/// the crash case.
 pub fn decrypt_to_temp(
     dir: &Path,
     attachment_id: &str,
@@ -137,7 +152,8 @@ pub fn decrypt_to_temp(
     vault_id: &str,
 ) -> VaultResult<PathBuf> {
     let plaintext = decrypt_attachment(dir, attachment_id, key, vault_id)?;
-    let sub = std::env::temp_dir().join(format!("lifescribe-{}", uuid::Uuid::new_v4()));
+    let sub =
+        std::env::temp_dir().join(format!("{EXTERNAL_TEMP_PREFIX}{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&sub).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     let safe_name = Path::new(file_name)
         .file_name()
@@ -146,6 +162,55 @@ pub fn decrypt_to_temp(
     let path = sub.join(safe_name);
     fs::write(&path, &plaintext).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     Ok(path)
+}
+
+/// Remove one external-open temp directory and the plaintext file inside it.
+/// Best-effort: a file still held open by the external app cannot be deleted on
+/// Windows, and that is an accepted limitation (the stale sweep retries later).
+pub fn purge_external_temp_dir(dir: &Path) {
+    let _ = fs::remove_dir_all(dir);
+}
+
+/// Sweep external-open temp directories left behind by a previous run that
+/// never reached its lock (a crash or a kill). Only directories older than
+/// `EXTERNAL_TEMP_STALE_SECS` are removed, so a concurrently-running instance's
+/// freshly-created directory is never pulled out from under it. Returns the
+/// count removed.
+pub fn sweep_stale_external_temp_dirs() -> u32 {
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let Ok(entries) = fs::read_dir(std::env::temp_dir()) else {
+        return 0;
+    };
+
+    let mut swept = 0u32;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if !name.starts_with(EXTERNAL_TEMP_PREFIX) {
+            continue;
+        }
+        let Ok(modified) = fs::metadata(&path).and_then(|m| m.modified()) else {
+            continue;
+        };
+        let Ok(age) = modified.duration_since(UNIX_EPOCH) else {
+            continue;
+        };
+        if now_secs.saturating_sub(age.as_secs()) < EXTERNAL_TEMP_STALE_SECS {
+            continue;
+        }
+        if fs::remove_dir_all(&path).is_ok() {
+            swept += 1;
+        }
+    }
+    swept
 }
 
 /// Delete the ciphertext file for `attachment_id`. A missing file is treated
