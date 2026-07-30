@@ -184,7 +184,7 @@ KTD1. **Delete the pack editor's indirection layer rather than collapsing it** (
 
 KTD2. **Backfill tests for the simplified editor** (session-settled: user-directed — chosen over deleting only the module-specific tests: the layering being removed is where this project's defects have concentrated, so the coverage is replaced rather than dropped). U9 restores editor coverage against the post-removal shape.
 
-KTD3. **Enforce the Recovery Kit exclusion in pack data, not in rendering code** (inherits Product Contract Key Decision "The Recovery Kit stops carrying credentials"). `apps/desktop/src/domain/recoveryKit.ts` emits the raw value of any field its mapping lists and has no redaction by type, name, or `protected` flag. The only way to keep a credential out of the Kit is to keep its `systemKey` out of `kitMapping`. `recoveryKit.ts` is not modified.
+KTD3. **Keep credentials out of the Kit by validation, not by rendering code** (inherits Product Contract Key Decision "The Recovery Kit stops carrying credentials"). `apps/desktop/src/domain/recoveryKit.ts` emits the raw value of any field its mapping lists, with no redaction by type, name, or `protected` flag, so the only lever is which `systemKey`s reach `kitMapping`. Omitting them from the shipped pack is not enough on its own: the Kit builds from `customPack ?? default`, so a pack edited in the pack editor could put a credential back. `validatePack` therefore rejects any pack whose `kitMapping` names an excluded key, which makes R17 hold for authored and imported packs too. `recoveryKit.ts` is not modified.
 
 KTD4. **Delete pack data before the types that describe it.** The shipped pack's `modules` array is removed in U1, before `FormPack.modules` disappears in U2. The reverse order leaves a pack whose shape no type describes, and `loadDefaultPack` casts rather than validating structurally, so the mismatch would surface at runtime instead of at compile time.
 
@@ -249,12 +249,15 @@ A3. The base-target behavior currently tested in `editorEdits.test.ts` is alread
 - Modify: `apps/desktop/src-tauri/resources/packs/default-pack.json`
 - Modify: `apps/desktop/src/domain/defaultPack.test.ts`
 - Modify: `apps/desktop/src/domain/loadDefaultPack.test.ts`
+- Modify: `apps/desktop/src/domain/recoveryKit.test.ts`
 - Delete: `apps/desktop/src/domain/basePackModules.test.ts`
 - Create: a shipped-pack assertion for the three fields, either in `defaultPack.test.ts` or replacing the deleted file
 
 **Approach.** Move `passwordManagerMasterPassword` into the `password-manager` section's `plan` group, `devicePin` into the `devices` section's `device` group, and `documentDigitalFile` into the `documents` section's `document` group, each `required: false` and `protected: false`. Keep `documentDigitalLocation` — the `attach` option's `removeKeys` entry disappears with the module rather than being honored. Give each of the three neutral helper text marking it optional, with no steer for or against filling it in. Add `documentDigitalFile` to the Documents section's `kitMapping`; do **not** add `passwordManagerMasterPassword` or `devicePin` to any `kitMapping` (KTD3). Delete the `modules` array.
 
 `apps/desktop/src/domain/loadDefaultPack.test.ts` asserts `pack.modules` is defined in two cases. Drop those assertions; keep the `packId` and resource-read ones.
+
+`apps/desktop/src/domain/recoveryKit.test.ts` has a `describe("Recovery Kit with the secrets module composed in")` block that imports `composePack` and asserts the master password **is** present in the Kit — the inverse of R17, and it breaks at U3 when `composePack` is deleted. Remove that block and its import, and replace it with the AE2 regression: populate both credential fields plus an attachment against the shipped pack, build the Kit, and assert it names the attached file and contains neither credential value.
 
 **Patterns to follow.** The existing Backups & Storage section already pairs a freeform location field with an optional path field — the same coexistence this unit creates in Documents.
 
@@ -264,6 +267,7 @@ A3. The base-target behavior currently tested in `editorEdits.test.ts` is alread
 - Covers R7. The shipped pack has no `modules` key.
 - Covers R16. The Documents `kitMapping` lists `documentDigitalFile`.
 - Covers R17. No section's `kitMapping` lists `passwordManagerMasterPassword` or `devicePin`.
+- Covers R16, R17, AE2. A Kit built from the shipped pack, with both credential fields populated and a file attached, names the attached file and contains neither credential value in any rendered string.
 - The pack still passes `validatePack`.
 - Section readiness is unchanged: no `readinessRule.requiredKeys` gains or loses an entry.
 
@@ -284,9 +288,13 @@ A3. The base-target behavior currently tested in `editorEdits.test.ts` is alread
 
 **Approach.** Delete `ModuleAddField`, `ModuleAddSection`, `FormModuleOption`, `FormModule`, and `FormPack.modules` from `formModel.ts`. Delete `validateModules` and its call site from `packValidation.ts`, along with its `composePack` import. Remove the module-specific tests from `packValidation.test.ts` — duplicate module ids, cross-module systemKey collisions, `defaultOptionId` validity, compose-failure surfacing — and keep the structural, section, readiness, and kitMapping tests. Confirm A1: check whether `packMigrations.ts` branches on `modules` before concluding it needs no change.
 
+Add the Kit exclusion rule that makes R17 hold for every pack, not only the shipped one (KTD3): a `KIT_EXCLUDED_SYSTEM_KEYS` constant naming `passwordManagerMasterPassword` and `devicePin`, and a `validatePack` check rejecting any pack whose `kitMapping.entries[].fields` lists one. Name the offending key in the error so a pack author can act on it.
+
 **Test scenarios.**
 - Covers R7. A pack object carrying a `modules` array does not typecheck, and `validatePack` no longer runs module validation.
 - The surviving `validatePack` checks still reject a pack with a duplicate `systemKey`, a missing `readinessRule`, and a `kitMapping` naming an unknown field.
+- Covers R17. `validatePack` rejects a pack whose `kitMapping` lists `passwordManagerMasterPassword`, and again for `devicePin`, naming the offending key.
+- The shipped pack still passes `validatePack` with the new rule in place.
 
 **Verification.** `npm --prefix apps/desktop run typecheck` is clean and the pack validation suite passes.
 
@@ -527,8 +535,8 @@ Global:
 
 Per unit:
 
-- U1: the shipped pack validates, carries the three fields, and lists neither the master password nor the device PIN in any `kitMapping`.
-- U2: `FormPack` has no `modules`, and `validateModules` is gone.
+- U1: the shipped pack validates, carries the three fields, and a Kit built from it with both credentials populated emits neither value.
+- U2: `FormPack` has no `modules`, `validateModules` is gone, and `validatePack` rejects a pack that maps a credential key into the Kit.
 - U3: no composition step runs between pack load and render.
 - U4: a written snapshot's profile has no `formMode` and no `moduleSelections`.
 - U5: setup is one screen and `onCreate` takes two arguments.
