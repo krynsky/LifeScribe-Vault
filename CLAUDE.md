@@ -22,6 +22,7 @@ npm run build    # Windows installers
 - The vault snapshot is opaque JSON in Rust (`serde_json::Value` passthrough) — never mirror it in a Rust struct (v1's mirrored struct silently stripped fields).
 - Snapshot saves are generation-counted compare-and-swap; previous generations are retained; no save path may blind-overwrite.
 - Form definitions are data, not executable scripts. No custom JS, remote scripts, webhooks, or expression strings — declarative conditional objects only.
+- Credential system keys (`passwordManagerMasterPassword`, `devicePin`) may never reach the Recovery Kit — `validatePack` rejects any pack whose `kitMapping` names one, since the Kit emits raw values with no redaction of its own.
 - Keep protected system keys stable unless all dependent save/status/recovery mappings are migrated in the same change.
 - Field-level user data is never silently dropped — orphaned values become archived answers.
 - Migrations are pure, deterministic, idempotent; migrate-on-read in memory; persist only via the normal save path.

@@ -8,30 +8,20 @@ Everything stays on your computer. There is no cloud account, no sync, and no co
 
 ## Getting Started
 
-### 1. Create your vault
+### Create your vault
 
-The first time you open the app you'll be asked where the vault should live —
-the default folder is fine for most people, and you can change it later (see
-[Where your vault is stored](#where-your-vault-is-stored)). Then you'll be
-asked for:
+Setting up takes one screen. You'll be asked for:
 
+- **Where the vault should live** — the default folder is fine for most people, and you can change it later (see [Where your vault is stored](#where-your-vault-is-stored)). If the folder you pick already holds a LifeScribe vault, the app opens that one instead of replacing it, and sends you to the unlock screen.
 - **Your name** — used to personalize the app and your Recovery Kit.
-- **A master password** — at least 15 characters. A passphrase of a few unrelated words (like `correct horse battery staple`, but your own) is strong and easy to remember. Pasting from a password manager works too.
+- **A master password** — at least 15 characters, typed twice. A passphrase of a few unrelated words (like `correct horse battery staple`, but your own) is strong and easy to remember. Pasting from a password manager works too.
+- **An acknowledgment** — you tick a box confirming you understand the password can't be recovered. That's the only way past this screen.
 
 > **There is no password reset.** Your vault is encrypted with this password and nothing else. If you lose it, nobody — including the app's developers — can recover your data. Store it somewhere safe, such as your password manager or a sealed note in a location your executor knows about.
 
-### 2. Choose what the vault should store
-
-You'll be asked one important question during setup:
-
-| Choice | What it means |
-|---|---|
-| **Locations only** (safer) | The vault records *where to find* passwords, PINs, and codes — never the passwords themselves. Your family follows the trail; the passwords stay in your password manager. |
-| **Store the actual passwords & PINs** | The vault also holds real passwords, PINs, and recovery codes, encrypted with your master password. |
-
-Click **"See what this vault covers"** under the choice to preview exactly which sections and fields each option includes before you decide.
-
-You can change this choice later (see [Changing what the vault stores](#changing-what-the-vault-stores)) — nothing you enter is ever lost by switching.
+That's the whole setup. There's no question about what kind of information the
+vault should hold — every section and field is available from the start, and
+you decide what to fill in.
 
 ---
 
@@ -59,6 +49,25 @@ For each section you can:
 
 Status badges are driven only by **saved** data — typing in a form doesn't change a badge until you save.
 
+### Passwords, PINs, and what you decide to store
+
+Most fields ask *where* something is kept — which password manager you use,
+where a document lives, how to reach an account. A few fields go further and
+can hold the secret itself:
+
+- **Password Manager → Master password**
+- **Device Inventory → PIN or passcode**
+- **Documents → Attached copy**, which stores an actual scanned file in the vault alongside the "Digital location" that says where the original lives
+
+These fields are always there and always optional. Filling one in puts that
+password, PIN, or file inside your encrypted vault. Leaving it blank is what
+keeps it out — there is no separate setting, and nothing else to switch on or
+off. It's a per-field decision you make each time, and you can clear a field
+later if you change your mind.
+
+Whichever way you go, the master password and the device PIN are **never
+printed in the Recovery Kit** — see below.
+
 ### Attaching files
 
 Fields that accept a file (for example, a scanned document) encrypt the file into the vault when you attach it. From there you can:
@@ -83,7 +92,16 @@ When you copy a value from the vault, the app uses a protected copy path: the va
 
 ## Recovery Kit
 
-The Recovery Kit is a printable summary generated from what you've saved: contacts, instructions, and *locations* — it is deliberately structured so it never includes password values, even when you store passwords. It's the document your family starts from.
+The Recovery Kit is a printable summary generated from what you've saved: contacts, instructions, and *locations*. It's the document your family starts from.
+
+Because the Kit is meant to be printed and left somewhere findable, it will
+never print the **master password** you may have saved for your password
+manager, or a device's **PIN or passcode** — those two are blocked outright, so
+they stay in the encrypted vault and off the page. This holds even if you've
+reshaped your forms with the Form Editor.
+
+Where a document has an attached copy, the Kit lists the **file name** so your
+family knows the copy is in the vault, not the file's contents.
 
 Save the Kit from its page in the sidebar. If you later change any information the Kit draws on, the sidebar shows a **"Kit out of date"** badge until you regenerate it.
 
@@ -147,14 +165,6 @@ Choosing a folder that already contains a LifeScribe vault opens that vault
 rather than replacing it — during setup you'll be sent to the unlock screen
 instead. Restoring from a backup remains the recommended path for moving to a
 new machine.
-
----
-
-## Changing What the Vault Stores
-
-You can switch between "locations only" and "store the actual passwords" at any time from **Settings** (sidebar) → **Vault options**, where this choice sits alongside the other form options — the same choice you're asked during the setup wizard. The app asks you to confirm, then rebuilds the forms for the new mode.
-
-**Nothing you've entered is deleted.** If a field doesn't exist in the new mode (for example, a stored master password after switching to locations-only), its value moves to **Archived answers**, visible at the bottom of the section — never silently discarded. If you've customized your forms, the customizations are replaced by the standard forms for the new mode (your data is kept).
 
 ---
 
