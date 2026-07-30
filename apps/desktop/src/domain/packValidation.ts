@@ -50,10 +50,15 @@ const FIELD_TYPE_SET: ReadonlySet<string> = new Set(FIELD_TYPES);
 /**
  * Credential systemKeys that may never reach the Recovery Kit. The Kit is a
  * PRINTABLE document meant for the user's family, and recoveryKit.ts emits the
- * raw value of every field a section's kitMapping names — it has no redaction
- * of its own. Keeping these out of the shipped pack is not enough: the Kit is
- * built from the user's customPack when one exists, so an authored or imported
- * pack could otherwise put a credential back onto the printed page.
+ * raw value of every field a section's kitMapping names.
+ *
+ * This is the AUTHORING gate: it stops a leaky pack being written or exported.
+ * It is not the last line of defence, because it never runs on the pack the Kit
+ * actually renders from — a stored `customPack` is returned as-authored by
+ * `resolveBasePack` and persisted unvalidated by `handleSavePack`. The
+ * enforcement that always runs lives in recoveryKit.ts, which drops these keys
+ * at the point of consumption. Keep both: this one gives the author an error
+ * message, that one guarantees the printed page.
  */
 export const KIT_EXCLUDED_SYSTEM_KEYS: readonly string[] = [
   "passwordManagerMasterPassword",

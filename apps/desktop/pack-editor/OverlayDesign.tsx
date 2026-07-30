@@ -16,13 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
 import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
-import {
-  addOptionalField,
-  removeField,
-  removeSection,
-  updateField,
-  updateSection,
-} from "../src/creator/packEdits";
+import { addOptionalField, removeField, updateField, updateSection } from "../src/creator/packEdits";
 import { FIELD_TYPES } from "../src/domain/formModel";
 import type { FieldDefinition, FieldType, FormPack, PackSection } from "../src/domain/formModel";
 import { SectionPropertyPanel } from "./SectionPropertyPanel";
@@ -33,6 +27,11 @@ export interface OverlayDesignProps {
   selectedKey: string | null;
   onSelectKey: (key: string | null) => void;
   onChangeBase: (next: FormPack) => void;
+  /**
+   * Removal is the parent's job: it owns `activeSection`, which would otherwise
+   * keep naming the section we just deleted.
+   */
+  onRemoveSection: (sectionKey: string) => void;
   onError: (message: string) => void;
 }
 
@@ -132,6 +131,7 @@ export function OverlayDesign({
   selectedKey,
   onSelectKey,
   onChangeBase,
+  onRemoveSection,
   onError,
 }: OverlayDesignProps) {
   const selectedField =
@@ -146,10 +146,6 @@ export function OverlayDesign({
 
   function handleSectionChange(patch: { title: string; lede: string; multiRecord: boolean }) {
     onChangeBase(updateSection(base, section.sectionKey, (s) => ({ ...s, ...patch })));
-  }
-
-  function handleRemoveSection() {
-    onChangeBase(removeSection(base, section.sectionKey));
   }
 
   function handleAdd(groupKey: string, type: FieldType) {
@@ -255,7 +251,7 @@ export function OverlayDesign({
         <SectionPropertyPanel
           section={{ title: section.title, lede: section.lede, multiRecord: section.multiRecord }}
           onChange={handleSectionChange}
-          onRemove={handleRemoveSection}
+          onRemove={() => onRemoveSection(section.sectionKey)}
         />
       )}
     </div>

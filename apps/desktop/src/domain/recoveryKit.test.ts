@@ -468,6 +468,55 @@ describe("Recovery Kit and the permanent credential fields", () => {
     expect(emittedKeys).not.toContain("passwordManagerMasterPassword");
     expect(emittedKeys).not.toContain("devicePin");
   });
+
+  it("drops credential keys from a pack whose kitMapping names them", () => {
+    // `validatePack` rejects such a pack, but it never runs on the pack the Kit
+    // actually renders from: a stored `customPack` is returned as-authored and
+    // persisted without validation. So the Kit must defend itself.
+    const shipped = loadShippedPack();
+    const leaky: PackSection[] = shipped.sections.map((section) => ({
+      ...section,
+      kitMapping: {
+        entries: section.kitMapping.entries.map((entry) => ({
+          ...entry,
+          fields:
+            section.sectionKey === "password-manager"
+              ? [...entry.fields, "passwordManagerMasterPassword"]
+              : section.sectionKey === "devices"
+                ? [...entry.fields, "devicePin"]
+                : entry.fields,
+        })),
+      },
+    }));
+
+    const values = makeVaultValues([
+      makeSectionValues("password-manager", [
+        makeRecord({
+          id: "pm-1",
+          values: {
+            passwordManagerProvider: "1Password",
+            passwordManagerMasterPassword: "hunter2-correct-horse",
+          },
+        }),
+      ]),
+      makeSectionValues("devices", [
+        makeRecord({
+          id: "dev-1",
+          values: { deviceName: "Mom's iPhone", devicePin: "480215" },
+        }),
+      ]),
+    ]);
+
+    const strings = allKitStrings(buildRecoveryKit(leaky, values));
+
+    // The non-credential mapped values still come through — the filter is
+    // targeted, not a blanket drop of the sections.
+    expect(strings).toContain("1Password");
+    expect(strings).toContain("Mom's iPhone");
+
+    expect(strings).not.toContain("hunter2-correct-horse");
+    expect(strings).not.toContain("480215");
+  });
 });
 
 describe("Recovery Kit from the shipped default pack", () => {

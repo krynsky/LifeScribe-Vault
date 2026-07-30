@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormPack } from "../src/domain/formModel";
 import { mergePackWithOverlay } from "../src/domain/packMerge";
 import { validatePack } from "../src/domain/packValidation";
+import { removeSection } from "../src/creator/packEdits";
 import { createSectionValues } from "../src/domain/valuesStore";
 import { FormRenderer } from "../src/forms/FormRenderer";
 import { backupPacks, getPack, savePack } from "./api";
@@ -141,6 +142,13 @@ export function PackEditorApp() {
                 selectedKey={selectedKey}
                 onSelectKey={setSelectedKey}
                 onChangeBase={setBase}
+                onRemoveSection={(sectionKey) => {
+                  const next = removeSection(base, sectionKey);
+                  setBase(next);
+                  const remaining = [...next.sections].sort((a, b) => a.order - b.order);
+                  setActiveSection(remaining[0]?.sectionKey ?? "");
+                  setSelectedKey(null);
+                }}
                 onError={setSaveError}
               />
             ) : null}
