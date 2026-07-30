@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FIELD_TYPES } from "../src/domain/formModel";
 import type { FormPack } from "../src/domain/formModel";
 import * as api from "./api";
 import { PackEditorApp } from "./PackEditorApp";
@@ -88,6 +89,64 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocked.getPack.mockImplementation(async () => ({ pack: clonePack() }));
 });
+
+// The drag tests spy on getBoundingClientRect; without this the stub leaks into
+// every later test in the file.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/**
+ * dnd-kit's KeyboardSensor computes moves from element rects; jsdom reports
+ * all-zero rects, so stub them per row (keyed on `attr`) to give the sortable a
+ * real vertical order to navigate.
+ */
+function mockRowRects(attr: string, order: string[]) {
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    const key = this.getAttribute?.(attr);
+    const idx = key ? order.indexOf(key) : -1;
+    const top = idx >= 0 ? idx * 40 : 0;
+    return {
+      top,
+      bottom: top + 40,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 40,
+      x: 0,
+      y: top,
+      toJSON() {
+        return {};
+      },
+    } as DOMRect;
+  });
+}
+
+/**
+ * Drives a dnd-kit keyboard drag one slot in `direction`. Each key press must
+ * let a macrotask flush: KeyboardSensor attaches its follow-up keydown listener
+ * via a setTimeout(0) inside `attach()`.
+ */
+async function keyboardDrag(handle: HTMLElement, direction: "ArrowDown" | "ArrowUp") {
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+  handle.focus();
+  fireEvent.keyDown(handle, { code: "Space" });
+  await flush();
+  fireEvent.keyDown(handle, { code: direction });
+  await flush();
+  fireEvent.keyDown(handle, { code: "Space" });
+  await flush();
+}
+
+/** The single pack handed to the most recent savePack call. */
+function savedPack(): FormPack {
+  expect(mocked.savePack).toHaveBeenCalledTimes(1);
+  return mocked.savePack.mock.calls[0]![0];
+}
+
+async function save() {
+  await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+}
 
 describe("PackEditorApp", () => {
   it("offers no way to create, edit, or delete a module (R11)", async () => {
@@ -233,59 +292,138 @@ describe("PackEditorApp", () => {
     expect(within(panel).getByText(/"packId": "test-pack"/)).toBeInTheDocument();
   });
 
-  describe("field editing", () => {
-    // dnd-kit's KeyboardSensor computes moves from element rects; jsdom reports
-    // all-zero rects, so stub them per field row (keyed on data-field-key) to
-    // give the sortable a real vertical order to navigate.
-    function mockFieldRects(order: string[]) {
-      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
-        this: Element,
-      ) {
-        const key = this.getAttribute?.("data-field-key");
-        const idx = key ? order.indexOf(key) : -1;
-        const top = idx >= 0 ? idx * 40 : 0;
-        return {
-          top,
-          bottom: top + 40,
-          left: 0,
-          right: 200,
-          width: 200,
-          height: 40,
-          x: 0,
-          y: top,
-          toJSON() {
-            return {};
-          },
-        } as DOMRect;
-      });
-    }
+  it("shows Design-tab edits in the JSON tab", async () => {
+    render(<PackEditorApp />);
+    const titleInput = await screen.findByLabelText(/rename section: identity/i);
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, "Personal Info");
 
+    await userEvent.click(screen.getByRole("tab", { name: /json/i }));
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByText(/"title": "Personal Info"/)).toBeInTheDocument();
+    expect(within(panel).queryByText(/"title": "Identity"/)).not.toBeInTheDocument();
+  });
+
+  it("reloads the pack from disk after a successful save", async () => {
+    mocked.savePack.mockResolvedValue(undefined);
+    render(<PackEditorApp />);
+    const titleInput = await screen.findByLabelText(/rename section: identity/i);
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, "Draft title");
+
+    // The reload returns the on-disk pack, so the editor drops the local edit
+    // and shows what was actually persisted.
+    await save();
+
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    expect(mocked.getPack).toHaveBeenCalledTimes(2);
+    expect(await screen.findByLabelText(/rename section: identity/i)).toHaveValue("Identity");
+  });
+
+  it("shows an alert when the save fails", async () => {
+    mocked.savePack.mockRejectedValue(new Error("pack file is read-only"));
+    render(<PackEditorApp />);
+    await screen.findByRole("button", { name: /edit field Full name/i });
+    await save();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("pack file is read-only");
+    expect(screen.queryByText("Saved.")).not.toBeInTheDocument();
+  });
+
+  describe("field editing", () => {
     it("drag-reorders fields and persists the new order", async () => {
       mocked.savePack.mockResolvedValue(undefined);
-      mockFieldRects(["fullName", "nickname"]);
+      mockRowRects("data-field-key", ["fullName", "nickname"]);
       render(<PackEditorApp />);
       await screen.findByRole("button", { name: /edit field Full name/i });
 
-      // dnd-kit's KeyboardSensor attaches its follow-up keydown listener via a
-      // setTimeout(0) inside `attach()`, so each key press must let that
-      // macrotask flush before the next one fires.
-      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-      const handle = screen.getByRole("button", { name: /drag to reorder Full name/i });
-      handle.focus();
-      fireEvent.keyDown(handle, { code: "Space" });
-      await flush();
-      fireEvent.keyDown(handle, { code: "ArrowDown" });
-      await flush();
-      fireEvent.keyDown(handle, { code: "Space" });
-      await flush();
+      await keyboardDrag(
+        screen.getByRole("button", { name: /drag to reorder Full name/i }),
+        "ArrowDown",
+      );
 
-      await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
-      expect(mocked.savePack).toHaveBeenCalledTimes(1);
-      const fields = mocked.savePack.mock.calls[0]![0].sections
-        .find((s) => s.sectionKey === "identity")!
+      await save();
+      const fields = savedPack()
+        .sections.find((s) => s.sectionKey === "identity")!
         .groups.flatMap((g) => g.fields)
         .sort((a, b) => a.order - b.order);
       expect(fields.map((f) => f.systemKey)).toEqual(["nickname", "fullName"]);
+    });
+
+    // Each type is a real menu choice a pack author picks; the add path stores
+    // whatever type it was given, so one assertion per type is the cheap way to
+    // catch a type dropped from the menu or mangled on the way to the pack.
+    it.each(FIELD_TYPES)("adds a %s field to the group it was added from", async (type) => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.selectOptions(await screen.findByLabelText(/add field to details/i), type);
+
+      if (type === "select") {
+        // validatePack rejects an optionless select, so authoring one is a
+        // two-step flow: add the field, then give it at least one option.
+        await userEvent.click(screen.getByRole("button", { name: /edit field New Field/i }));
+        await userEvent.type(screen.getByLabelText("Value"), "Checking");
+        await userEvent.click(screen.getByRole("button", { name: /add option/i }));
+      }
+
+      await save();
+      const groups = savedPack().sections.find((s) => s.sectionKey === "identity")!.groups;
+      const added = groups
+        .find((g) => g.groupKey === "identity-details")!
+        .fields.find((f) => f.label === "New Field")!;
+      expect(added.type).toBe(type);
+      expect(added.required).toBe(false);
+      expect(added.protected).toBe(false);
+    });
+
+    it("adds a field to the active section's own group, not another section's", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      // Focusing a section row in the nav makes it active.
+      await userEvent.click(await screen.findByLabelText(/rename section: contacts/i));
+      await userEvent.selectOptions(await screen.findByLabelText(/add field to details/i), "email");
+
+      await save();
+      const saved = savedPack();
+      expect(
+        saved.sections
+          .find((s) => s.sectionKey === "contacts")!
+          .groups.flatMap((g) => g.fields)
+          .map((f) => f.label),
+      ).toEqual(["Phone", "New Field"]);
+      expect(
+        saved.sections
+          .find((s) => s.sectionKey === "identity")!
+          .groups.flatMap((g) => g.fields),
+      ).toHaveLength(2);
+    });
+
+    it("changing a field's type persists to the saved pack", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit field Nickname/i }));
+      await userEvent.selectOptions(screen.getByLabelText("Type"), "textarea");
+
+      await save();
+      const field = savedPack()
+        .sections.find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .find((f) => f.systemKey === "nickname")!;
+      expect(field.type).toBe("textarea");
+    });
+
+    it("marking a field required persists to the saved pack", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit field Nickname/i }));
+      await userEvent.click(screen.getByLabelText("Required"));
+
+      await save();
+      const field = savedPack()
+        .sections.find((s) => s.sectionKey === "identity")!
+        .groups.flatMap((g) => g.fields)
+        .find((f) => f.systemKey === "nickname")!;
+      expect(field.required).toBe(true);
     });
   });
 
@@ -351,6 +489,56 @@ describe("PackEditorApp", () => {
       expect(
         screen.getByRole("button", { name: /^remove section contacts/i }),
       ).toBeInTheDocument();
+    });
+
+    it("selecting a section opens that section's property panel and fields", async () => {
+      render(<PackEditorApp />);
+      expect(await screen.findByLabelText("Section title")).toHaveValue("Identity");
+      expect(screen.getByRole("button", { name: /edit field Full name/i })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByLabelText(/rename section: contacts/i));
+
+      expect(screen.getByLabelText("Section title")).toHaveValue("Contacts");
+      expect(screen.getByRole("button", { name: /edit field Phone/i })).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /edit field Full name/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("adding a section selects it so the panel edits the new section", async () => {
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /\+ add section/i }));
+
+      expect(screen.getByLabelText("Section title")).toHaveValue("New Section");
+      expect(screen.getByLabelText(/rename section: New Section/i).closest("li")).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    });
+
+    it("drag-reorders sections and persists the new order", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      mockRowRects("data-section-key", ["identity", "contacts"]);
+      render(<PackEditorApp />);
+      await screen.findByLabelText(/rename section: identity/i);
+
+      await keyboardDrag(
+        screen.getByRole("button", { name: /drag to reorder Identity/i }),
+        "ArrowDown",
+      );
+
+      await save();
+      const sections = [...savedPack().sections].sort((a, b) => a.order - b.order);
+      expect(sections.map((s) => s.sectionKey)).toEqual(["contacts", "identity"]);
+    });
+
+    it("toggling multiple records on is reflected in the saved pack", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByLabelText(/allows multiple records/i));
+
+      await save();
+      expect(savedPack().sections.find((s) => s.sectionKey === "identity")!.multiRecord).toBe(true);
     });
 
     it("editing a section's lede is reflected in the saved pack", async () => {
