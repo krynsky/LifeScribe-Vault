@@ -13,8 +13,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   deleteAttachment,
   discardDraft,
+  getVaultStatus,
   loadVaultSnapshot,
   lockVault,
+  relocateVault,
   saveVaultSnapshot,
   stashDraft,
   sweepOrphanedAttachments,
@@ -40,7 +42,11 @@ import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
 import { composePack } from "../domain/composePack";
-import { migrateVaultValues } from "../domain/packMigrations";
+import {
+  capRecordSchemaVersions,
+  migrateVaultValues,
+  SNAPSHOT_SCHEMA_TOO_NEW,
+} from "../domain/packMigrations";
 import { mergePackWithOverlay } from "../domain/packMerge";
 import {
   readinessSummary,
@@ -81,8 +87,11 @@ export interface DashboardProps {
   ownerNameHint?: string;
   /** Module selections chosen at setup; seed the profile until the first snapshot exists. */
   moduleSelectionsHint?: Record<string, string>;
-  /** Called once the vault is locked (auto or manual). */
-  onLocked: () => void;
+  /**
+   * Called once the vault is locked (auto or manual). The optional notice
+   * explains why, when the lock was a side effect of something else (a move).
+   */
+  onLocked: (notice?: string) => void;
 }
 
 type Route =
@@ -157,9 +166,20 @@ function buildLoadedVault(
   const merge = mergePackWithOverlay(pack, parsed.overlay, parsed.values);
   let values = applyKeyRenames(parsed.values, merge.keyRenames);
 
-  const migrated = migrateVaultValues(values, pack);
+  let migrated = migrateVaultValues(values, pack);
   if (!migrated.ok) {
-    return { blocked: migrated.error.message };
+    // If records carry a higher schemaVersion than the base pack but there is
+    // no customPack, this was almost certainly caused by a now-cleared
+    // customPack that left its schemaVersion stamp on the records. Cap and
+    // retry so the vault remains accessible. If a customPack IS present, the
+    // block is genuine (an incompatibly newer app wrote those records).
+    if (migrated.error.code === SNAPSHOT_SCHEMA_TOO_NEW && !parsed.customPack) {
+      values = capRecordSchemaVersions(values, pack.schemaVersion);
+      migrated = migrateVaultValues(values, pack);
+    }
+    if (!migrated.ok) {
+      return { blocked: migrated.error.message };
+    }
   }
   values = migrated.values;
 
@@ -223,6 +243,25 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
   const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
   const [packEditError, setPackEditError] = useState<string | null>(null);
+  const [vaultDir, setVaultDir] = useState("");
+
+  // Where the vault's data files live, for the Settings "Vault location"
+  // section. Re-read on reload so it reflects a move made this session.
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadVaultDir() {
+      try {
+        const status = await getVaultStatus();
+        if (isCurrent) setVaultDir(status.vaultDir);
+      } catch {
+        // Settings shows an empty path; "Move vault…" still works.
+      }
+    }
+    void loadVaultDir();
+    return () => {
+      isCurrent = false;
+    };
+  }, [loadKey]);
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -344,9 +383,17 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
   // with the still-live data key) -> lock zeroizes the key.
   // -------------------------------------------------------------------------
-  const performLock = async () => {
+  /**
+   * Stash-then-lock, WITHOUT notifying the parent. Split out of `performLock`
+   * so the relocation flow can lock (relocate_vault requires a locked vault)
+   * and only navigate to the locked screen once the move has resolved — it
+   * needs to carry a notice explaining why the vault locked.
+   *
+   * Returns false when a lock is already in progress.
+   */
+  const lockWithoutNavigating = async (): Promise<boolean> => {
     if (lockingRef.current) {
-      return;
+      return false;
     }
     lockingRef.current = true;
     setLocking(true);
@@ -378,7 +425,13 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     } catch {
       // Even if the IPC errors, treat the session as locked in the UI.
     }
-    onLocked();
+    return true;
+  };
+
+  const performLock = async () => {
+    if (await lockWithoutNavigating()) {
+      onLocked();
+    }
   };
   const performLockRef = useRef(performLock);
   useEffect(() => {
@@ -525,16 +578,24 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     const current = loaded.vault.profile.moduleSelections;
     const unchanged = Object.keys({ ...current, ...next }).every((k) => current[k] === next[k]);
     if (unchanged) return true;
-    // Best-effort: stamp the base pack id; if the pack can't be loaded the id
-    // is dropped and the post-reload save re-stamps it.
+    // Best-effort: stamp the base pack id and schemaVersion; if the pack can't
+    // be loaded the id is dropped and the post-reload save re-stamps it.
     let nextBasePackId: string | undefined;
+    let baseSchemaVersion = loaded.schemaVersion;
     try {
-      nextBasePackId = (await loadDefaultPack()).packId;
+      const basePack = await loadDefaultPack();
+      nextBasePackId = basePack.packId;
+      baseSchemaVersion = basePack.schemaVersion;
     } catch {
       nextBasePackId = undefined;
     }
+    // Cap records at the base pack's schemaVersion. When the user had a
+    // customPack with a higher schemaVersion, records carry its stamp; without
+    // capping, checkSnapshotReadable would block the next load.
+    const nextValues = capRecordSchemaVersions(loaded.vault.savedValues, baseSchemaVersion);
     const nextLoaded: LoadedVault = {
       ...loaded,
+      schemaVersion: baseSchemaVersion,
       vault: {
         ...loaded.vault,
         profile: {
@@ -548,7 +609,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     };
     const ok = await persist(
       nextLoaded,
-      loaded.vault.savedValues,
+      nextValues,
       loaded.vault.sectionMeta,
       null,
     );
@@ -558,6 +619,37 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
       setLoadKey((k) => k + 1);
     }
     return ok;
+  }
+
+  /**
+   * Move the vault's data files. Relocation requires a locked vault, so this
+   * locks first (via the normal lock path, which completes an in-flight save
+   * and stashes dirty drafts), then moves, then leaves the user on the locked
+   * screen.
+   *
+   * When the old copies could not be deleted the move still succeeded, so this
+   * is a notice rather than an error — but it must be said, not swallowed: a
+   * second copy of encrypted vault data is left on disk.
+   */
+  async function handleRelocate(dir: string): Promise<void> {
+    if (!(await lockWithoutNavigating())) {
+      // A lock is already in flight, so the session may still be unlocked —
+      // relocate_vault would refuse. Bail with the same no-harm-done notice.
+      onLocked("The vault could not be moved, so it still lives where it did. Nothing has been changed.");
+      return;
+    }
+    try {
+      const result = await relocateVault(dir);
+      onLocked(
+        result.originalsRemoved
+          ? `Your vault now lives in ${result.vaultDir}.`
+          : `Your vault now lives in ${result.vaultDir}. The old copies could not be removed automatically — you can delete them yourself.`,
+      );
+    } catch {
+      // The move did not commit, but the vault is locked now either way — so
+      // the notice goes on the locked screen, not the (unmounting) dashboard.
+      onLocked("The vault could not be moved, so it still lives where it did. Nothing has been changed.");
+    }
   }
 
   function sectionWorkingValues(sectionKey: string): SectionValues {
@@ -1312,6 +1404,8 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
           // and the Settings pane remounts with the new selections.
           await applyModuleSelections(next);
         }}
+        vaultDir={vaultDir}
+        onRelocate={handleRelocate}
       />
     );
   }

@@ -1,5 +1,5 @@
 /* Three rails: modules (view toggles + active target) | sections | main canvas. */
-.pack-editor { display: grid; grid-template-columns: 13rem 15rem minmax(0, 1fr); min-height: 100vh; max-height: 100vh; }
+.pack-editor { display: grid; grid-template-columns: 13rem 18rem minmax(0, 1fr); min-height: 100vh; max-height: 100vh; }
 
 /* Left rail: modules panel. */
 .pack-editor__modules { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); border-right: 1px solid var(--color-border); background: var(--color-surface-sunken); overflow-y: auto; min-width: 0; }

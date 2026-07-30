@@ -1514,71 +1514,6 @@ button {
   gap: var(--space-2);
 }
 
-/* --- Onboarding pack preview (SetupScreen) ---------------------------------- */
-
-.setup-preview {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-}
-
-.setup-preview__summary {
-  cursor: pointer;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--color-ink-secondary);
-}
-
-.setup-preview__summary:hover {
-  color: var(--color-ink);
-}
-
-.setup-preview__sections {
-  list-style: none;
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-height: 16rem;
-  overflow-y: auto;
-}
-
-.setup-preview__section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.setup-preview__section-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--color-ink);
-}
-
-.setup-preview__count {
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-regular);
-  color: var(--color-ink-tertiary);
-}
-
-.setup-preview__lede {
-  font-size: var(--text-xs);
-  color: var(--color-ink-secondary);
-  line-height: var(--leading-base);
-}
-
-.setup-preview__status {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-xs);
-  color: var(--color-ink-tertiary);
-}
-
 /* --- Modal dialog (attachment open/replace confirmations) ------------------- */
 
 .modal {
@@ -1617,4 +1552,101 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+
+/* --- Attachment viewer ------------------------------------------------------
+   Unlike the confirmation modals, the viewer is a workspace: it spans the main
+   pane (offset by the sidebar's 22rem) so a PDF or image gets real room. Below
+   that width the sidebar is not worth preserving, so it covers the viewport. */
+
+.modal--viewer {
+  left: 22rem;
+  padding: var(--space-4);
+}
+
+@media (max-width: 60rem) {
+  .modal--viewer {
+    left: 0;
+  }
+}
+
+.modal--viewer .modal__body {
+  max-width: none;
+  height: 100%;
+  padding: var(--space-4);
+  gap: var(--space-3);
+}
+
+.attachment-viewer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-weight: var(--weight-medium);
+}
+
+/* min-height: 0 lets these shrink inside the flex column instead of overflowing
+   the modal — without it a tall PDF pushes the body past the viewport. */
+.attachment-viewer__frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.attachment-viewer__image {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+}
+
+.attachment-viewer__text {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+}
+
+.attachment-viewer__none,
+.attachment-viewer__loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--color-ink-secondary);
+}
+
+/* --- Setup: vault location step -------------------------------------------- */
+
+.setup-location__heading {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+}
+
+.setup-location__lede {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-secondary);
+  line-height: var(--leading-base);
+}
+
+.setup-location__path {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
 }

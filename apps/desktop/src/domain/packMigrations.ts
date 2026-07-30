@@ -166,6 +166,29 @@ function migrateSectionValues(
  * - Pure and idempotent: `migrate(migrate(x)) === migrate(x)` structurally,
  *   and the input is never mutated (crash-before-save is always safe).
  */
+/**
+ * Cap every record's schemaVersion at `maxVersion`. Used when clearing a
+ * customPack whose schemaVersion exceeds the new base pack's, so
+ * checkSnapshotReadable doesn't block the next load.
+ */
+export function capRecordSchemaVersions(
+  values: VaultValues,
+  maxVersion: number,
+): VaultValues {
+  if (maxVersion <= 0) return values;
+  let anyChanged = false;
+  const result: VaultValues = {};
+  for (const [sectionKey, sv] of Object.entries(values)) {
+    const cappedRecords = sv.records.map((r) =>
+      r.schemaVersion > maxVersion ? { ...r, schemaVersion: maxVersion } : r,
+    );
+    const changed = cappedRecords.some((r, i) => r !== sv.records[i]);
+    if (changed) anyChanged = true;
+    result[sectionKey] = changed ? { ...sv, records: cappedRecords } : sv;
+  }
+  return anyChanged ? result : values;
+}
+
 export function migrateVaultValues(values: VaultValues, pack: FormPack): MigrationResult {
   const readabilityError = checkSnapshotReadable(values, pack.schemaVersion);
   if (readabilityError) {

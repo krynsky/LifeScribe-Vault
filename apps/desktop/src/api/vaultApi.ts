@@ -19,6 +19,14 @@ export type VaultSnapshot = Record<string, unknown>;
 export interface VaultStatusResponse {
   unlocked: boolean;
   vaultExists: boolean;
+  /** Directory holding the vault's data files. */
+  vaultDir: string;
+  /**
+   * False when that directory cannot be reached (unplugged drive, deleted or
+   * renamed folder). Distinguishes "unreachable" from "present but empty" —
+   * the app must not send a user with an intact vault to first-run setup.
+   */
+  vaultDirAvailable: boolean;
 }
 
 export interface SaveSnapshotResponse {
@@ -219,5 +227,45 @@ export function restoreBackup(
   backupPassword: string,
 ): Promise<RestoreBackupResponse> {
   return invoke("restore_backup", { request: { backupPath, backupPassword } });
+}
+
+// ---------------------------------------------------------------------------
+// Vault data location
+// ---------------------------------------------------------------------------
+
+export interface RelocateResponse {
+  vaultDir: string;
+  /**
+   * False when the old copies could not be removed. Not a failure — the move
+   * is committed — but the UI must say the originals remain.
+   */
+  originalsRemoved: boolean;
+}
+
+/**
+ * Point the app at a different vault directory without moving data. Rejects
+ * with "VaultLocked" while unlocked. The returned status carries `vaultExists`,
+ * so a folder that already holds a vault routes to the unlock screen.
+ */
+export function setVaultLocation(dir: string): Promise<VaultStatusResponse> {
+  return invoke("set_vault_location", { dir });
+}
+
+/**
+ * Pre-flight a relocation destination without moving anything.
+ *
+ * Needs no locked vault, so Settings can reject a bad folder (nested, already
+ * holds a vault, not writable, restore in progress) while the user is still
+ * unlocked — rather than locking first and charging a password re-entry to
+ * learn about a one-click mistake. Rejects with the same codes as
+ * `relocateVault`.
+ */
+export function checkVaultLocation(dir: string): Promise<void> {
+  return invoke("check_vault_location", { dir });
+}
+
+/** Move the vault's data files. Requires a locked vault. */
+export function relocateVault(dir: string): Promise<RelocateResponse> {
+  return invoke("relocate_vault", { dir });
 }
 

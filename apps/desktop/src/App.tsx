@@ -1,7 +1,8 @@
 /**
  * Top-level lock state machine (U5):
  *
- *     loading -> setup | locked | status-error
+ *     loading -> setup | locked | status-error | vault-unavailable
+ *     vault-unavailable --retry / choose folder--> loading
  *     setup --create--> dashboard
  *     locked --unlock--> dashboard
  *     dashboard --lock (manual / 15-min inactivity)--> locked
@@ -23,10 +24,17 @@ import { buildSnapshot, emptySnapshot } from "./domain/snapshot";
 import { Dashboard } from "./routes/Dashboard";
 import { LockedScreen } from "./routes/LockedScreen";
 import { SetupScreen } from "./routes/SetupScreen";
+import { VaultUnavailableScreen } from "./routes/VaultUnavailableScreen";
 
-type AppScreen = "loading" | "setup" | "locked" | "dashboard" | "status-error";
+type AppScreen = "loading" | "setup" | "locked" | "dashboard" | "status-error" | "vault-unavailable";
 
 function screenFromStatus(status: VaultStatusResponse): AppScreen {
+  // An unreachable folder takes precedence over every other state: falling
+  // back to the default folder would show first-run setup to a user whose
+  // vault is intact but disconnected.
+  if (!status.vaultDirAvailable) {
+    return "vault-unavailable";
+  }
   if (status.unlocked) {
     return "dashboard";
   }
@@ -37,6 +45,12 @@ function App() {
   const [screen, setScreen] = useState<AppScreen>("loading");
   const [ownerNameHint, setOwnerNameHint] = useState("");
   const [moduleSelectionsHint, setModuleSelectionsHint] = useState<Record<string, string>>({ secrets: "off" });
+  // One-off explanation for a lock the user did not ask for directly (a vault
+  // move locks as a precondition). Cleared on the next successful unlock so it
+  // never outlives the event it describes.
+  const [lockNotice, setLockNotice] = useState("");
+  // Recorded so the unavailable-folder screen can name the folder it cannot reach.
+  const [vaultDir, setVaultDir] = useState("");
 
   useEffect(() => {
     let isCurrent = true;
@@ -44,6 +58,7 @@ function App() {
       try {
         const status = await getVaultStatus();
         if (isCurrent) {
+          setVaultDir(status.vaultDir);
           setScreen(screenFromStatus(status));
         }
       } catch {
@@ -62,6 +77,7 @@ function App() {
     setScreen("loading");
     try {
       const status = await getVaultStatus();
+      setVaultDir(status.vaultDir);
       setScreen(screenFromStatus(status));
     } catch {
       setScreen("status-error");
@@ -87,12 +103,28 @@ function App() {
       // Non-fatal: the vault exists; the selections are held in
       // moduleSelectionsHint until the first save writes them.
     }
+    setVaultDir(status.vaultDir);
     setScreen(screenFromStatus(status));
   }
 
   async function handleUnlock(masterPassword: string) {
-    const status = await unlockVault(masterPassword);
-    setScreen(screenFromStatus(status));
+    try {
+      const status = await unlockVault(masterPassword);
+      setVaultDir(status.vaultDir);
+      setLockNotice("");
+      setScreen(screenFromStatus(status));
+    } catch (caught) {
+      // An unlock failure may mean the folder went away mid-session (a drive
+      // unplugged after the lock screen appeared). Re-check before letting the
+      // generic "could not be read" message imply the vault is damaged.
+      const probe = await getVaultStatus().catch(() => null);
+      if (probe && !probe.vaultDirAvailable) {
+        setVaultDir(probe.vaultDir);
+        setScreen("vault-unavailable");
+        return;
+      }
+      throw caught; // LockedScreen still shows genuine password errors.
+    }
   }
 
   if (screen === "loading") {
@@ -131,16 +163,44 @@ function App() {
     );
   }
 
+  if (screen === "vault-unavailable") {
+    return (
+      <VaultUnavailableScreen
+        vaultDir={vaultDir}
+        onRetry={() => void handleRetryStatus()}
+        onRelocated={() => void handleRetryStatus()}
+      />
+    );
+  }
+
   if (screen === "setup") {
-    return <SetupScreen onCreate={handleCreate} />;
+    return (
+      <SetupScreen
+        onCreate={handleCreate}
+        onVaultFound={() => {
+          // Say WHY setup handed off to the unlock screen — otherwise a user who
+          // picked a folder that already holds a vault sees a password prompt
+          // appear for no stated reason.
+          setLockNotice("That folder already holds a vault — unlock it to continue.");
+          setScreen("locked");
+        }}
+      />
+    );
   }
 
   if (screen === "locked") {
-    return <LockedScreen onUnlock={handleUnlock} />;
+    return <LockedScreen onUnlock={handleUnlock} notice={lockNotice} />;
   }
 
   return (
-    <Dashboard ownerNameHint={ownerNameHint} moduleSelectionsHint={moduleSelectionsHint} onLocked={() => setScreen("locked")} />
+    <Dashboard
+      ownerNameHint={ownerNameHint}
+      moduleSelectionsHint={moduleSelectionsHint}
+      onLocked={(notice) => {
+        setLockNotice(notice ?? "");
+        setScreen("locked");
+      }}
+    />
   );
 }
 

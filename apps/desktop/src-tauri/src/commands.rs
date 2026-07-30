@@ -50,16 +50,39 @@ pub struct VaultSession {
     /// generation; the next save supersedes those generations (repository
     /// CAS semantics) instead of conflicting forever.
     pub recovered: bool,
+    /// Temp directories holding decrypted plaintext handed to an external app
+    /// via `open_attachment_external`. They cannot be deleted right after
+    /// launching (the reader would race the delete), so the session owns them
+    /// and purges them on lock — plaintext never outlives the unlocked session.
+    pub external_temp_dirs: Vec<PathBuf>,
+    /// Where the location pointer lives. Distinct from the vault directory:
+    /// the pointer is needed to FIND the vault, so it cannot live inside it.
+    pub config_dir: PathBuf,
 }
 
 impl VaultSession {
+    /// `config_dir` defaults to the vault file's parent — the relationship
+    /// that held before the location was configurable. Existing callers and
+    /// tests keep working unchanged.
     pub fn new(vault_path: PathBuf) -> Self {
+        let config_dir = vault_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        Self::with_config_dir(vault_path, config_dir)
+    }
+
+    /// Used by real startup, where the pointer lives in the OS app-data
+    /// directory and the vault may live anywhere.
+    pub fn with_config_dir(vault_path: PathBuf, config_dir: PathBuf) -> Self {
         Self {
             vault_path,
             key: None,
             vault_id: None,
             loaded_generation: 0,
             recovered: false,
+            external_temp_dirs: Vec::new(),
+            config_dir,
         }
     }
 
@@ -75,6 +98,13 @@ pub type SharedVaultSession = Mutex<VaultSession>;
 pub struct VaultStatusResponse {
     pub unlocked: bool,
     pub vault_exists: bool,
+    /// The directory holding the vault's data files.
+    pub vault_dir: String,
+    /// False when that directory cannot be reached (unplugged drive, deleted
+    /// or renamed folder). Distinguishes "unreachable" from "present but
+    /// empty" — conflating them would send a user with an intact vault to
+    /// first-run setup.
+    pub vault_dir_available: bool,
 }
 
 /// No `Debug` derive — carries the master password.
@@ -114,9 +144,16 @@ pub struct LoadSnapshotResponse {
 // ---------------------------------------------------------------------------
 
 pub fn get_status_for_session(session: &VaultSession) -> VaultStatusResponse {
+    let vault_dir = session
+        .vault_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_default();
     VaultStatusResponse {
         unlocked: session.is_unlocked(),
         vault_exists: vault_header_exists_at_path(&session.vault_path),
+        vault_dir: vault_dir.to_string_lossy().into_owned(),
+        vault_dir_available: vault_dir.is_dir(),
     }
 }
 
@@ -348,6 +385,128 @@ pub fn unlock_vault(
 pub fn lock_vault(session: State<'_, SharedVaultSession>) -> Result<VaultStatusResponse, String> {
     let mut session = lock_state(&session)?;
     lock_session(&mut session).map_err(command_error_code)
+}
+
+/// Point the session at a different vault directory WITHOUT moving any data.
+///
+/// Refuses while unlocked — satisfiable at both call sites, since onboarding
+/// has no vault yet and the unavailable-folder recovery screen precedes
+/// unlock. The returned status carries `vault_exists`, so the caller can route
+/// to the unlock screen when the chosen folder already holds a vault; that
+/// makes accidental overwrite structurally impossible.
+pub fn set_vault_location_for_session(
+    session: &mut VaultSession,
+    dir: &Path,
+) -> VaultResult<VaultStatusResponse> {
+    if session.is_unlocked() {
+        // NOTE the inversion: `VaultError::Locked` (wire code "VaultLocked")
+        // is the refusal for a vault that is UNLOCKED. The variant reads as a
+        // state, not as a precondition. The code is part of the frozen IPC
+        // contract, so it stays as-is.
+        return Err(VaultError::Locked);
+    }
+    std::fs::create_dir_all(dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+
+    // Probe writability rather than trusting the path: a read-only or
+    // disconnected location must fail here, not at the first save. The UUID
+    // suffix keeps a leftover probe from an interrupted call from ever
+    // colliding with a later one.
+    let probe = dir.join(format!(".lifescribe-write-probe-{}", uuid::Uuid::new_v4()));
+    std::fs::write(&probe, b"probe").map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let _ = std::fs::remove_file(&probe);
+
+    let config_dir = session.config_dir.clone();
+    crate::vault_location::write_location(&config_dir, dir)?;
+    session.vault_path = crate::vault_location::vault_file_in(dir);
+    Ok(get_status_for_session(session))
+}
+
+#[tauri::command]
+pub fn set_vault_location(
+    dir: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<VaultStatusResponse, String> {
+    let mut session = lock_state(&session)?;
+    set_vault_location_for_session(&mut session, Path::new(&dir)).map_err(command_error_code)
+}
+
+/// Check whether `dir` is a usable relocation destination, WITHOUT moving
+/// anything and without requiring a locked vault.
+///
+/// Lets the UI reject a bad folder (nested inside the vault folder, already
+/// holding a vault, not writable, restore in progress) while the user is still
+/// unlocked, instead of charging them a full password re-entry to discover a
+/// one-click mistake. Shares its rules with `relocate` so the pre-flight and
+/// the move can never disagree.
+#[tauri::command]
+pub fn check_vault_location(
+    dir: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    let from_dir = session
+        .vault_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| {
+            command_error_code(VaultError::FileOperation(
+                "vault path has no parent".to_string(),
+            ))
+        })?;
+    crate::vault_location::check_destination(&from_dir, Path::new(&dir))
+        .map_err(command_error_code)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RelocateResponse {
+    pub vault_dir: String,
+    /// False when the old copies could not be deleted (Windows may hold files
+    /// open). Not an error: the move is already committed. The UI states that
+    /// the originals remain, rather than silently leaving a second copy of
+    /// vault data behind.
+    pub originals_removed: bool,
+}
+
+/// Move the vault's data files to `dir` and repoint the session.
+///
+/// Requires a LOCKED vault: copying a database with a save in flight is not
+/// worth the risk, and the caller (Settings) locks first. Because vault files
+/// are encrypted at rest, this never needs the master password.
+pub fn relocate_vault_for_session(
+    session: &mut VaultSession,
+    dir: &Path,
+) -> VaultResult<RelocateResponse> {
+    if session.is_unlocked() {
+        // NOTE the inversion: `VaultError::Locked` (wire code "VaultLocked")
+        // is the refusal for a vault that is UNLOCKED — relocation REQUIRES a
+        // locked vault. The code is part of the frozen IPC contract, so the
+        // misleading variant name stays.
+        return Err(VaultError::Locked);
+    }
+    let from_dir = session
+        .vault_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| VaultError::FileOperation("vault path has no parent".to_string()))?;
+    let config_dir = session.config_dir.clone();
+
+    let originals_removed = crate::vault_location::relocate(&config_dir, &from_dir, dir)?;
+    session.vault_path = crate::vault_location::vault_file_in(dir);
+
+    Ok(RelocateResponse {
+        vault_dir: dir.to_string_lossy().into_owned(),
+        originals_removed,
+    })
+}
+
+#[tauri::command]
+pub fn relocate_vault(
+    dir: String,
+    session: State<'_, SharedVaultSession>,
+) -> Result<RelocateResponse, String> {
+    let mut session = lock_state(&session)?;
+    relocate_vault_for_session(&mut session, Path::new(&dir)).map_err(command_error_code)
 }
 
 #[tauri::command]
@@ -594,16 +753,19 @@ pub fn read_attachment(
 
 /// Decrypt an attachment to a temporary plaintext file and open it in the OS
 /// default application. WARNING: this writes decrypted plaintext to disk — the
-/// UI MUST confirm with the user before calling it. Best-effort cleanup removes
-/// the temp file after launching; a file still held open by the external app is
-/// an accepted limitation.
+/// UI MUST confirm with the user before calling it.
+///
+/// The temp directory is retained for the rest of the unlocked session and
+/// purged on lock. Deleting it here would race the external app: `open::that`
+/// returns once the launcher is dispatched, NOT once the app has opened the
+/// file, so an eager delete makes the reader fail with "file not found".
 #[tauri::command]
 pub fn open_attachment_external(
     attachment_id: String,
     file_name: String,
     session: State<'_, SharedVaultSession>,
 ) -> Result<(), String> {
-    let session = lock_state(&session)?;
+    let mut session = lock_state(&session)?;
     let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
     let vault_id = session
         .vault_id
@@ -613,16 +775,33 @@ pub fn open_attachment_external(
     let path =
         crate::attachments::decrypt_to_temp(&att_dir, &attachment_id, &file_name, key, vault_id)
             .map_err(command_error_code)?;
-    open::that(&path).map_err(|e| command_error_code(VaultError::FileOperation(e.to_string())))?;
-    // Best-effort cleanup: the OS app has typically read the file by now.
-    let _ = std::fs::remove_file(&path);
-    let _ = std::fs::remove_dir(path.parent().unwrap_or(&att_dir));
-    Ok(())
+
+    // Record before launching: if `open::that` fails we still own the plaintext
+    // and must guarantee it is purged on lock rather than leaked.
+    if let Some(parent) = path.parent() {
+        session.external_temp_dirs.push(parent.to_path_buf());
+    }
+
+    match open::that(&path) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            // No external app took the file — purge it now instead of waiting
+            // for lock, since nothing is going to read it.
+            if let Some(parent) = path.parent() {
+                crate::attachments::purge_external_temp_dir(parent);
+                session.external_temp_dirs.pop();
+            }
+            Err(command_error_code(VaultError::FileOperation(e.to_string())))
+        }
+    }
 }
 
 /// Sweep orphaned attachment files (present on disk but absent from
 /// `referenced_ids`). Called once after unlock + snapshot load. Returns the
 /// count of swept files. No-op while a restore marker is present.
+///
+/// Also sweeps stale external-open temp directories, so decrypted plaintext a
+/// previous run left behind (crash or kill before its lock) does not linger.
 #[tauri::command]
 pub fn sweep_orphaned_attachments(
     referenced_ids: Vec<String>,
@@ -640,6 +819,7 @@ pub fn sweep_orphaned_attachments(
     if crate::backup::restore_in_progress(&app_data_dir) {
         return Ok(0);
     }
+    crate::attachments::sweep_stale_external_temp_dirs();
     let att_dir = crate::attachments::attachment_dir(&session.vault_path);
     crate::attachments::sweep_orphaned_attachments(&att_dir, &referenced_ids)
         .map_err(command_error_code)
@@ -655,6 +835,12 @@ fn lock_session_state(session: &mut VaultSession) {
     session.vault_id = None;
     session.loaded_generation = 0;
     session.recovered = false;
+    // Decrypted plaintext handed to external apps must not outlive the unlocked
+    // session. Best-effort: a file the external app still holds open cannot be
+    // deleted on Windows; the stale sweep on a later unlock catches it.
+    for dir in session.external_temp_dirs.drain(..) {
+        crate::attachments::purge_external_temp_dir(&dir);
+    }
 }
 
 fn ensure_parent_dir(vault_path: &Path) -> VaultResult<()> {

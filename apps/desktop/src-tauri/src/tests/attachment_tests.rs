@@ -149,6 +149,56 @@ fn decrypt_to_temp_writes_plaintext_and_path_is_removable() {
 }
 
 #[test]
+fn purge_external_temp_dir_removes_the_directory_and_its_plaintext() {
+    let dir = tempdir().unwrap();
+    let key = generate_data_key();
+    let vault_id = "vault-purge";
+    let att_dir = dir.path().join("attachments");
+
+    let meta = crate::attachments::encrypt_attachment_bytes(
+        b"purge me", "report.pdf", &att_dir, &key, vault_id,
+    )
+    .unwrap();
+
+    let temp_path =
+        decrypt_to_temp(&att_dir, &meta.id, &meta.file_name, &key, vault_id).unwrap();
+    let temp_dir = temp_path.parent().unwrap().to_path_buf();
+    assert!(temp_path.exists(), "plaintext should exist before the purge");
+
+    crate::attachments::purge_external_temp_dir(&temp_dir);
+
+    assert!(!temp_path.exists(), "plaintext must be gone after the purge");
+    assert!(!temp_dir.exists(), "the temp directory itself must be gone");
+}
+
+#[test]
+fn stale_sweep_leaves_a_freshly_created_external_temp_dir_alone() {
+    // The whole point of deferring cleanup to lock is that the external app
+    // gets time to read the file. A sweep that deleted fresh directories would
+    // reintroduce exactly the race this design removes.
+    let dir = tempdir().unwrap();
+    let key = generate_data_key();
+    let vault_id = "vault-fresh";
+    let att_dir = dir.path().join("attachments");
+
+    let meta = crate::attachments::encrypt_attachment_bytes(
+        b"still being read", "sheet.pdf", &att_dir, &key, vault_id,
+    )
+    .unwrap();
+
+    let temp_path =
+        decrypt_to_temp(&att_dir, &meta.id, &meta.file_name, &key, vault_id).unwrap();
+
+    crate::attachments::sweep_stale_external_temp_dirs();
+
+    assert!(
+        temp_path.exists(),
+        "a just-created temp file must survive the stale sweep",
+    );
+    crate::attachments::purge_external_temp_dir(temp_path.parent().unwrap());
+}
+
+#[test]
 fn read_attachment_returns_the_decrypted_bytes() {
     let dir = tempdir().unwrap();
     let key = generate_data_key();

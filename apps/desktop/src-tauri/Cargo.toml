@@ -20,6 +20,9 @@ argon2 = "0.5"
 base64 = "0.22"
 chacha20poly1305 = "0.10"
 dirs = "5"
+# Strips the `\\?\` verbatim prefix `fs::canonicalize` produces on Windows, so
+# the stored vault-location pointer holds a path Explorer and the shell accept.
+dunce = "1"
 rand = "0.8"
 rusqlite = { version = "0.32", features = ["bundled"] }
 tauri = { version = "2", features = [] }

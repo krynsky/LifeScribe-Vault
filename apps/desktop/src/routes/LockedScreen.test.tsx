@@ -29,4 +29,23 @@ describe("LockedScreen", () => {
     expect(onUnlock).toHaveBeenCalledWith("right password!!");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("shows a notice explaining why the vault locked", () => {
+    render(
+      <LockedScreen
+        onUnlock={vi.fn()}
+        notice={
+          "Your vault now lives in E:\\NewHome. The old copies could not be removed automatically — you can delete them yourself."
+        }
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(/old copies could not be removed/i);
+    expect(screen.getByRole("status")).toHaveTextContent("E:\\NewHome");
+  });
+
+  it("renders no notice region when there is nothing to say", () => {
+    render(<LockedScreen onUnlock={vi.fn()} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
 });
