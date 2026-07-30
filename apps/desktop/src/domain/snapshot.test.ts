@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FormPack } from "./formModel";
-import { buildSnapshot, emptySnapshot, formModeFromModuleSelections, normalizeSnapshot } from "./snapshot";
+import { buildSnapshot, emptySnapshot, normalizeSnapshot } from "./snapshot";
 
 const MINIMAL_PACK: FormPack = {
   packId: "test-pack",
@@ -11,39 +11,81 @@ const MINIMAL_PACK: FormPack = {
   migrations: [],
 };
 
-describe("formMode", () => {
-  it("defaults to hint when absent from a snapshot", () => {
-    const parsed = normalizeSnapshot({ profile: { ownerName: "A" } });
-    expect(parsed.profile.formMode).toBe("hint");
+describe("profile", () => {
+  it("fills the owner name from the fallback and the default review cadence", () => {
+    const parsed = normalizeSnapshot(null, "Alice");
+    expect(parsed.profile.ownerName).toBe("Alice");
+    expect(parsed.profile.reviewCadenceMonths).toBe(12);
   });
 
-  it("reads an explicit credential formMode", () => {
+  it("fills the default review cadence when the persisted value is malformed", () => {
+    expect(
+      normalizeSnapshot({ profile: { ownerName: "A", reviewCadenceMonths: 0 } }).profile
+        .reviewCadenceMonths,
+    ).toBe(12);
+    expect(
+      normalizeSnapshot({ profile: { ownerName: "A", reviewCadenceMonths: "6" } }).profile
+        .reviewCadenceMonths,
+    ).toBe(12);
+  });
+
+  it("keeps a valid persisted review cadence", () => {
+    expect(
+      normalizeSnapshot({ profile: { ownerName: "A", reviewCadenceMonths: 6 } }).profile
+        .reviewCadenceMonths,
+    ).toBe(6);
+  });
+
+  // R15: the module system is gone; the profile carries neither field.
+  it("carries no formMode or moduleSelections on a fresh snapshot", () => {
+    const profile = emptySnapshot("A").profile;
+    expect(profile).not.toHaveProperty("formMode");
+    expect(profile).not.toHaveProperty("moduleSelections");
+  });
+
+  it("drops a legacy formMode / moduleSelections rather than preserving them", () => {
     const parsed = normalizeSnapshot({
-      profile: { ownerName: "A", formMode: "credential" },
+      profile: { ownerName: "A", formMode: "credential", moduleSelections: { secrets: "on" } },
     });
-    expect(parsed.profile.formMode).toBe("credential");
+    expect(parsed.profile).not.toHaveProperty("formMode");
+    expect(parsed.profile).not.toHaveProperty("moduleSelections");
+    expect(parsed.extra).not.toHaveProperty("formMode");
+    expect(parsed.extra).not.toHaveProperty("moduleSelections");
   });
 
-  it("ignores a malformed formMode and falls back to hint", () => {
+  it("writes no formMode or moduleSelections into the wire snapshot", () => {
+    const wire = buildSnapshot(emptySnapshot("A")) as { profile: Record<string, unknown> };
+    expect(wire.profile).not.toHaveProperty("formMode");
+    expect(wire.profile).not.toHaveProperty("moduleSelections");
+  });
+});
+
+describe("unknown top-level fields", () => {
+  it("round-trips them through extra", () => {
     const parsed = normalizeSnapshot({
-      profile: { ownerName: "A", formMode: "nonsense" },
+      profile: { ownerName: "A" },
+      futureThing: { nested: [1, 2] },
     });
-    expect(parsed.profile.formMode).toBe("hint");
+    expect(parsed.extra).toEqual({ futureThing: { nested: [1, 2] } });
+    const wire = buildSnapshot(parsed) as Record<string, unknown>;
+    expect(wire.futureThing).toEqual({ nested: [1, 2] });
   });
+});
 
-  it("round-trips formMode through build + normalize", () => {
-    const built = buildSnapshot(emptySnapshot("A", "credential"));
-    expect(normalizeSnapshot(built).profile.formMode).toBe("credential");
-  });
-
-  it("emptySnapshot defaults to hint", () => {
-    expect(emptySnapshot("A").profile.formMode).toBe("hint");
-  });
-
-  it("uses the fallbackFormMode for a fresh (null) snapshot", () => {
-    expect(normalizeSnapshot(null, "A", "credential").profile.formMode).toBe(
-      "credential",
-    );
+describe("payload round-trip", () => {
+  it("preserves values, sectionMeta, overlay and kitMeta unchanged", () => {
+    const parsed = emptySnapshot("A");
+    parsed.values = {
+      identity: { sectionKey: "identity", records: [], archivedAnswers: [] },
+    };
+    parsed.sectionMeta = { identity: { na: true, lastSavedAt: "2026-01-01T00:00:00.000Z" } };
+    parsed.overlay = { sectionOrder: ["identity"] } as never;
+    parsed.kitMeta = { lastGeneratedAt: "2026-01-02T00:00:00.000Z", fingerprint: "abc" };
+    const result = normalizeSnapshot(buildSnapshot(parsed), "");
+    expect(result.values).toEqual(parsed.values);
+    expect(result.sectionMeta).toEqual(parsed.sectionMeta);
+    expect(result.overlay).toEqual(parsed.overlay);
+    expect(result.kitMeta).toEqual(parsed.kitMeta);
   });
 });
 
@@ -82,7 +124,7 @@ describe("customPack round-trip", () => {
     const wire = buildSnapshot({
       snapshotFormat: 1,
       schemaVersion: 1,
-      profile: { ownerName: "Alice", reviewCadenceMonths: 12, formMode: "hint" as const, moduleSelections: {} },
+      profile: { ownerName: "Alice", reviewCadenceMonths: 12 },
       values: {},
       sectionMeta: {},
       overlay: null,
@@ -103,7 +145,7 @@ describe("customPack round-trip", () => {
     const wire = buildSnapshot({
       snapshotFormat: 1,
       schemaVersion: 1,
-      profile: { ownerName: "Bob", reviewCadenceMonths: 12, formMode: "hint" as const, moduleSelections: {} },
+      profile: { ownerName: "Bob", reviewCadenceMonths: 12 },
       values: {},
       sectionMeta: {},
       overlay: null,
@@ -118,7 +160,7 @@ describe("customPack round-trip", () => {
     const wire = buildSnapshot({
       snapshotFormat: 1,
       schemaVersion: 1,
-      profile: { ownerName: "Carol", reviewCadenceMonths: 12, formMode: "hint" as const, moduleSelections: {} },
+      profile: { ownerName: "Carol", reviewCadenceMonths: 12 },
       values: {},
       sectionMeta: {},
       overlay: null,
@@ -128,57 +170,5 @@ describe("customPack round-trip", () => {
     });
     const result = normalizeSnapshot(wire, "");
     expect(result.extra).not.toHaveProperty("customPack");
-  });
-});
-
-describe("moduleSelections migration", () => {
-  it("seeds { secrets: 'on' } from a legacy credential formMode", () => {
-    const parsed = normalizeSnapshot({ profile: { ownerName: "Dana", formMode: "credential" } });
-    expect(parsed.profile.moduleSelections).toEqual({ secrets: "on" });
-  });
-
-  it("seeds { secrets: 'off' } from a legacy hint formMode", () => {
-    const parsed = normalizeSnapshot({ profile: { ownerName: "Dana", formMode: "hint" } });
-    expect(parsed.profile.moduleSelections).toEqual({ secrets: "off" });
-  });
-
-  it("preserves an explicit moduleSelections map over the formMode-derived seed", () => {
-    const parsed = normalizeSnapshot({
-      profile: { ownerName: "Dana", formMode: "hint", moduleSelections: { secrets: "on", "file-method": "attach" } },
-    });
-    expect(parsed.profile.moduleSelections).toEqual({ secrets: "on", "file-method": "attach" });
-  });
-
-  it("ignores a non-string-record moduleSelections and falls back to the formMode seed", () => {
-    const parsed = normalizeSnapshot({
-      profile: { ownerName: "Dana", formMode: "credential", moduleSelections: "bogus" },
-    });
-    expect(parsed.profile.moduleSelections).toEqual({ secrets: "on" });
-  });
-
-  it("emptySnapshot seeds moduleSelections from its formMode", () => {
-    expect(emptySnapshot("Dana", "credential").profile.moduleSelections).toEqual({ secrets: "on" });
-    expect(emptySnapshot("Dana", "hint").profile.moduleSelections).toEqual({ secrets: "off" });
-  });
-
-  it("ignores a moduleSelections map with a non-string value", () => {
-    const parsed = normalizeSnapshot({
-      profile: { ownerName: "Dana", formMode: "hint", moduleSelections: { secrets: "on", extra: 1 } },
-    });
-    expect(parsed.profile.moduleSelections).toEqual({ secrets: "off" });
-  });
-});
-
-describe("moduleSelections-first seeding", () => {
-  it("emptySnapshot seeds the profile from moduleSelections and syncs formMode from secrets", () => {
-    const snap = emptySnapshot("Dana", { secrets: "on", "file-method": "attach" });
-    expect(snap.profile.moduleSelections).toEqual({ secrets: "on", "file-method": "attach" });
-    expect(snap.profile.formMode).toBe("credential");
-  });
-
-  it("formModeFromModuleSelections maps secrets on->credential, else hint", () => {
-    expect(formModeFromModuleSelections({ secrets: "on" })).toBe("credential");
-    expect(formModeFromModuleSelections({ secrets: "off" })).toBe("hint");
-    expect(formModeFromModuleSelections({})).toBe("hint");
   });
 });

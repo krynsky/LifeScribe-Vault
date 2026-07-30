@@ -55,7 +55,6 @@ import {
 import { computeKitFingerprint, isKitStale } from "../domain/recoveryKit";
 import {
   buildSnapshot,
-  formModeFromModuleSelections,
   normalizeSnapshot,
   SNAPSHOT_FORMAT,
   type KitMeta,
@@ -84,8 +83,6 @@ import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 export interface DashboardProps {
   /** Owner name from the setup flow, used until the first snapshot exists. */
   ownerNameHint?: string;
-  /** Module selections chosen at setup; seed the profile until the first snapshot exists. */
-  moduleSelectionsHint?: Record<string, string>;
   /**
    * Called once the vault is locked (auto or manual). The optional notice
    * explains why, when the lock was a side effect of something else (a move).
@@ -128,11 +125,6 @@ function errorCode(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-// Module-scope constant so the default prop value is a STABLE reference. The
-// load effect depends on `moduleSelectionsHint`; a fresh object literal default
-// would change identity every render and re-trigger the effect in a loop.
-const DEFAULT_MODULE_SELECTIONS_HINT: Record<string, string> = { secrets: "off" };
-
 /**
  * The pack this vault renders from: the saved customPack (form-editor edits) or
  * the bundled base pack, as authored — no composition step.
@@ -146,12 +138,9 @@ async function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
  * renamed custom fields -> migrate-on-read (in memory only) -> reconcile
  * records against the resolved definition. Pure; persists nothing.
  *
- * Callers produce `parsed` via `normalizeSnapshot(raw, ownerNameHint,
- * moduleSelectionsHint)` — the hints seed the profile only for a fresh vault
- * (raw null, or a snapshot with no persisted moduleSelections); an existing
- * snapshot keeps its own values. Without the module-selections hint the
- * onboarding choice would never reach the profile and the first save would
- * persist the defaults, silently discarding it.
+ * Callers produce `parsed` via `normalizeSnapshot(raw, ownerNameHint)` — the
+ * hint seeds the owner name only for a fresh vault (raw null, or a snapshot
+ * with no persisted owner name); an existing snapshot keeps its own value.
  */
 function buildLoadedVault(
   pack: FormPack,
@@ -217,7 +206,7 @@ function buildLoadedVault(
   };
 }
 
-export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_MODULE_SELECTIONS_HINT, onLocked }: DashboardProps) {
+export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked" | "error">("loading");
   const [blockedMessage, setBlockedMessage] = useState("");
   const [loaded, setLoaded] = useState<LoadedVault | null>(null);
@@ -292,10 +281,8 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
         // Fresh vault: no snapshot saved yet; base generation stays 0.
       }
 
-      // Use the user's personal pack if saved, else fall back to the bundled
-      // default for the module selections stored in the snapshot (or the prop
-      // hint when the vault is new).
-      const parsed = normalizeSnapshot(raw, ownerNameHint, moduleSelectionsHint);
+      // Use the user's personal pack if saved, else the bundled default.
+      const parsed = normalizeSnapshot(raw, ownerNameHint);
       let pack: FormPack;
       try {
         pack = await resolveBasePack(parsed);
@@ -373,7 +360,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     return () => {
       isCurrent = false;
     };
-  }, [ownerNameHint, moduleSelectionsHint, loadKey]);
+  }, [ownerNameHint, loadKey]);
 
   // -------------------------------------------------------------------------
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
@@ -690,7 +677,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     let fresh: LoadedVault;
     try {
       const response = await loadVaultSnapshot();
-      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, moduleSelectionsHint);
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint);
       const pack = await resolveBasePack(parsed);
       const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {
@@ -726,7 +713,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   async function handleDiscardConflict(sectionKey: string) {
     try {
       const response = await loadVaultSnapshot();
-      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, moduleSelectionsHint);
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint);
       const pack = await resolveBasePack(parsed);
       const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {

@@ -15,14 +15,8 @@ describe("loadDefaultPack", () => {
     mockedRead.mockRejectedValue(new Error("invoke unavailable"));
   });
 
-  it("loads the single base pack by default", async () => {
+  it("loads the single base pack", async () => {
     const pack = await loadDefaultPack();
-    expect(mockedRead).toHaveBeenCalledWith();
-    expect(pack.packId).toBe("lifescribe-default");
-  });
-
-  it("ignores the (now-vestigial) mode argument and still returns the base pack", async () => {
-    const pack = await loadDefaultPack("credential");
     expect(mockedRead).toHaveBeenCalledWith();
     expect(pack.packId).toBe("lifescribe-default");
   });

@@ -129,10 +129,7 @@ describe("App", () => {
     // The onboarding choice is written straight into a generation-0 CAS save,
     // so it survives a relaunch even before the user enters any data.
     expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
-    const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
-    expect((snapshot as { profile: { formMode: string } }).profile.formMode).toBe(
-      "credential",
-    );
+    const [, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
     expect(baseGeneration).toBe(0);
   });
 
