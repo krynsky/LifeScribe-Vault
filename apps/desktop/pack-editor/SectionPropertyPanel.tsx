@@ -3,11 +3,9 @@ import type { PackSection } from "../src/domain/formModel";
 
 /**
  * The subset of PackSection this panel edits. Deliberately a plain, narrow
- * type (not EditorViewSection) — callers build it by picking exactly these
- * three fields off the view section, so the view-only `source`/`removed`
- * keys and the section's `groups` can never ride along into `onChange` and
- * leak into the persisted pack (mirrors the stripViewKeys pattern used for
- * fields in OverlayDesign.tsx).
+ * type — callers build it by picking exactly these three fields off the
+ * section, so the section's `groups` can never ride along into `onChange`
+ * and clobber the persisted pack.
  */
 export type SectionProperties = Pick<PackSection, "title" | "lede" | "multiRecord">;
 
@@ -52,11 +50,11 @@ export function SectionPropertyPanel({ section, onChange, onRemove }: SectionPro
       </label>
 
       {onRemove ? (
-        <div className="module-panel__footer">
+        <div className="panel__footer">
           {confirming ? (
-            <div className="module-panel__confirm" role="alert">
+            <div className="panel__confirm" role="alert">
               <p>Remove section <strong>{section.title}</strong>? This cannot be undone until you close the editor without saving.</p>
-              <div className="module-panel__confirm-actions">
+              <div className="panel__confirm-actions">
                 <button
                   type="button"
                   className="button button--ghost button--small"
@@ -67,7 +65,7 @@ export function SectionPropertyPanel({ section, onChange, onRemove }: SectionPro
                 </button>
                 <button
                   type="button"
-                  className="button button--small module-panel__delete"
+                  className="button button--small panel__delete"
                   aria-label={`Confirm remove section ${section.title}`}
                   onClick={onRemove}
                 >
@@ -78,7 +76,7 @@ export function SectionPropertyPanel({ section, onChange, onRemove }: SectionPro
           ) : (
             <button
               type="button"
-              className="button button--ghost button--small module-panel__delete"
+              className="button button--ghost button--small panel__delete"
               aria-label={`Remove section ${section.title}`}
               onClick={() => setConfirming(true)}
             >

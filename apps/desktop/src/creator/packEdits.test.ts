@@ -6,6 +6,7 @@ import {
   removeField,
   addGroup,
   addSection,
+  removeSection,
   ensureSectionHasGroup,
   setSectionMultiRecord,
   setSectionEntryLabel,
@@ -256,6 +257,50 @@ describe("addSection", () => {
   it("produces a pack that passes validatePack (regression: groupless section was unsavable)", () => {
     const updated = addSection(MINIMAL_PACK, "My New Section");
     expect(validatePack(updated).ok).toBe(true);
+  });
+});
+
+describe("removeSection", () => {
+  it("drops only the named section", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+
+    const updated = removeSection(twoSections, second.sectionKey);
+
+    expect(updated.sections.map((s) => s.sectionKey)).not.toContain(second.sectionKey);
+    expect(updated.sections).toHaveLength(twoSections.sections.length - 1);
+  });
+
+  it("keeps referential identity of the sections it did not touch", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+    const kept = twoSections.sections.find((s) => s.sectionKey === "personal")!;
+
+    const updated = removeSection(twoSections, second.sectionKey);
+
+    expect(updated.sections.find((s) => s.sectionKey === "personal")).toBe(kept);
+  });
+
+  it("does not mutate the input pack", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const before = twoSections.sections.length;
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+
+    removeSection(twoSections, second.sectionKey);
+
+    expect(twoSections.sections).toHaveLength(before);
+  });
+
+  it("returns pack unchanged when the sectionKey is unknown", () => {
+    const result = removeSection(MINIMAL_PACK, "nonexistent");
+    // Same reference since nothing changed.
+    expect(result).toBe(MINIMAL_PACK);
+  });
+
+  it("produces a pack that still passes validatePack", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+    expect(validatePack(removeSection(twoSections, second.sectionKey)).ok).toBe(true);
   });
 });
 

@@ -297,6 +297,17 @@ export function removeField(
 }
 
 /**
+ * Removes a section by sectionKey.
+ * - Returns the pack unchanged (referential identity) if the key is unknown.
+ * - Surviving sections keep referential identity; `order` is left as-is, since
+ *   the pack is always read in sorted order and gaps are harmless.
+ */
+export function removeSection(pack: FormPack, sectionKey: string): FormPack {
+  if (!pack.sections.some((s) => s.sectionKey === sectionKey)) return pack;
+  return { ...pack, sections: pack.sections.filter((s) => s.sectionKey !== sectionKey) };
+}
+
+/**
  * Swaps the `order` of the target field with the adjacent field in the given
  * direction. Returns the pack unchanged if already at the boundary.
  */
