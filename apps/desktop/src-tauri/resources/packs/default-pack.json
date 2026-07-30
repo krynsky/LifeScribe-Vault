@@ -194,7 +194,7 @@
             {
               "systemKey": "passwordManagerProvider",
               "label": "Password manager provider",
-              "helperText": "Which password manager you use. Never store the master password itself in this vault — only how a trusted person would gain emergency access.",
+              "helperText": "Which password manager you use.",
               "type": "select",
               "required": true,
               "protected": true,
@@ -323,6 +323,15 @@
               "order": 8
             },
             {
+              "systemKey": "passwordManagerMasterPassword",
+              "label": "Master password",
+              "helperText": "Optional. The master password for your password manager.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 9
+            },
+            {
               "systemKey": "passwordManagerExecutorInstructions",
               "label": "Executor instructions",
               "helperText": "Plain-language steps your executor should follow first, written for someone who may not be technical.",
@@ -423,7 +432,7 @@
             {
               "systemKey": "deviceUnlockHintLocation",
               "label": "Unlock hint location",
-              "helperText": "Where a hint to the PIN or passcode is stored — for example \"sealed envelope in the safe\". Never the PIN itself.",
+              "helperText": "Where a hint to the PIN or passcode is stored — for example \"sealed envelope in the safe\".",
               "type": "text",
               "required": false,
               "protected": false,
@@ -437,6 +446,15 @@
               "required": false,
               "protected": false,
               "order": 5
+            },
+            {
+              "systemKey": "devicePin",
+              "label": "PIN or passcode",
+              "helperText": "Optional. The unlock PIN or passcode for this device.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 6
             }
           ]
         }
@@ -855,13 +873,22 @@
               "order": 4
             },
             {
+              "systemKey": "documentDigitalFile",
+              "label": "Attached copy",
+              "helperText": "Optional. A scanned or digital copy of this document, attached to the vault.",
+              "type": "file",
+              "required": false,
+              "protected": false,
+              "order": 5
+            },
+            {
               "systemKey": "documentAccessNotes",
               "label": "Notes",
               "helperText": "Anything needed to reach it — who has the safe key, which attorney to call, whose name the box is under.",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 5
+              "order": 6
             }
           ]
         }
@@ -880,6 +907,7 @@
               "documentCategory",
               "documentPhysicalLocation",
               "documentDigitalLocation",
+              "documentDigitalFile",
               "documentAccessNotes"
             ]
           }
@@ -1161,106 +1189,6 @@
           }
         ]
       }
-    }
-  ],
-  "modules": [
-    {
-      "moduleId": "secrets",
-      "title": "Store passwords",
-      "question": "Do you want the vault to hold your actual passwords and PINs, or only where to find them?",
-      "helperText": "Passwords and PINs are encrypted in this vault. Choose \"Locations only\" to keep this vault free of live credentials.",
-      "order": 1,
-      "defaultOptionId": "off",
-      "options": [
-        {
-          "optionId": "off",
-          "label": "Locations only"
-        },
-        {
-          "optionId": "on",
-          "label": "Store the actual passwords",
-          "addFields": [
-            {
-              "sectionKey": "password-manager",
-              "groupKey": "plan",
-              "order": 4,
-              "field": {
-                "systemKey": "passwordManagerMasterPassword",
-                "label": "Master password",
-                "helperText": "The actual master password for your password manager. It is stored encrypted in this vault.",
-                "type": "text",
-                "required": false,
-                "protected": false,
-                "order": 4
-              }
-            },
-            {
-              "sectionKey": "devices",
-              "groupKey": "device",
-              "order": 4,
-              "field": {
-                "systemKey": "devicePin",
-                "label": "PIN or passcode",
-                "helperText": "The actual unlock PIN or passcode for this device. It is stored encrypted in this vault.",
-                "type": "text",
-                "required": false,
-                "protected": false,
-                "order": 4
-              }
-            }
-          ],
-          "kitAdditions": {
-            "password-manager": [
-              "passwordManagerMasterPassword"
-            ],
-            "devices": [
-              "devicePin"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "moduleId": "file-method",
-      "title": "File handling",
-      "question": "For documents, do you want to point to where a file lives, or attach the file into your vault?",
-      "helperText": "\"Point to a location\" stores only a path. \"Attach the file\" encrypts a copy into this vault.",
-      "order": 2,
-      "defaultOptionId": "path",
-      "options": [
-        {
-          "optionId": "path",
-          "label": "Point to a location on disk"
-        },
-        {
-          "optionId": "attach",
-          "label": "Attach the file into the vault",
-          "removeKeys": [
-            "documentDigitalLocation"
-          ],
-          "addFields": [
-            {
-              "sectionKey": "documents",
-              "groupKey": "document",
-              "order": 4,
-              "field": {
-                "systemKey": "documentDigitalFile",
-                "label": "Attached copy",
-                "helperText": "Attach a scanned or digital copy. It is stored encrypted in this vault.",
-                "type": "file",
-                "required": false,
-                "protected": false,
-                "order": 4
-              }
-            }
-          ],
-          "kitAdditions": {
-            "documents": [
-              "documentDigitalFile"
-            ]
-          }
-        }
-      ]
     }
   ],
   "migrations": []

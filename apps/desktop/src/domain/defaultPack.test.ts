@@ -202,6 +202,84 @@ describe("shipped default pack", () => {
   });
 });
 
+describe("shipped default pack: the three permanent optional fields", () => {
+  function kitKeys(section: PackSection): string[] {
+    return section.kitMapping.entries.flatMap((entry) => entry.fields);
+  }
+
+  it("ships no modules array", () => {
+    expect("modules" in (pack as unknown as Record<string, unknown>)).toBe(false);
+  });
+
+  it.each([
+    ["password-manager", "passwordManagerMasterPassword", "text"],
+    ["devices", "devicePin", "text"],
+    ["documents", "documentDigitalFile", "file"],
+  ])("%s carries %s as an ordinary optional field", (sectionKey, systemKey, type) => {
+    const section = sectionByKey(sectionKey);
+    const field = allFields(section).find((candidate) => candidate.systemKey === systemKey);
+    expect(field, `${sectionKey}.${systemKey}`).toBeDefined();
+    expect(field?.type).toBe(type);
+    expect(field?.required).toBe(false);
+    expect(field?.protected).toBe(false);
+    expect((field?.helperText ?? "").trim().length).toBeGreaterThan(0);
+  });
+
+  it("password manager and device fields live in the plan and device groups", () => {
+    const planGroup = sectionByKey("password-manager").groups.find((g) => g.groupKey === "plan");
+    expect(planGroup?.fields.map((f) => f.systemKey)).toContain(
+      "passwordManagerMasterPassword",
+    );
+    const deviceGroup = sectionByKey("devices").groups.find((g) => g.groupKey === "device");
+    expect(deviceGroup?.fields.map((f) => f.systemKey)).toContain("devicePin");
+    const docGroup = sectionByKey("documents").groups.find((g) => g.groupKey === "document");
+    expect(docGroup?.fields.map((f) => f.systemKey)).toContain("documentDigitalFile");
+  });
+
+  it("a Documents record can carry both a digital location and an attached copy", () => {
+    const keys = fieldKeys(sectionByKey("documents"));
+    expect(keys.has("documentDigitalLocation")).toBe(true);
+    expect(keys.has("documentDigitalFile")).toBe(true);
+  });
+
+  it("the Documents kit mapping lists the attached copy", () => {
+    expect(kitKeys(sectionByKey("documents"))).toContain("documentDigitalFile");
+  });
+
+  it("no section's kit mapping can route a live credential to the printed Kit", () => {
+    for (const section of pack.sections) {
+      const keys = kitKeys(section);
+      expect(keys, section.sectionKey).not.toContain("passwordManagerMasterPassword");
+      expect(keys, section.sectionKey).not.toContain("devicePin");
+    }
+  });
+
+  it("section readiness is unchanged by the newly permanent fields", () => {
+    expect(
+      Object.fromEntries(
+        pack.sections.map((section) => [
+          section.sectionKey,
+          section.readinessRule.requiredKeys,
+        ]),
+      ),
+    ).toEqual({
+      "digital-executors": ["executorName", "executorRole"],
+      "password-manager": ["passwordManagerProvider"],
+      devices: ["deviceName"],
+      "financial-accounts": ["accountInstitution"],
+      subscriptions: ["subscriptionName"],
+      "online-accounts": ["onlineServiceName"],
+      documents: ["documentTitle"],
+      backups: ["backupLocation"],
+      "platform-legacy": [
+        "appleLegacyStatus",
+        "googleLegacyStatus",
+        "facebookLegacyStatus",
+      ],
+    });
+  });
+});
+
 /** Minimal stateful harness — RecordList is a controlled component. */
 function SectionHarness({ section }: { section: ResolvedSection }) {
   const [values, setValues] = useState<SectionValues>(() =>

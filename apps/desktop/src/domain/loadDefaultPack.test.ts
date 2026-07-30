@@ -19,13 +19,11 @@ describe("loadDefaultPack", () => {
     const pack = await loadDefaultPack();
     expect(mockedRead).toHaveBeenCalledWith();
     expect(pack.packId).toBe("lifescribe-default");
-    expect(pack.modules).toBeDefined();
   });
 
   it("ignores the (now-vestigial) mode argument and still returns the base pack", async () => {
     const pack = await loadDefaultPack("credential");
     expect(mockedRead).toHaveBeenCalledWith();
     expect(pack.packId).toBe("lifescribe-default");
-    expect(pack.modules).toBeDefined();
   });
 });

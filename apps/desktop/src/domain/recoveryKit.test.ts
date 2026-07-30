@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { composePack } from "./composePack";
+
 import type { FormPack, PackSection, ResolvedField } from "./formModel";
 import { validatePack } from "./packValidation";
 import {
@@ -417,14 +417,9 @@ describe("kitMeta snapshot round-trip (additive)", () => {
   });
 });
 
-describe("Recovery Kit with the secrets module composed in", () => {
-  function loadPackWithSecretsModule(): FormPack {
-    const base = loadShippedPack();
-    return composePack(base, base.modules ?? [], { secrets: "on" });
-  }
-
-  it("includes the master password in the Recovery Kit when the secrets module is on", () => {
-    const pack = loadPackWithSecretsModule();
+describe("Recovery Kit and the permanent credential fields", () => {
+  it("names an attached document but emits neither the master password nor the device PIN", () => {
+    const pack = loadShippedPack();
     const values = makeVaultValues([
       makeSectionValues("password-manager", [
         makeRecord({
@@ -435,9 +430,43 @@ describe("Recovery Kit with the secrets module composed in", () => {
           },
         }),
       ]),
+      makeSectionValues("devices", [
+        makeRecord({
+          id: "dev-1",
+          values: {
+            deviceName: "Mom's iPhone",
+            devicePin: "480215",
+          },
+        }),
+      ]),
+      makeSectionValues("documents", [
+        makeRecord({
+          id: "doc-1",
+          values: {
+            documentTitle: "Last will",
+            documentDigitalLocation: "D:/Estate/will.pdf",
+            documentDigitalFile: "att-1",
+          },
+          attachments: [{ id: "att-1", fileName: "last-will-signed.pdf", sizeBytes: 2048 }],
+        }),
+      ]),
     ]);
+
     const kit = buildRecoveryKit(pack.sections, values);
-    expect(allKitStrings(kit)).toContain("hunter2-correct-horse");
+    const strings = allKitStrings(kit);
+
+    // R16: the attachment reaches the Kit as its file NAME (a pointer).
+    expect(strings).toContain("last-will-signed.pdf");
+    expect(strings).toContain("D:/Estate/will.pdf");
+
+    // R17: live credentials never reach the printed page.
+    expect(strings).not.toContain("hunter2-correct-horse");
+    expect(strings).not.toContain("480215");
+    const emittedKeys = kit.entries.flatMap((entry) =>
+      entry.blocks.flatMap((block) => block.items.map((item) => item.systemKey)),
+    );
+    expect(emittedKeys).not.toContain("passwordManagerMasterPassword");
+    expect(emittedKeys).not.toContain("devicePin");
   });
 });
 

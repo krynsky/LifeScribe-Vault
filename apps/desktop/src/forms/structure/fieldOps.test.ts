@@ -14,7 +14,7 @@ function group(pack: FormPack, sectionKey: string, groupKey: string) {
 describe("reorderFields", () => {
   it("moves a field and renumbers order to sequential integers", () => {
     // Base pack "devices/device" group, in order: deviceName, deviceType,
-    // deviceOwner, deviceUnlockHintLocation, deviceRecoveryNotes.
+    // deviceOwner, deviceUnlockHintLocation, deviceRecoveryNotes, devicePin.
     const next = reorderFields(hint, "devices", "device", 1, 3);
     const keys = [...group(next, "devices", "device").fields]
       .sort((a, b) => a.order - b.order)
@@ -25,9 +25,10 @@ describe("reorderFields", () => {
       "deviceUnlockHintLocation",
       "deviceType",
       "deviceRecoveryNotes",
+      "devicePin",
     ]);
     expect(group(next, "devices", "device").fields.map((f) => f.order).sort((a, b) => a - b))
-      .toEqual([1, 2, 3, 4, 5]);
+      .toEqual([1, 2, 3, 4, 5, 6]);
   });
 });
 
