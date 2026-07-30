@@ -550,61 +550,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   }
 
   /**
-   * Apply a new set of module selections (from the Settings page). Saved
-   * through the common `persist` path so the save registers in saveInFlightRef
-   * (the lock flow awaits it) and purges any stashed draft like every other
-   * committed save. customPack is cleared so the vault rebuilds from the base
-   * pack composed with the new selections.
-   */
-  async function applyModuleSelections(next: Record<string, string>): Promise<boolean> {
-    if (!loaded) return false;
-    const current = loaded.vault.profile.moduleSelections;
-    const unchanged = Object.keys({ ...current, ...next }).every((k) => current[k] === next[k]);
-    if (unchanged) return true;
-    // Best-effort: stamp the base pack id and schemaVersion; if the pack can't
-    // be loaded the id is dropped and the post-reload save re-stamps it.
-    let nextBasePackId: string | undefined;
-    let baseSchemaVersion = loaded.schemaVersion;
-    try {
-      const basePack = await loadDefaultPack();
-      nextBasePackId = basePack.packId;
-      baseSchemaVersion = basePack.schemaVersion;
-    } catch {
-      nextBasePackId = undefined;
-    }
-    // Cap records at the base pack's schemaVersion. When the user had a
-    // customPack with a higher schemaVersion, records carry its stamp; without
-    // capping, checkSnapshotReadable would block the next load.
-    const nextValues = capRecordSchemaVersions(loaded.vault.savedValues, baseSchemaVersion);
-    const nextLoaded: LoadedVault = {
-      ...loaded,
-      schemaVersion: baseSchemaVersion,
-      vault: {
-        ...loaded.vault,
-        profile: {
-          ...loaded.vault.profile,
-          moduleSelections: next,
-          formMode: formModeFromModuleSelections(next),
-          basePackId: nextBasePackId,
-        },
-        customPack: null,
-      },
-    };
-    const ok = await persist(
-      nextLoaded,
-      nextValues,
-      loaded.vault.sectionMeta,
-      null,
-    );
-    if (ok) {
-      // Reload so sections rebuild from the newly-composed pack.
-      setPhase("loading");
-      setLoadKey((k) => k + 1);
-    }
-    return ok;
-  }
-
-  /**
    * Move the vault's data files. Relocation requires a locked vault, so this
    * locks first (via the normal lock path, which completes an in-flight save
    * and stashes dirty drafts), then moves, then leaves the user on the locked
@@ -1378,18 +1323,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     content = <BackupPage />;
   } else if (route.kind === "settings") {
     content = (
-      <SettingsPage
-        selections={loaded.vault.profile.moduleSelections}
-        onApply={async (next) => {
-          // On failure applyModuleSelections leaves the vault unchanged and the
-          // shared save-error banner set (rendered above this pane), and the
-          // route stays "settings" so the user can retry. On success it reloads
-          // and the Settings pane remounts with the new selections.
-          await applyModuleSelections(next);
-        }}
-        vaultDir={vaultDir}
-        onRelocate={handleRelocate}
-      />
+      <SettingsPage vaultDir={vaultDir} onRelocate={handleRelocate} />
     );
   }
 
