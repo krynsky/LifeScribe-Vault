@@ -17,7 +17,7 @@ execution: code
 
 **Product authority.** The app is unreleased with a single testing user, so no vault, snapshot, or exported pack in existence needs to survive this change. That removes migration, back-compat, and tolerance from scope entirely.
 
-**Open blockers.** Every product decision is settled. One process question remains: whether PR #12, which introduced module-driven onboarding, is closed unmerged or merged and then reverted. That answer shapes branch strategy, not product behavior.
+**Open blockers.** None. Every product decision is settled, and this work branches from `main`, which now carries both the Settings shell and the module system.
 
 ## Product Contract
 
@@ -145,18 +145,15 @@ Out of scope:
 
 ### Dependencies / Assumptions
 
-D1. The vault-location work on `feat/vault-data-location` is independent of modules and is unaffected by this change. It branched from `feat/module-driven-onboarding`, so the module commits sit in its ancestry.
+D1. `main` carries the Settings page, the Settings route, and the vault-location feature. The Settings shell arrived with the module work but survives module removal, and `VaultLocation` renders inside it — so `SettingsPage` and its route must keep working throughout this change.
+D2. Removing `VaultOptions` leaves `SettingsPage` with one section. Its `selections` and `onApply` props, its `loadDefaultPack` call, and its `base` state exist only to serve `VaultOptions` and become dead with it.
 
 ### Outstanding Questions
 
-**Resolve Before Planning**
-
-Q1. Whether PR #12 is closed unmerged or merged and then reverted, and whether `feat/vault-data-location` is rebased onto `main` as a result. This decides the branch this work starts from.
-
 **Deferred to Planning**
 
-Q2. Where the single setup screen puts the vault-folder control relative to the name and password fields (R10).
-Q3. The exact helper-text wording for the three fields (R6). Intent is settled; phrasing is not.
+Q1. Where the single setup screen puts the vault-folder control relative to the name and password fields (R10).
+Q2. The exact helper-text wording for the three fields (R6). Intent is settled; phrasing is not.
 
 ### Sources / Research
 
