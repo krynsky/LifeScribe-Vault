@@ -41,7 +41,6 @@ import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
-import { composePack } from "../domain/composePack";
 import {
   capRecordSchemaVersions,
   migrateVaultValues,
@@ -136,13 +135,10 @@ const DEFAULT_MODULE_SELECTIONS_HINT: Record<string, string> = { secrets: "off" 
 
 /**
  * The pack this vault renders from: the saved customPack (form-editor edits) or
- * the bundled base pack, composed with the profile's module selections. Legacy
- * customPacks predate modules (base.modules undefined) so compose is a no-op for
- * them — they already baked in their mode's fields.
+ * the bundled base pack, as authored — no composition step.
  */
 async function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
-  const base = parsed.customPack ?? (await loadDefaultPack());
-  return composePack(base, base.modules ?? [], parsed.profile.moduleSelections);
+  return parsed.customPack ?? (await loadDefaultPack());
 }
 
 /**
