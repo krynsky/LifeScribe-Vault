@@ -808,9 +808,11 @@ pub fn sweep_orphaned_attachments(
     session: State<'_, SharedVaultSession>,
 ) -> Result<u32, String> {
     let session = lock_state(&session)?;
-    if session.key.is_none() {
+    // The sweep proves ownership of each candidate by decrypting it, so it
+    // needs both the session key and this vault's identity.
+    let (Some(key), Some(vault_id)) = (session.key.as_ref(), session.vault_id.as_ref()) else {
         return Err(command_error_code(VaultError::Locked));
-    }
+    };
     let app_data_dir = session
         .vault_path
         .parent()
@@ -821,7 +823,7 @@ pub fn sweep_orphaned_attachments(
     }
     crate::attachments::sweep_stale_external_temp_dirs();
     let att_dir = crate::attachments::attachment_dir(&session.vault_path);
-    crate::attachments::sweep_orphaned_attachments(&att_dir, &referenced_ids)
+    crate::attachments::sweep_orphaned_attachments(&att_dir, &referenced_ids, key, vault_id)
         .map_err(command_error_code)
 }
 

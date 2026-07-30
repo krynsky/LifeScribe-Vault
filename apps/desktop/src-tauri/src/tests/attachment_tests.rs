@@ -93,24 +93,73 @@ fn delete_missing_file_is_ok() {
 fn sweep_removes_unreferenced_old_files() {
     let dir = tempdir().unwrap();
     let att_dir = dir.path().join("attachments");
-    fs::create_dir_all(&att_dir).unwrap();
+    let key = generate_data_key();
+    let vault_id = "vault-sweep";
 
-    // Write two .bin files with an old mtime.
-    let orphan = att_dir.join("orphan-1111-2222-3333-4444.bin");
-    let referenced = att_dir.join("ref-1111-2222-3333-4444.bin");
-    fs::write(&orphan, b"old-ciphertext").unwrap();
-    fs::write(&referenced, b"old-ciphertext").unwrap();
+    // Real encrypted attachments: the sweep only deletes what it can prove is
+    // this vault's, so the fixture has to be genuine ciphertext.
+    let orphan_meta = crate::attachments::encrypt_attachment_bytes(
+        b"old-ciphertext", "orphan.txt", &att_dir, &key, vault_id,
+    )
+    .unwrap();
+    let referenced_meta = crate::attachments::encrypt_attachment_bytes(
+        b"old-ciphertext", "kept.txt", &att_dir, &key, vault_id,
+    )
+    .unwrap();
+    let orphan = att_dir.join(format!("{}.bin", orphan_meta.id));
+    let referenced = att_dir.join(format!("{}.bin", referenced_meta.id));
 
     // Back-date both files by 300 seconds (well past the 120s grace period).
     let old_time = std::time::SystemTime::now() - std::time::Duration::from_secs(300);
     filetime::set_file_mtime(&orphan, filetime::FileTime::from_system_time(old_time)).unwrap();
     filetime::set_file_mtime(&referenced, filetime::FileTime::from_system_time(old_time)).unwrap();
 
-    let referenced_ids = vec!["ref-1111-2222-3333-4444".to_string()];
-    let swept = sweep_orphaned_attachments(&att_dir, &referenced_ids).unwrap();
+    let referenced_ids = vec![referenced_meta.id.clone()];
+    let swept = sweep_orphaned_attachments(&att_dir, &referenced_ids, &key, vault_id).unwrap();
     assert_eq!(swept, 1);
     assert!(!orphan.exists(), "orphan should be swept");
     assert!(referenced.exists(), "referenced file must survive");
+}
+
+#[test]
+fn sweep_never_deletes_another_vaults_attachment() {
+    // Two vault databases can share one folder, and therefore one attachments
+    // directory. Unlocking either one must never destroy the other's files.
+    let dir = tempdir().unwrap();
+    let att_dir = dir.path().join("attachments");
+
+    let key_a = generate_data_key();
+    let key_b = generate_data_key();
+
+    let mine = crate::attachments::encrypt_attachment_bytes(
+        b"vault a orphan", "a.txt", &att_dir, &key_a, "vault-a",
+    )
+    .unwrap();
+    let theirs = crate::attachments::encrypt_attachment_bytes(
+        b"vault b treasure", "b.pdf", &att_dir, &key_b, "vault-b",
+    )
+    .unwrap();
+
+    let old_time = std::time::SystemTime::now() - std::time::Duration::from_secs(300);
+    for id in [&mine.id, &theirs.id] {
+        filetime::set_file_mtime(
+            att_dir.join(format!("{id}.bin")),
+            filetime::FileTime::from_system_time(old_time),
+        )
+        .unwrap();
+    }
+
+    let swept = sweep_orphaned_attachments(&att_dir, &[], &key_a, "vault-a").unwrap();
+
+    assert_eq!(swept, 1, "only this vault's own orphan may be swept");
+    assert!(
+        !att_dir.join(format!("{}.bin", mine.id)).exists(),
+        "this vault's own orphan should be swept"
+    );
+    assert!(
+        att_dir.join(format!("{}.bin", theirs.id)).exists(),
+        "another vault's attachment must survive the sweep"
+    );
 }
 
 #[test]
@@ -123,7 +172,8 @@ fn sweep_skips_files_within_grace_period() {
     fs::write(&fresh, b"just-written").unwrap();
     // No mtime backdating — file is "just now".
 
-    let swept = sweep_orphaned_attachments(&att_dir, &[]).unwrap();
+    let key = generate_data_key();
+    let swept = sweep_orphaned_attachments(&att_dir, &[], &key, "vault-grace").unwrap();
     assert_eq!(swept, 0, "fresh unreferenced file must not be swept");
     assert!(fresh.exists());
 }
@@ -237,7 +287,8 @@ fn read_attachment_fails_under_a_different_vault_identity() {
 fn sweep_nonexistent_dir_is_ok() {
     let dir = tempdir().unwrap();
     let att_dir = dir.path().join("attachments");
-    let result = sweep_orphaned_attachments(&att_dir, &[]);
+    let key = generate_data_key();
+    let result = sweep_orphaned_attachments(&att_dir, &[], &key, "vault-none");
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), 0);
 }
@@ -249,6 +300,7 @@ fn sweep_removes_stale_tmp_files() {
     fs::create_dir_all(&att_dir).unwrap();
     let tmp = att_dir.join("whatever.tmp");
     fs::write(&tmp, b"stale").unwrap();
-    sweep_orphaned_attachments(&att_dir, &[]).unwrap();
+    let key = generate_data_key();
+    sweep_orphaned_attachments(&att_dir, &[], &key, "vault-tmp").unwrap();
     assert!(!tmp.exists());
 }

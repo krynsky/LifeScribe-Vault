@@ -229,7 +229,18 @@ pub fn delete_attachment_file(dir: &Path, attachment_id: &str) -> VaultResult<()
 /// `referenced_ids`) from `dir`. Files modified within the last GRACE_SECS
 /// are skipped. Stale `.tmp` files are also removed without a grace period.
 /// Returns the count of files swept.
-pub fn sweep_orphaned_attachments(dir: &Path, referenced_ids: &[String]) -> VaultResult<u32> {
+///
+/// A `.bin` file is only deleted once it is PROVEN to belong to this vault:
+/// the sweep decrypts it with this session's key and vault_id (the ciphertext
+/// is AAD-bound to both). Two vault databases can live in one folder and thus
+/// share one attachments directory — without this check, unlocking one vault
+/// silently destroys the other's attachments.
+pub fn sweep_orphaned_attachments(
+    dir: &Path,
+    referenced_ids: &[String],
+    key: &Zeroizing<[u8; KEY_LEN]>,
+    vault_id: &str,
+) -> VaultResult<u32> {
     if !dir.exists() {
         return Ok(0);
     }
@@ -274,11 +285,42 @@ pub fn sweep_orphaned_attachments(dir: &Path, referenced_ids: &[String]) -> Vaul
             }
         }
 
+        // Last gate before deletion: prove ownership. Only a file that decrypts
+        // under this vault's key AND vault_id is ours to delete. Anything that
+        // fails to parse as an envelope or fails the AEAD tag is left alone —
+        // it may belong to another vault sharing this directory. The cost of
+        // keeping a corrupt orphan of our own is a few stale bytes; the cost of
+        // deleting a file of unknown ownership is permanent data loss. Do not
+        // "optimize" this check away. Note this runs only on files already
+        // selected for deletion, so the normal (no-orphan) path pays nothing.
+        if !belongs_to_vault(dir, id, key, vault_id) {
+            continue;
+        }
+
         if fs::remove_file(&path).is_ok() {
             swept += 1;
         }
     }
     Ok(swept)
+}
+
+/// True only if `id`'s ciphertext verifies under this vault's key and identity.
+/// Any failure (missing, unparseable, bad AEAD tag) answers "not ours". The
+/// decrypted plaintext is dropped here and never surfaces in a return value,
+/// an error, or a log.
+fn belongs_to_vault(
+    dir: &Path,
+    id: &str,
+    key: &Zeroizing<[u8; KEY_LEN]>,
+    vault_id: &str,
+) -> bool {
+    match decrypt_attachment(dir, id, key, vault_id) {
+        Ok(plaintext) => {
+            let _ = Zeroizing::new(plaintext);
+            true
+        }
+        Err(_) => false,
+    }
 }
 
 fn write_atomically(tmp_path: &Path, out_path: &Path, data: &[u8]) -> VaultResult<()> {
