@@ -46,11 +46,16 @@ export type FormMode = "hint" | "credential";
 export interface VaultProfile {
   ownerName: string;
   reviewCadenceMonths: number;
+  /**
+   * Legacy back-compat field, kept loosely synced to `moduleSelections.secrets`
+   * on read. `moduleSelections` is the source of truth; nothing reads `formMode`
+   * for behavior. A snapshot with only a legacy `formMode` (no `moduleSelections`)
+   * has its selections derived from it on read.
+   */
   formMode: FormMode;
   /**
-   * moduleId -> selected optionId for composable form modules. Seeded from the
-   * legacy `formMode` on read when absent. `formMode` is retained for now and
-   * removed in a later change once onboarding/switch UI drives selections.
+   * moduleId -> selected optionId for composable form modules — the source of
+   * truth for composition. Derived from a legacy `formMode` on read when absent.
    */
   moduleSelections: Record<string, string>;
   /**
@@ -126,6 +131,17 @@ function asModuleSelections(value: unknown, formMode: FormMode): Record<string, 
   return moduleSelectionsFromFormMode(formMode);
 }
 
+/** Legacy back-compat sync: derive a formMode from the secrets module selection. */
+export function formModeFromModuleSelections(selections: Record<string, string>): FormMode {
+  return selections.secrets === "on" ? "credential" : "hint";
+}
+
+/** Third-arg helper: accept a legacy FormMode string or a moduleSelections map. */
+type SeedOrMode = FormMode | Record<string, string>;
+function toModuleSelections(seed: SeedOrMode): Record<string, string> {
+  return typeof seed === "string" ? moduleSelectionsFromFormMode(seed) : seed;
+}
+
 function asOptionalIso(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -193,16 +209,17 @@ function normalizeKitMeta(raw: unknown): KitMeta | null {
 /** A brand-new snapshot for a vault that has never been saved. */
 export function emptySnapshot(
   ownerName: string,
-  formMode: FormMode = "hint",
+  seed: SeedOrMode = { secrets: "off" },
 ): ParsedSnapshot {
+  const moduleSelections = toModuleSelections(seed);
   return {
     snapshotFormat: SNAPSHOT_FORMAT,
     schemaVersion: 0,
     profile: {
       ownerName,
       reviewCadenceMonths: DEFAULT_REVIEW_CADENCE_MONTHS,
-      formMode,
-      moduleSelections: moduleSelectionsFromFormMode(formMode),
+      formMode: formModeFromModuleSelections(moduleSelections),
+      moduleSelections,
     },
     values: {},
     sectionMeta: {},
@@ -220,10 +237,10 @@ export function emptySnapshot(
 export function normalizeSnapshot(
   raw: VaultSnapshot | null,
   fallbackOwnerName = "",
-  fallbackFormMode: FormMode = "hint",
+  fallback: SeedOrMode = { secrets: "off" },
 ): ParsedSnapshot {
   if (!isRecord(raw)) {
-    return emptySnapshot(fallbackOwnerName, fallbackFormMode);
+    return emptySnapshot(fallbackOwnerName, fallback);
   }
   const profileRaw = isRecord(raw.profile) ? raw.profile : {};
   const cadenceRaw = profileRaw.reviewCadenceMonths;
@@ -239,7 +256,9 @@ export function normalizeSnapshot(
     }
   }
 
-  const formMode = asFormMode(profileRaw.formMode, fallbackFormMode);
+  const fallbackSelections = toModuleSelections(fallback);
+  const formMode = asFormMode(profileRaw.formMode, formModeFromModuleSelections(fallbackSelections));
+  const moduleSelections = asModuleSelections(profileRaw.moduleSelections, formMode);
 
   return {
     snapshotFormat:
@@ -248,8 +267,8 @@ export function normalizeSnapshot(
     profile: {
       ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
       reviewCadenceMonths,
-      formMode,
-      moduleSelections: asModuleSelections(profileRaw.moduleSelections, formMode),
+      formMode: formModeFromModuleSelections(moduleSelections), // keep synced to the live selection
+      moduleSelections,
       ...(typeof profileRaw.basePackId === "string" && profileRaw.basePackId.length > 0
         ? { basePackId: profileRaw.basePackId }
         : {}),

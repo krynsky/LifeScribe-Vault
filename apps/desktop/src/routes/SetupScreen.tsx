@@ -1,11 +1,11 @@
-import { type FormEvent, useEffect, useState } from "react";
-import { composePack } from "../domain/composePack";
-import type { FormPack } from "../domain/formModel";
+import { useEffect, useMemo, useState } from "react";
+import type { FormModule, FormPack } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
-import { moduleSelectionsFromFormMode, type FormMode } from "../domain/snapshot";
+import { useComposedPreview } from "../domain/useComposedPreview";
+import { ModuleQuestion } from "../forms/ModuleQuestion";
 
 export interface SetupScreenProps {
-  onCreate: (masterPassword: string, ownerName: string, formMode: FormMode) => Promise<void>;
+  onCreate: (masterPassword: string, ownerName: string, moduleSelections: Record<string, string>) => Promise<void>;
 }
 
 /** Eye glyph; a slash is overlaid when the password is currently visible. */
@@ -52,83 +52,33 @@ function RevealToggle({
 }
 
 /**
- * Collapsible outline of what the selected mode's pack will ask about:
- * section titles, ledes, and field counts, read from the validated bundled
- * pack. Loaded lazily on first expand; a load failure degrades to a short
+ * Collapsible outline of what the current module selections compose into:
+ * section titles and field counts, read from the validated bundled pack via
+ * the shared composed-preview hook. An invalid combination degrades to a short
  * notice (the preview is informative only — setup still works without it).
  */
-function PackPreview({ formMode }: { formMode: FormMode }) {
+function PackPreview({ base, selections }: { base: FormPack | null; selections: Record<string, string> }) {
   const [open, setOpen] = useState(false);
-  // The base pack is mode-independent (one bundled pack); "failed" is cached
-  // too so the effect never needs a synchronous state reset
-  // (react-hooks/set-state-in-effect).
-  const [base, setBase] = useState<FormPack | "failed" | undefined>(undefined);
-
-  useEffect(() => {
-    if (!open || base) {
-      return;
-    }
-    let isCurrent = true;
-    loadDefaultPack()
-      .then((pack) => {
-        if (isCurrent) {
-          setBase(pack);
-        }
-      })
-      .catch(() => {
-        if (isCurrent) {
-          setBase("failed");
-        }
-      });
-    return () => {
-      isCurrent = false;
-    };
-  }, [open, base]);
-
-  const failed = base === "failed";
-  const pack =
-    base && !failed
-      ? composePack(base, base.modules ?? [], moduleSelectionsFromFormMode(formMode))
-      : undefined;
-  const sections = pack
-    ? [...pack.sections].sort((a, b) => a.order - b.order)
-    : [];
-
+  const { sections, error } = useComposedPreview(base, selections);
   return (
-    <details
-      className="setup-preview"
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary className="setup-preview__summary">See what this vault covers</summary>
-      {pack ? (
+    <details className="setup-preview" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className="setup-preview__summary">Preview this choice</summary>
+      {error ? (
+        <p className="setup-preview__status">{`This combination isn't valid: ${error}`}</p>
+      ) : (
         <ul className="setup-preview__sections">
           {sections.map((section) => {
-            const fieldCount = section.groups.reduce(
-              (count, group) => count + group.fields.length,
-              0,
-            );
+            const fieldCount = section.groups.reduce((c, g) => c + g.fields.length, 0);
             return (
               <li key={section.sectionKey} className="setup-preview__section">
                 <span className="setup-preview__section-title">
                   {section.title}
-                  <span className="setup-preview__count">
-                    {fieldCount} {fieldCount === 1 ? "field" : "fields"}
-                  </span>
+                  <span className="setup-preview__count">{fieldCount} {fieldCount === 1 ? "field" : "fields"}</span>
                 </span>
-                {section.lede ? (
-                  <span className="setup-preview__lede">{section.lede}</span>
-                ) : null}
               </li>
             );
           })}
         </ul>
-      ) : (
-        <p className="setup-preview__status">
-          {failed
-            ? "The preview could not be loaded — you can still create your vault."
-            : "Loading…"}
-        </p>
       )}
     </details>
   );
@@ -147,195 +97,162 @@ function createErrorMessage(error: unknown): string {
 }
 
 /**
- * First-run setup: master password + confirmation + an explicit
- * "there is no recovery" acknowledgment before the vault can be created.
+ * First-run setup as a stepped wizard: step 0 collects name + master password +
+ * the "there is no recovery" acknowledgment; steps 1..N present one onboarding
+ * module question each (defaults pre-selected) with a per-step composed preview.
+ * The final step creates the vault, emitting the module selections map.
  */
 export function SetupScreen({ onCreate }: SetupScreenProps) {
+  const [base, setBase] = useState<FormPack | null>(null);
+  const [step, setStep] = useState(0);
   const [ownerName, setOwnerName] = useState("");
   const [masterPassword, setMasterPassword] = useState("");
   const [confirmMasterPassword, setConfirmMasterPassword] = useState("");
   const [acknowledgedNoRecovery, setAcknowledgedNoRecovery] = useState(false);
   const [revealMaster, setRevealMaster] = useState(false);
   const [revealConfirm, setRevealConfirm] = useState(false);
-  const [formMode, setFormMode] = useState<FormMode>("hint");
+  const [selections, setSelections] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const modules = useMemo(() => [...(base?.modules ?? [])].sort((a, b) => a.order - b.order), [base]);
+  const composeError = useComposedPreview(base, selections).error;
+
+  useEffect(() => {
+    let isCurrent = true;
+    loadDefaultPack()
+      .then((pack) => {
+        if (!isCurrent) return;
+        setBase(pack);
+        setSelections(Object.fromEntries((pack.modules ?? []).map((m) => [m.moduleId, m.defaultOptionId])));
+      })
+      .catch(() => { /* preview/steps degrade to identity-only */ });
+    return () => { isCurrent = false; };
+  }, []);
+
   const describedBy = error ? `${GUIDANCE_ID} ${ERROR_ID}` : GUIDANCE_ID;
+  const lastStep = modules.length;
+  const currentModule: FormModule | undefined = step > 0 ? modules[step - 1] : undefined;
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-
+  function validateIdentity(): boolean {
     if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
-      setError(
-        `Use a master password with at least ${MIN_MASTER_PASSWORD_LENGTH} characters — a few unrelated words work well.`,
-      );
-      return;
+      setError(`Use a master password with at least ${MIN_MASTER_PASSWORD_LENGTH} characters — a few unrelated words work well.`);
+      return false;
     }
     if (masterPassword !== confirmMasterPassword) {
-      setError("The passwords don't match. Re-enter both before creating your vault.");
-      return;
+      setError("The passwords don't match. Re-enter both before continuing.");
+      return false;
     }
     if (!acknowledgedNoRecovery) {
       setError("Please confirm you understand the password cannot be reset.");
-      return;
+      return false;
     }
+    return true;
+  }
 
+  function goNext() {
+    setError("");
+    if (step === 0 && !validateIdentity()) return;
+    setStep((s) => Math.min(s + 1, lastStep));
+  }
+  function goBack() {
+    setError("");
+    setStep((s) => Math.max(s - 1, 0));
+  }
+
+  async function handleCreate() {
+    setError("");
+    if (!validateIdentity()) { setStep(0); return; }
     setIsSubmitting(true);
     try {
-      await onCreate(masterPassword, ownerName.trim(), formMode);
-    } catch (caughtError) {
-      setError(createErrorMessage(caughtError));
+      await onCreate(masterPassword, ownerName.trim(), selections);
+    } catch (caught) {
+      setError(createErrorMessage(caught));
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  const onFinalStep = step === lastStep;
+
   return (
     <div className="centered-screen">
       <section className="vault-panel" aria-labelledby="setup-title">
         <p className="vault-panel__eyebrow">LifeScribe Vault</p>
-        <h1 className="vault-panel__title" id="setup-title">
-          Let's set up your vault
-        </h1>
-        <p className="vault-panel__lede">
-          Everything you record here is encrypted on this computer with one
-          master password. A little planning now can save the people you love
-          weeks of stressful detective work later.
-        </p>
-        <ul className="vault-panel__guidance" id={GUIDANCE_ID}>
-          <li>A long passphrase of a few unrelated words is strong and memorable.</li>
-          <li>Pasting from a password manager works too.</li>
-          <li>
-            This vault never touches the cloud — which also means nobody can
-            reset the password for you. Keep it somewhere safe.
-          </li>
-        </ul>
+        <h1 className="vault-panel__title" id="setup-title">Let's set up your vault</h1>
 
-        <form className="vault-form" onSubmit={handleSubmit}>
-          <div className="vault-form__field">
-            <label htmlFor="owner-name">Your name</label>
-            <input
-              autoComplete="name"
-              id="owner-name"
-              type="text"
-              value={ownerName}
-              onChange={(event) => setOwnerName(event.currentTarget.value)}
-            />
-          </div>
+        <ol className="setup-steps" aria-label={`Step ${step + 1} of ${modules.length + 1}`}>
+          {Array.from({ length: modules.length + 1 }, (_, i) => (
+            <li key={i} className={i === step ? "setup-steps__dot setup-steps__dot--current" : "setup-steps__dot"} />
+          ))}
+        </ol>
 
-          <div className="vault-form__field">
-            <label htmlFor="master-password">Master password</label>
-            <div className="password-field">
-              <input
-                aria-describedby={describedBy}
-                aria-invalid={error ? "true" : undefined}
-                autoComplete="new-password"
-                id="master-password"
-                required
-                spellCheck={false}
-                type={revealMaster ? "text" : "password"}
-                value={masterPassword}
-                onChange={(event) => {
-                  setError("");
-                  setMasterPassword(event.currentTarget.value);
-                }}
-              />
-              <RevealToggle
-                fieldLabel="master password"
-                shown={revealMaster}
-                onToggle={() => setRevealMaster((shown) => !shown)}
-              />
+        {step === 0 ? (
+          <div className="vault-form">
+            <div className="vault-form__field">
+              <label htmlFor="owner-name">Your name</label>
+              <input id="owner-name" type="text" autoComplete="name" value={ownerName}
+                onChange={(e) => setOwnerName(e.currentTarget.value)} />
             </div>
-          </div>
-
-          <div className="vault-form__field">
-            <label htmlFor="confirm-master-password">Confirm master password</label>
-            <div className="password-field">
-              <input
-                aria-describedby={describedBy}
-                aria-invalid={error ? "true" : undefined}
-                autoComplete="new-password"
-                id="confirm-master-password"
-                required
-                spellCheck={false}
-                type={revealConfirm ? "text" : "password"}
-                value={confirmMasterPassword}
-                onChange={(event) => {
-                  setError("");
-                  setConfirmMasterPassword(event.currentTarget.value);
-                }}
-              />
-              <RevealToggle
-                fieldLabel="confirmation password"
-                shown={revealConfirm}
-                onToggle={() => setRevealConfirm((shown) => !shown)}
-              />
+            <div className="vault-form__field">
+              <label htmlFor="master-password">Master password</label>
+              <div className="password-field">
+                <input id="master-password" aria-describedby={describedBy} aria-invalid={error ? "true" : undefined}
+                  autoComplete="new-password" required spellCheck={false}
+                  type={revealMaster ? "text" : "password"} value={masterPassword}
+                  onChange={(e) => { setError(""); setMasterPassword(e.currentTarget.value); }} />
+                <RevealToggle fieldLabel="master password" shown={revealMaster} onToggle={() => setRevealMaster((s) => !s)} />
+              </div>
             </div>
+            <div className="vault-form__field">
+              <label htmlFor="confirm-master-password">Confirm master password</label>
+              <div className="password-field">
+                <input id="confirm-master-password" aria-describedby={describedBy} aria-invalid={error ? "true" : undefined}
+                  autoComplete="new-password" required spellCheck={false}
+                  type={revealConfirm ? "text" : "password"} value={confirmMasterPassword}
+                  onChange={(e) => { setError(""); setConfirmMasterPassword(e.currentTarget.value); }} />
+                <RevealToggle fieldLabel="confirmation password" shown={revealConfirm} onToggle={() => setRevealConfirm((s) => !s)} />
+              </div>
+            </div>
+            <ul className="vault-panel__guidance" id={GUIDANCE_ID}>
+              <li>A long passphrase of a few unrelated words is strong and memorable.</li>
+              <li>This vault never touches the cloud — nobody can reset the password for you.</li>
+            </ul>
+            <label className="checkbox-control checkbox-control--acknowledge">
+              <input type="checkbox" checked={acknowledgedNoRecovery}
+                onChange={(e) => { setError(""); setAcknowledgedNoRecovery(e.currentTarget.checked); }} />
+              <span>I understand there is no recovery — this password cannot be reset, and losing it means losing access to the vault.</span>
+            </label>
           </div>
-
-          <label className="checkbox-control checkbox-control--acknowledge">
-            <input
-              checked={acknowledgedNoRecovery}
-              type="checkbox"
-              onChange={(event) => {
-                setError("");
-                setAcknowledgedNoRecovery(event.currentTarget.checked);
-              }}
+        ) : currentModule ? (
+          <div className="vault-form">
+            <ModuleQuestion
+              module={currentModule}
+              selected={selections[currentModule.moduleId] ?? currentModule.defaultOptionId}
+              onChange={(optionId) => setSelections((prev) => ({ ...prev, [currentModule.moduleId]: optionId }))}
             />
-            <span>
-              I understand there is no recovery — this password cannot be
-              reset, and losing it means losing access to the vault.
-            </span>
-          </label>
+            <PackPreview base={base} selections={selections} />
+          </div>
+        ) : null}
 
-          <fieldset className="setup-mode">
-            <legend>What should this vault store?</legend>
-            <label className="setup-mode__option">
-              <input
-                type="radio"
-                name="formMode"
-                value="hint"
-                checked={formMode === "hint"}
-                onChange={() => setFormMode("hint")}
-              />
-              <span className="setup-mode__title">Store locations only (safer)</span>
-              <span className="setup-mode__desc">
-                Records where to find passwords and PINs, never the secrets themselves.
-              </span>
-            </label>
-            <label className="setup-mode__option">
-              <input
-                type="radio"
-                name="formMode"
-                value="credential"
-                checked={formMode === "credential"}
-                onChange={() => setFormMode("credential")}
-              />
-              <span className="setup-mode__title">Store the actual secrets</span>
-              <span className="setup-mode__desc">
-                Keeps real passwords, PINs, and codes inside this encrypted vault.
-              </span>
-            </label>
-          </fieldset>
+        {error ? <p className="form-error" id={ERROR_ID} role="alert">{error}</p> : null}
 
-          <PackPreview formMode={formMode} />
-
-          {error ? (
-            <p className="form-error" id={ERROR_ID} role="alert">
-              {error}
-            </p>
+        <div className="setup-nav">
+          {step > 0 ? (
+            <button type="button" className="button button--secondary" onClick={goBack}>Back</button>
           ) : null}
-
-          <button
-            className="button button--primary"
-            disabled={isSubmitting || !acknowledgedNoRecovery}
-            type="submit"
-          >
-            {isSubmitting ? "Creating your vault…" : "Create vault"}
-          </button>
-        </form>
+          {onFinalStep ? (
+            <button type="button" className="button button--primary"
+              disabled={isSubmitting || (step === 0 && !acknowledgedNoRecovery) || Boolean(composeError)}
+              onClick={() => void handleCreate()}>
+              {isSubmitting ? "Creating your vault…" : "Create vault"}
+            </button>
+          ) : (
+            <button type="button" className="button button--primary" onClick={goNext}>
+              Next
+            </button>
+          )}
+        </div>
       </section>
     </div>
   );

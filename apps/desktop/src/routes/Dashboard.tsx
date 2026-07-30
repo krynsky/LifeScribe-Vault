@@ -50,9 +50,9 @@ import {
 import { computeKitFingerprint, isKitStale } from "../domain/recoveryKit";
 import {
   buildSnapshot,
+  formModeFromModuleSelections,
   normalizeSnapshot,
   SNAPSHOT_FORMAT,
-  type FormMode,
   type KitMeta,
   type ParsedSnapshot,
   type SectionMetaMap,
@@ -73,13 +73,14 @@ import { BackupPage } from "./BackupPage";
 import { RecoveryKitPage } from "./RecoveryKitPage";
 
 import { SectionPage, type DraftBannerState } from "./SectionPage";
+import { SettingsPage } from "./SettingsPage";
 import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 
 export interface DashboardProps {
   /** Owner name from the setup flow, used until the first snapshot exists. */
   ownerNameHint?: string;
-  /** Form mode chosen at setup; consumed by Task 5. */
-  formModeHint?: FormMode;
+  /** Module selections chosen at setup; seed the profile until the first snapshot exists. */
+  moduleSelectionsHint?: Record<string, string>;
   /** Called once the vault is locked (auto or manual). */
   onLocked: () => void;
 }
@@ -88,7 +89,8 @@ type Route =
   | { kind: "welcome" }
   | { kind: "section"; sectionKey: string }
   | { kind: "recovery-kit" }
-  | { kind: "backup" };
+  | { kind: "backup" }
+  | { kind: "settings" };
 
 interface VaultState {
   generation: number;
@@ -118,6 +120,11 @@ function errorCode(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+// Module-scope constant so the default prop value is a STABLE reference. The
+// load effect depends on `moduleSelectionsHint`; a fresh object literal default
+// would change identity every render and re-trigger the effect in a loop.
+const DEFAULT_MODULE_SELECTIONS_HINT: Record<string, string> = { secrets: "off" };
+
 /**
  * The pack this vault renders from: the saved customPack (form-editor edits) or
  * the bundled base pack, composed with the profile's module selections. Legacy
@@ -135,11 +142,11 @@ async function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
  * records against the resolved definition. Pure; persists nothing.
  *
  * Callers produce `parsed` via `normalizeSnapshot(raw, ownerNameHint,
- * formModeHint)` — the hints seed the profile only for a fresh vault (raw
- * null, or a snapshot with no persisted formMode); an existing snapshot
- * keeps its own values. Without the formMode hint the onboarding choice
- * would never reach the profile and the first save would persist "hint",
- * silently discarding it.
+ * moduleSelectionsHint)` — the hints seed the profile only for a fresh vault
+ * (raw null, or a snapshot with no persisted moduleSelections); an existing
+ * snapshot keeps its own values. Without the module-selections hint the
+ * onboarding choice would never reach the profile and the first save would
+ * persist the defaults, silently discarding it.
  */
 function buildLoadedVault(
   pack: FormPack,
@@ -194,7 +201,7 @@ function buildLoadedVault(
   };
 }
 
-export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked }: DashboardProps) {
+export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_MODULE_SELECTIONS_HINT, onLocked }: DashboardProps) {
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked" | "error">("loading");
   const [blockedMessage, setBlockedMessage] = useState("");
   const [loaded, setLoaded] = useState<LoadedVault | null>(null);
@@ -216,7 +223,6 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
   const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
   const [packEditError, setPackEditError] = useState<string | null>(null);
-  const [pendingModeSwitch, setPendingModeSwitch] = useState<FormMode | null>(null);
 
   // Refs mirror the state the async lock path needs (timer callbacks must
   // not see stale closures).
@@ -252,9 +258,9 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       }
 
       // Use the user's personal pack if saved, else fall back to the bundled
-      // default for the mode stored in the snapshot (or the prop hint when
-      // the vault is new).
-      const parsed = normalizeSnapshot(raw, ownerNameHint, formModeHint);
+      // default for the module selections stored in the snapshot (or the prop
+      // hint when the vault is new).
+      const parsed = normalizeSnapshot(raw, ownerNameHint, moduleSelectionsHint);
       let pack: FormPack;
       try {
         pack = await resolveBasePack(parsed);
@@ -332,7 +338,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     return () => {
       isCurrent = false;
     };
-  }, [ownerNameHint, formModeHint, loadKey]);
+  }, [ownerNameHint, moduleSelectionsHint, loadKey]);
 
   // -------------------------------------------------------------------------
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
@@ -507,16 +513,20 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     return ok;
   }
 
-  async function handleSwitchMode(newMode: FormMode) {
-    if (!loaded || loaded.vault.profile.formMode === newMode) {
-      setPendingModeSwitch(null);
-      return;
-    }
-    // New mode, customPack cleared; saved through the common `persist` path
-    // so the save registers in saveInFlightRef (the lock flow awaits it) and
-    // purges any stashed draft like every other committed save.
-    // Best-effort: stamp the new mode's default pack id; if the pack can't
-    // be loaded the id is dropped and the post-reload save re-stamps it.
+  /**
+   * Apply a new set of module selections (from the Settings page). Saved
+   * through the common `persist` path so the save registers in saveInFlightRef
+   * (the lock flow awaits it) and purges any stashed draft like every other
+   * committed save. customPack is cleared so the vault rebuilds from the base
+   * pack composed with the new selections.
+   */
+  async function applyModuleSelections(next: Record<string, string>): Promise<boolean> {
+    if (!loaded) return false;
+    const current = loaded.vault.profile.moduleSelections;
+    const unchanged = Object.keys({ ...current, ...next }).every((k) => current[k] === next[k]);
+    if (unchanged) return true;
+    // Best-effort: stamp the base pack id; if the pack can't be loaded the id
+    // is dropped and the post-reload save re-stamps it.
     let nextBasePackId: string | undefined;
     try {
       nextBasePackId = (await loadDefaultPack()).packId;
@@ -529,11 +539,8 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         ...loaded.vault,
         profile: {
           ...loaded.vault.profile,
-          formMode: newMode,
-          moduleSelections: {
-            ...loaded.vault.profile.moduleSelections,
-            secrets: newMode === "credential" ? "on" : "off",
-          },
+          moduleSelections: next,
+          formMode: formModeFromModuleSelections(next),
           basePackId: nextBasePackId,
         },
         customPack: null,
@@ -546,11 +553,11 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
       null,
     );
     if (ok) {
-      // Reload so sections rebuild from the new mode's pack.
+      // Reload so sections rebuild from the newly-composed pack.
       setPhase("loading");
       setLoadKey((k) => k + 1);
     }
-    setPendingModeSwitch(null);
+    return ok;
   }
 
   function sectionWorkingValues(sectionKey: string): SectionValues {
@@ -595,7 +602,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     let fresh: LoadedVault;
     try {
       const response = await loadVaultSnapshot();
-      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, formModeHint);
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, moduleSelectionsHint);
       const pack = await resolveBasePack(parsed);
       const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {
@@ -631,7 +638,7 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
   async function handleDiscardConflict(sectionKey: string) {
     try {
       const response = await loadVaultSnapshot();
-      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, formModeHint);
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, moduleSelectionsHint);
       const pack = await resolveBasePack(parsed);
       const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {
@@ -1003,28 +1010,22 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
               <span className="sidebar__item-title">Backup</span>
             </button>
           </li>
+          <li>
+            <button
+              aria-current={route.kind === "settings" ? "page" : undefined}
+              className={
+                route.kind === "settings"
+                  ? "sidebar__item sidebar__item--active"
+                  : "sidebar__item"
+              }
+              type="button"
+              onClick={() => setRoute({ kind: "settings" })}
+            >
+              <span className="sidebar__item-title">Settings</span>
+            </button>
+          </li>
         </ul>
       </nav>
-
-      <div className="sidebar__mode">
-        <span className="sidebar__mode-label">Form detail</span>
-        <span className="sidebar__mode-current">
-          {loaded.vault.profile.formMode === "credential" ? "Stores secrets" : "Locations only"}
-        </span>
-        <button
-          className="button button--secondary button--small"
-          type="button"
-          onClick={() =>
-            setPendingModeSwitch(
-              loaded.vault.profile.formMode === "credential" ? "hint" : "credential",
-            )
-          }
-        >
-          {loaded.vault.profile.formMode === "credential"
-            ? "Switch to locations only"
-            : "Switch to store actual secrets"}
-        </button>
-      </div>
 
       <div className="sidebar__footer">
         <label className="sidebar__toggle" htmlFor="pack-editor-toggle">
@@ -1300,6 +1301,19 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
     );
   } else if (route.kind === "backup") {
     content = <BackupPage />;
+  } else if (route.kind === "settings") {
+    content = (
+      <SettingsPage
+        selections={loaded.vault.profile.moduleSelections}
+        onApply={async (next) => {
+          // On failure applyModuleSelections leaves the vault unchanged and the
+          // shared save-error banner set (rendered above this pane), and the
+          // route stays "settings" so the user can retry. On success it reloads
+          // and the Settings pane remounts with the new selections.
+          await applyModuleSelections(next);
+        }}
+      />
+    );
   }
 
   if (!content) {
@@ -1348,38 +1362,6 @@ export function Dashboard({ ownerNameHint = "", formModeHint = "hint", onLocked 
         {banners}
         {content}
       </div>
-      {pendingModeSwitch ? (
-        <div className="modal" role="dialog" aria-modal="true" aria-label="Confirm form detail change">
-          <div className="modal__body">
-            <p>
-              {pendingModeSwitch === "credential"
-                ? "Switch to storing actual passwords and PINs in this vault?"
-                : "Switch back to storing locations only?"}
-            </p>
-            {loaded.vault.customPack ? (
-              <p className="modal__warning">
-                Your custom form edits will be replaced by the standard form. Your entered data is kept.
-              </p>
-            ) : null}
-            <div className="modal__actions">
-              <button
-                className="button button--primary"
-                type="button"
-                onClick={() => void handleSwitchMode(pendingModeSwitch)}
-              >
-                Confirm
-              </button>
-              <button
-                className="button button--ghost"
-                type="button"
-                onClick={() => setPendingModeSwitch(null)}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </AppShell>
   );
 }

@@ -19,7 +19,7 @@ import {
   unlockVault,
   type VaultStatusResponse,
 } from "./api/vaultApi";
-import { buildSnapshot, emptySnapshot, type FormMode } from "./domain/snapshot";
+import { buildSnapshot, emptySnapshot } from "./domain/snapshot";
 import { Dashboard } from "./routes/Dashboard";
 import { LockedScreen } from "./routes/LockedScreen";
 import { SetupScreen } from "./routes/SetupScreen";
@@ -36,7 +36,7 @@ function screenFromStatus(status: VaultStatusResponse): AppScreen {
 function App() {
   const [screen, setScreen] = useState<AppScreen>("loading");
   const [ownerNameHint, setOwnerNameHint] = useState("");
-  const [formModeHint, setFormModeHint] = useState<FormMode>("hint");
+  const [moduleSelectionsHint, setModuleSelectionsHint] = useState<Record<string, string>>({ secrets: "off" });
 
   useEffect(() => {
     let isCurrent = true;
@@ -68,24 +68,24 @@ function App() {
     }
   }
 
-  async function handleCreate(masterPassword: string, ownerName: string, formMode: FormMode) {
+  async function handleCreate(masterPassword: string, ownerName: string, moduleSelections: Record<string, string>) {
     const status = await createVault(masterPassword, ownerName);
     setOwnerNameHint(ownerName);
-    setFormModeHint(formMode);
+    setModuleSelectionsHint(moduleSelections);
     // The Form Editor preference persists in localStorage (app-global, not
     // vault-scoped). A freshly created vault must start with it OFF, so clear
     // any flag left over from a previous vault on this machine.
     localStorage.removeItem("lifescribe.packEditorEnabled");
-    // Persist the onboarding choices (owner name + form mode) into an initial
-    // generation-0 snapshot so they survive a relaunch even before any data is
-    // entered. Best-effort: createVault has already succeeded, so a failure
-    // here must not block reaching the vault — formModeHint still carries the
-    // choice for this session and the first data save will persist it.
+    // Persist the onboarding choices (owner name + module selections) into an
+    // initial generation-0 snapshot so they survive a relaunch even before any
+    // data is entered. Best-effort: createVault has already succeeded, so a
+    // failure here must not block reaching the vault — moduleSelectionsHint still
+    // carries the choice for this session and the first data save will persist it.
     try {
-      await saveVaultSnapshot(buildSnapshot(emptySnapshot(ownerName, formMode)), 0);
+      await saveVaultSnapshot(buildSnapshot(emptySnapshot(ownerName, moduleSelections)), 0);
     } catch {
-      // Non-fatal: the vault exists; the mode is held in formModeHint until the
-      // first save writes it.
+      // Non-fatal: the vault exists; the selections are held in
+      // moduleSelectionsHint until the first save writes them.
     }
     setScreen(screenFromStatus(status));
   }
@@ -140,7 +140,7 @@ function App() {
   }
 
   return (
-    <Dashboard ownerNameHint={ownerNameHint} formModeHint={formModeHint} onLocked={() => setScreen("locked")} />
+    <Dashboard ownerNameHint={ownerNameHint} moduleSelectionsHint={moduleSelectionsHint} onLocked={() => setScreen("locked")} />
   );
 }
 
