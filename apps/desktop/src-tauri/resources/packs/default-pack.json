@@ -952,11 +952,11 @@
           "order": 1,
           "fields": [
             {
-              "systemKey": "field_1785518748768_v537d",
+              "systemKey": "backupDevice",
               "label": "Device",
               "type": "text",
-              "required": false,
-              "protected": false,
+              "required": true,
+              "protected": true,
               "order": 1,
               "helperText": "The item you created in device inventory that is being backed up. Computer, phone or other device."
             },
@@ -983,8 +983,8 @@
               "label": "Other device backup location",
               "helperText": "Where it physically or digitally lives. External drive or cloud service and any additional details necessary.",
               "type": "textarea",
-              "required": true,
-              "protected": true,
+              "required": false,
+              "protected": false,
               "order": 4
             },
             {
@@ -1063,7 +1063,7 @@
       ],
       "readinessRule": {
         "requiredKeys": [
-          "backupLocation"
+          "backupDevice"
         ]
       },
       "kitMapping": {

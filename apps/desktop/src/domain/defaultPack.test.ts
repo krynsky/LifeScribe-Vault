@@ -270,7 +270,7 @@ describe("shipped default pack: the three permanent optional fields", () => {
       subscriptions: ["subscriptionName"],
       "online-accounts": ["onlineServiceName"],
       documents: ["documentTitle"],
-      backups: ["backupLocation"],
+      backups: ["backupDevice"],
       "platform-legacy": [
         "appleLegacyStatus",
         "googleLegacyStatus",
