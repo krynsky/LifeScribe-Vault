@@ -2,7 +2,7 @@
 
 Local-first encrypted Windows desktop app for digital legacy planning. Tauri 2, React 19, TypeScript, Vite, Rust, SQLite, Argon2id, XChaCha20-Poly1305.
 
-The implementation plan is the authoritative design record: `docs/plans/2026-06-10-001-feat-lifescribe-vault-v2-rebuild-plan.md`. The v1 reference implementation lives at `D:\My Data\My Apps\LifeScribe Vault` (read-only pattern source — never modify it).
+**For how the app works now**, read this file plus `docs/development.md` and the source. `docs/plans/` and `docs/superpowers/` are dated design records kept for rationale — several describe systems since removed (the composable form-module system, deleted 2026-07-30, most of all). Read them for *why*; where they disagree with `docs/development.md` or the code, they are out of date.
 
 ## Commands
 
@@ -11,6 +11,8 @@ npm install
 npm --prefix apps/desktop run test
 npm --prefix apps/desktop run typecheck
 npm --prefix apps/desktop run lint
+npm --prefix apps/desktop run typecheck:pack-editor   # pack editor has its own configs
+npm --prefix apps/desktop run lint:pack-editor        #   and is excluded from the above
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 npm run dev      # live Tauri dev run
 npm run build    # Windows installers
@@ -42,3 +44,4 @@ npm run build    # Windows installers
 - Frontend: Vitest + RTL, colocated `.test.ts(x)`, `vaultApi` mocked — Tauri `invoke` is never hit in tests.
 - Rust: integration tests in `src/tests/` with `tempfile` against real SQLite; assert ciphertext (no plaintext in DB files).
 - Before claiming a form change complete, test both the definition/editor side and the entry form that should reflect it.
+- Mutation-test safety properties: a test asserting a guard is worthless if it still passes with the guard removed. Disable it, confirm exactly the intended test fails, restore.

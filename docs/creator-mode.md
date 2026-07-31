@@ -17,15 +17,15 @@ npm run pack-editor   # standalone Vite app on http://localhost:1430
 ```
 
 The Pack Editor (`apps/desktop/pack-editor/`) is a dev-only Vite app that edits
-`default-pack.json` — its sections, fields, and `FormModule`s — through an
-**overlay editor**: the base form with any mix of module options toggled into
-view, and one active editing target that edits route to (base, or a specific
-module option). Its dev-server plugin (`pack-editor/save-plugin.mjs`) reads and
-writes the pack file directly:
+`default-pack.json` — its sections, groups, and fields. A left rail lists the
+sections (drag to reorder, click to select, rename inline); the right pane edits
+the selected field, or the section itself when no field is selected. Its
+dev-server plugin (`pack-editor/save-plugin.mjs`) reads and writes the pack file
+directly:
 
-1. Edit sections, groups, fields, and modules; the **Design**, **Preview**, and
-   **JSON** tabs show the working pack.
-2. **Save** writes the edited base pack (with its modules) straight back to
+1. Edit sections, groups, and fields; the **Design**, **Preview**, and **JSON**
+   tabs show the working pack.
+2. **Save** writes the edited pack straight back to
    `resources/packs/default-pack.json`, validated by the same `validatePack`
    gate the app uses.
 3. **Back up packs** copies the current on-disk pack into
@@ -67,7 +67,24 @@ npm --prefix apps/desktop run test -- src/creator
 ```
 
 The pack-editing logic lives in `apps/desktop/src/creator/` (`packEdits`,
-`packAutoMigrate`, `packExport`, `editorView`, `editorEdits`) with colocated
-`.test.ts` files; the Pack Editor's own UI and save plugin are tested under
-`apps/desktop/pack-editor/`. The Rust `write_default_pack` / read path is covered
-by the pack-resources integration tests.
+`packAutoMigrate`, `packExport`) with colocated `.test.ts` files; the Pack
+Editor's own UI and save plugin are tested under `apps/desktop/pack-editor/`.
+The Rust `write_default_pack` / read path is covered by the pack-resources
+integration tests.
+
+The pack editor has its own tsconfig and eslint config, so it is **not** covered
+by `npm run typecheck` / `npm run lint`. Run both of its gates too:
+
+```powershell
+npm --prefix apps/desktop run typecheck:pack-editor
+npm --prefix apps/desktop run lint:pack-editor
+```
+
+## What the pack format no longer has
+
+Until 2026-07-30 the pack carried a `modules` array — onboarding questions whose
+answers composed optional fields and sections into the pack at load. That system
+is gone. Every field is now either protected (structural) or ordinary and
+optional, present in the pack as authored. If you are reading an older spec or
+plan under `docs/superpowers/` that describes `FormModule`s, `composePack`, or
+an "overlay editor" with module targets, it is a historical record.
