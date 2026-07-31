@@ -23,6 +23,10 @@
  *   entirely.
  * - Multi-record sections (and repeatable groups) emit one block per
  *   record, labeled by the record's summary value.
+ * - A `select` field's stored value is resolved to its option's label (a
+ *   printed page reading "apple-legacy-contact" instead of "Apple Legacy
+ *   Contact" is a defect); an orphaned value with no matching option falls
+ *   back to printing itself rather than disappearing.
  * - Archived answers are NEVER included.
  *
  * Staleness: `computeKitFingerprint` is a stable, deterministic hash over
@@ -127,7 +131,9 @@ function buildItems(
     const displayValue =
       field.type === "file"
         ? (record.attachments?.find((a) => a.id === value)?.fileName ?? value)
-        : value;
+        : field.type === "select"
+          ? (field.options?.find((o) => o.value === value)?.label ?? value)
+          : value;
     items.push({ systemKey, label: field.label, value: displayValue });
   }
   return items;
