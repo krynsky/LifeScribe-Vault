@@ -961,7 +961,7 @@
               "helperText": "The item you created in device inventory that is being backed up. Computer, phone or other device."
             },
             {
-              "systemKey": "field_1785518517530_hmewc",
+              "systemKey": "backupSoftware",
               "label": "Backup software or app",
               "type": "text",
               "required": false,
@@ -970,7 +970,7 @@
               "helperText": "Name of the desktop software or app used for backup."
             },
             {
-              "systemKey": "field_1785342259535_nbwd2",
+              "systemKey": "backupDeviceLocation",
               "label": "Device backup location",
               "type": "path",
               "required": false,
@@ -1071,6 +1071,9 @@
           {
             "heading": "Backups and storage",
             "fields": [
+              "backupDevice",
+              "backupSoftware",
+              "backupDeviceLocation",
               "backupLocation",
               "backupContents",
               "backupFrequency",
