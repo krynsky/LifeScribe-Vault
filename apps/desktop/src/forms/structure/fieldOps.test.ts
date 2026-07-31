@@ -14,21 +14,20 @@ function group(pack: FormPack, sectionKey: string, groupKey: string) {
 describe("reorderFields", () => {
   it("moves a field and renumbers order to sequential integers", () => {
     // Base pack "devices/device" group, in order: deviceName, deviceType,
-    // deviceOwner, deviceUnlockHintLocation, deviceRecoveryNotes, devicePin.
+    // devicePin, deviceUnlockHintLocation, deviceRecoveryNotes.
     const next = reorderFields(hint, "devices", "device", 1, 3);
     const keys = [...group(next, "devices", "device").fields]
       .sort((a, b) => a.order - b.order)
       .map((f) => f.systemKey);
     expect(keys).toEqual([
       "deviceName",
-      "deviceOwner",
+      "devicePin",
       "deviceUnlockHintLocation",
       "deviceType",
       "deviceRecoveryNotes",
-      "devicePin",
     ]);
     expect(group(next, "devices", "device").fields.map((f) => f.order).sort((a, b) => a - b))
-      .toEqual([1, 2, 3, 4, 5, 6]);
+      .toEqual([1, 2, 3, 4, 5]);
   });
 });
 

@@ -270,7 +270,7 @@
             {
               "systemKey": "passwordManagerMasterPassword",
               "label": "Master password",
-              "helperText": "Optional. The master password for your password manager.",
+              "helperText": "Optional. The master password for your password manager if you want to store it here.",
               "type": "text",
               "required": false,
               "protected": false,
@@ -334,7 +334,7 @@
             {
               "systemKey": "passwordManagerExecutorInstructions",
               "label": "Executor instructions",
-              "helperText": "Plain-language steps your executor should follow first, written for someone who may not be technical.",
+              "helperText": "Plain-language steps your executor should follow first.",
               "type": "textarea",
               "required": false,
               "protected": false,
@@ -422,8 +422,9 @@
               "order": 2
             },
             {
-              "systemKey": "deviceOwner",
-              "label": "Owner or main user",
+              "systemKey": "devicePin",
+              "label": "PIN or Password",
+              "helperText": "Optional. The unlock PIN or passcode for this device.",
               "type": "text",
               "required": false,
               "protected": false,
@@ -431,8 +432,8 @@
             },
             {
               "systemKey": "deviceUnlockHintLocation",
-              "label": "Unlock hint location",
-              "helperText": "Where a hint to the PIN or passcode is stored — for example \"sealed envelope in the safe\".",
+              "label": "PIN or Password location",
+              "helperText": "Where the PIN or password is stored — for example \"sealed envelope in the safe\".",
               "type": "text",
               "required": false,
               "protected": false,
@@ -446,15 +447,6 @@
               "required": false,
               "protected": false,
               "order": 5
-            },
-            {
-              "systemKey": "devicePin",
-              "label": "PIN or passcode",
-              "helperText": "Optional. The unlock PIN or passcode for this device.",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 6
             }
           ]
         }
@@ -471,7 +463,6 @@
             "fields": [
               "deviceName",
               "deviceType",
-              "deviceOwner",
               "deviceUnlockHintLocation",
               "deviceRecoveryNotes"
             ]
@@ -537,10 +528,6 @@
                   "label": "Insurance"
                 },
                 {
-                  "value": "subscription",
-                  "label": "Subscription"
-                },
-                {
                   "value": "other",
                   "label": "Other"
                 }
@@ -548,13 +535,31 @@
               "order": 2
             },
             {
+              "systemKey": "field_1785517494204_wh9do",
+              "label": "Access stored in password manager?",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                }
+              ]
+            },
+            {
               "systemKey": "accountAccessLocation",
-              "label": "Where access info lives",
-              "helperText": "For example \"in my password manager\" or \"statements arrive by mail\". A pointer only — never credentials or account numbers.",
+              "label": "How to access",
+              "helperText": "Access location if not stored in password manager.",
               "type": "text",
               "required": false,
               "protected": false,
-              "order": 3
+              "order": 4
             },
             {
               "systemKey": "accountInstructions",
@@ -563,7 +568,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 4
+              "order": 5
             }
           ]
         }
@@ -612,7 +617,7 @@
             {
               "systemKey": "subscriptionAction",
               "label": "Action",
-              "helperText": "What you'd like done with this subscription when the time comes.",
+              "helperText": "What you'd like done with this subscription.",
               "type": "select",
               "required": true,
               "protected": false,
@@ -642,13 +647,32 @@
               "helperText": "Monthly or annual cost with any additional details."
             },
             {
+              "systemKey": "field_1785516156258_pdqak",
+              "label": "Payment method",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "order": 4,
+              "helperText": "How is this subscription being paid?",
+              "options": [
+                {
+                  "value": "checking-account",
+                  "label": "Checking Account"
+                },
+                {
+                  "value": "credit-card",
+                  "label": "Credit Card"
+                }
+              ]
+            },
+            {
               "systemKey": "subscriptionNotes",
               "label": "Notes",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 4,
-              "helperText": "Additional details about the subscription that may provide additional information on the action."
+              "order": 5,
+              "helperText": "Additional details. Billed monthly or annually, credit card used, which account, or other information."
             }
           ]
         }
@@ -764,7 +788,7 @@
             },
             {
               "systemKey": "onlineAccessLocation",
-              "label": "Where access info lives",
+              "label": "How to access",
               "helperText": "Access location if not stored in password manager.",
               "type": "text",
               "required": false,
@@ -928,22 +952,40 @@
           "order": 1,
           "fields": [
             {
-              "systemKey": "backupLocation",
-              "label": "Backup physical location",
-              "helperText": "Where it physically or digitally lives — \"the black external drive in the desk drawer\", \"My desktop computer\", \"Backblaze under my main email\".",
-              "type": "textarea",
-              "required": true,
-              "protected": true,
-              "order": 1
+              "systemKey": "field_1785518748768_v537d",
+              "label": "Device",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 1,
+              "helperText": "The item you created in device inventory that is being backed up. Computer, phone or other device."
             },
             {
-              "systemKey": "field_1785342259535_nbwd2",
-              "label": "Backup computer location",
-              "type": "path",
+              "systemKey": "field_1785518517530_hmewc",
+              "label": "Backup software or app",
+              "type": "text",
               "required": false,
               "protected": false,
               "order": 2,
-              "helperText": "Location on computer where data is backed up."
+              "helperText": "Name of the desktop software or app used for backup."
+            },
+            {
+              "systemKey": "field_1785342259535_nbwd2",
+              "label": "Device backup location",
+              "type": "path",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "helperText": "Location on device where data is backed up."
+            },
+            {
+              "systemKey": "backupLocation",
+              "label": "Other device backup location",
+              "helperText": "Where it physically or digitally lives. External drive or cloud service and any additional details necessary.",
+              "type": "textarea",
+              "required": true,
+              "protected": true,
+              "order": 4
             },
             {
               "systemKey": "backupContents",
@@ -952,7 +994,7 @@
               "type": "text",
               "required": false,
               "protected": false,
-              "order": 3
+              "order": 5
             },
             {
               "systemKey": "backupFrequency",
@@ -982,7 +1024,7 @@
                   "label": "Rarely"
                 }
               ],
-              "order": 4
+              "order": 6
             },
             {
               "systemKey": "backupEncrypted",
@@ -1005,7 +1047,7 @@
                   "label": "Not sure"
                 }
               ],
-              "order": 5
+              "order": 7
             },
             {
               "systemKey": "backupAccessNotes",
@@ -1014,7 +1056,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 6
+              "order": 8
             }
           ]
         }
