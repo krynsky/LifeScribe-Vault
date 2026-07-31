@@ -308,6 +308,9 @@ mapping, replace it with a flag on the field definition.
 
 ## Pack editor (dev tool)
 
+For the end-to-end workflow — branch, back up, edit, migrations, gates, ship —
+see [docs/creator-mode.md](creator-mode.md). What follows is the mechanism.
+
 `npm run pack-editor` starts a Vite app (port 1430) for editing the bundled base
 pack — its sections, groups, and fields. A left rail lists sections (drag to
 reorder, click to select, rename inline); the right pane edits the selected
