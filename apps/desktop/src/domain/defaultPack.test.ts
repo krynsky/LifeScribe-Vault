@@ -152,22 +152,17 @@ describe("shipped default pack", () => {
     expect(executors.readinessRule.requiredKeys).toEqual(["executorName", "executorRole"]);
   });
 
-  it("platform legacy is a singleton with three fixed (non-repeatable) platform groups", () => {
+  it("platform legacy is a multi-record section, one record per platform", () => {
     const platform = sectionByKey("platform-legacy");
-    expect(platform.multiRecord).toBe(false);
-    expect(platform.groups.map((group) => group.groupKey)).toEqual([
-      "apple",
-      "google",
-      "facebook",
+    expect(platform.multiRecord).toBe(true);
+    expect(platform.groups.map((group) => group.groupKey)).toEqual(["platform"]);
+    expect(platform.groups[0]!.repeatable).toBe(false);
+    expect(allFields(platform).map((field) => field.systemKey)).toEqual([
+      "legacyPlatform",
+      "legacyContact",
+      "legacyNotes",
     ]);
-    for (const group of platform.groups) {
-      expect(group.repeatable, group.groupKey).toBe(false);
-    }
-    expect(platform.readinessRule.requiredKeys).toEqual([
-      "appleLegacyStatus",
-      "googleLegacyStatus",
-      "facebookLegacyStatus",
-    ]);
+    expect(platform.readinessRule.requiredKeys).toEqual(["legacyPlatform"]);
   });
 
   it("the password manager provider list carries v1's options including Other, with the Other conditional", () => {
@@ -271,11 +266,7 @@ describe("shipped default pack: the three permanent optional fields", () => {
       "online-accounts": ["onlineServiceName"],
       documents: ["documentTitle"],
       backups: ["backupDevice"],
-      "platform-legacy": [
-        "appleLegacyStatus",
-        "googleLegacyStatus",
-        "facebookLegacyStatus",
-      ],
+      "platform-legacy": ["legacyPlatform"],
     });
   });
 });

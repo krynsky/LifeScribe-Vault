@@ -1088,135 +1088,66 @@
       "sectionKey": "platform-legacy",
       "title": "Platform Legacy Tools",
       "lede": "Apple, Google, and Facebook each have a built-in legacy setting — free, official, and far easier for your family than support tickets and death certificates. Each takes about ten minutes to set up. They only cover part of the picture, but they're the easiest wins in this whole checklist.",
-      "multiRecord": false,
+      "multiRecord": true,
       "order": 9,
       "groups": [
         {
-          "groupKey": "apple",
-          "title": "Apple Legacy Contact",
+          "groupKey": "platform",
+          "title": "Platform",
           "repeatable": false,
           "order": 1,
           "fields": [
             {
-              "systemKey": "appleLegacyStatus",
-              "label": "Status",
-              "helperText": "Set up in Settings > [your name] > Sign-In & Security > Legacy Contact — add the person and make sure they keep the access key.",
+              "systemKey": "legacyPlatform",
+              "label": "Platform",
               "type": "select",
               "required": true,
               "protected": true,
+              "order": 1,
+              "helperText": "Select a platform legacy tool.",
               "options": [
                 {
-                  "value": "not-set-up",
-                  "label": "Not set up"
+                  "value": "apple-legacy-contact",
+                  "label": "Apple Legacy Contact"
                 },
                 {
-                  "value": "in-progress",
-                  "label": "In progress"
+                  "value": "google-inactive-account-manager",
+                  "label": "Google Inactive Account Manager"
                 },
                 {
-                  "value": "completed",
-                  "label": "Completed"
+                  "value": "facebook-memorialization",
+                  "label": "Facebook Memorialization"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
                 }
-              ],
-              "order": 1
+              ]
             },
             {
-              "systemKey": "appleLegacyNotes",
-              "label": "Legacy contact or setting notes",
-              "helperText": "Who you named as your Legacy Contact and where their copy of the access key is kept.",
+              "systemKey": "legacyContact",
+              "label": "Legacy contact",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 2,
+              "helperText": "The person you setup as a legacy contact on this platform."
+            },
+            {
+              "systemKey": "legacyNotes",
+              "label": "Notes",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 2
-            }
-          ]
-        },
-        {
-          "groupKey": "google",
-          "title": "Google Inactive Account Manager",
-          "repeatable": false,
-          "order": 2,
-          "fields": [
-            {
-              "systemKey": "googleLegacyStatus",
-              "label": "Status",
-              "helperText": "Set up at myaccount.google.com/inactive — Google shares your chosen data with trusted contacts after a period of inactivity you pick.",
-              "type": "select",
-              "required": true,
-              "protected": true,
-              "options": [
-                {
-                  "value": "not-set-up",
-                  "label": "Not set up"
-                },
-                {
-                  "value": "in-progress",
-                  "label": "In progress"
-                },
-                {
-                  "value": "completed",
-                  "label": "Completed"
-                }
-              ],
-              "order": 1
-            },
-            {
-              "systemKey": "googleLegacyNotes",
-              "label": "Legacy contact or setting notes",
-              "helperText": "Who you listed as trusted contacts, the inactivity period you chose, and what data they'll receive.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 2
-            }
-          ]
-        },
-        {
-          "groupKey": "facebook",
-          "title": "Facebook Memorialization",
-          "repeatable": false,
-          "order": 3,
-          "fields": [
-            {
-              "systemKey": "facebookLegacyStatus",
-              "label": "Status",
-              "helperText": "Choose a legacy contact or memorialization preference in Facebook Settings > Memorialization — or request deletion after death instead.",
-              "type": "select",
-              "required": true,
-              "protected": true,
-              "options": [
-                {
-                  "value": "not-set-up",
-                  "label": "Not set up"
-                },
-                {
-                  "value": "in-progress",
-                  "label": "In progress"
-                },
-                {
-                  "value": "completed",
-                  "label": "Completed"
-                }
-              ],
-              "order": 1
-            },
-            {
-              "systemKey": "facebookLegacyNotes",
-              "label": "Legacy contact or setting notes",
-              "helperText": "Who you named as legacy contact, or whether you chose memorialization or deletion.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 2
+              "order": 3,
+              "helperText": "Provide any additional details."
             }
           ]
         }
       ],
       "readinessRule": {
         "requiredKeys": [
-          "appleLegacyStatus",
-          "googleLegacyStatus",
-          "facebookLegacyStatus"
+          "legacyPlatform"
         ]
       },
       "kitMapping": {
@@ -1224,12 +1155,9 @@
           {
             "heading": "Platform legacy tools",
             "fields": [
-              "appleLegacyStatus",
-              "appleLegacyNotes",
-              "googleLegacyStatus",
-              "googleLegacyNotes",
-              "facebookLegacyStatus",
-              "facebookLegacyNotes"
+              "legacyPlatform",
+              "legacyContact",
+              "legacyNotes"
             ]
           }
         ]
