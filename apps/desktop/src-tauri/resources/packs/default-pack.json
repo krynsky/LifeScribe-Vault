@@ -194,7 +194,7 @@
             {
               "systemKey": "passwordManagerProvider",
               "label": "Password manager provider",
-              "helperText": "Which password manager you use. Never store the master password itself in this vault — only how a trusted person would gain emergency access.",
+              "helperText": "Which password manager you use.",
               "type": "select",
               "required": true,
               "protected": true,
@@ -268,13 +268,22 @@
               "order": 3
             },
             {
+              "systemKey": "passwordManagerMasterPassword",
+              "label": "Master password",
+              "helperText": "Optional. The master password for your password manager if you want to store it here.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 4
+            },
+            {
               "systemKey": "passwordManagerEmergencyAccess",
               "label": "Emergency access method",
               "helperText": "How a trusted person gets in — for example 1Password family recovery, Bitwarden Emergency Access with a waiting period, or a sealed recovery kit. Describe the steps, not the secrets.",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 4
+              "order": 5
             },
             {
               "systemKey": "passwordManagerRecoveryLocation",
@@ -283,7 +292,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 5
+              "order": 6
             },
             {
               "systemKey": "passwordManagerTwoFactorNotes",
@@ -292,7 +301,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 6
+              "order": 7
             },
             {
               "systemKey": "passwordManagerTrustedEmergencyContact",
@@ -301,7 +310,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 7
+              "order": 8
             },
             {
               "systemKey": "passwordManagerAccessTested",
@@ -320,12 +329,12 @@
                   "label": "Not tested yet"
                 }
               ],
-              "order": 8
+              "order": 9
             },
             {
               "systemKey": "passwordManagerExecutorInstructions",
               "label": "Executor instructions",
-              "helperText": "Plain-language steps your executor should follow first, written for someone who may not be technical.",
+              "helperText": "Plain-language steps your executor should follow first.",
               "type": "textarea",
               "required": false,
               "protected": false,
@@ -413,8 +422,9 @@
               "order": 2
             },
             {
-              "systemKey": "deviceOwner",
-              "label": "Owner or main user",
+              "systemKey": "devicePin",
+              "label": "PIN or Password",
+              "helperText": "Optional. The unlock PIN or passcode for this device.",
               "type": "text",
               "required": false,
               "protected": false,
@@ -422,8 +432,8 @@
             },
             {
               "systemKey": "deviceUnlockHintLocation",
-              "label": "Unlock hint location",
-              "helperText": "Where a hint to the PIN or passcode is stored — for example \"sealed envelope in the safe\". Never the PIN itself.",
+              "label": "PIN or Password location",
+              "helperText": "Where the PIN or password is stored — for example \"sealed envelope in the safe\".",
               "type": "text",
               "required": false,
               "protected": false,
@@ -453,7 +463,6 @@
             "fields": [
               "deviceName",
               "deviceType",
-              "deviceOwner",
               "deviceUnlockHintLocation",
               "deviceRecoveryNotes"
             ]
@@ -519,10 +528,6 @@
                   "label": "Insurance"
                 },
                 {
-                  "value": "subscription",
-                  "label": "Subscription"
-                },
-                {
                   "value": "other",
                   "label": "Other"
                 }
@@ -530,13 +535,31 @@
               "order": 2
             },
             {
+              "systemKey": "field_1785517494204_wh9do",
+              "label": "Access stored in password manager?",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                }
+              ]
+            },
+            {
               "systemKey": "accountAccessLocation",
-              "label": "Where access info lives",
-              "helperText": "For example \"in my password manager\" or \"statements arrive by mail\". A pointer only — never credentials or account numbers.",
+              "label": "How to access",
+              "helperText": "Access location if not stored in password manager.",
               "type": "text",
               "required": false,
               "protected": false,
-              "order": 3
+              "order": 4
             },
             {
               "systemKey": "accountInstructions",
@@ -545,7 +568,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 4
+              "order": 5
             }
           ]
         }
@@ -594,7 +617,7 @@
             {
               "systemKey": "subscriptionAction",
               "label": "Action",
-              "helperText": "What you'd like done with this subscription when the time comes.",
+              "helperText": "What you'd like done with this subscription.",
               "type": "select",
               "required": true,
               "protected": false,
@@ -624,13 +647,32 @@
               "helperText": "Monthly or annual cost with any additional details."
             },
             {
+              "systemKey": "field_1785516156258_pdqak",
+              "label": "Payment method",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "order": 4,
+              "helperText": "How is this subscription being paid?",
+              "options": [
+                {
+                  "value": "checking-account",
+                  "label": "Checking Account"
+                },
+                {
+                  "value": "credit-card",
+                  "label": "Credit Card"
+                }
+              ]
+            },
+            {
               "systemKey": "subscriptionNotes",
               "label": "Notes",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 4,
-              "helperText": "Additional details about the subscription that may provide additional information on the action."
+              "order": 5,
+              "helperText": "Additional details. Billed monthly or annually, credit card used, which account, or other information."
             }
           ]
         }
@@ -746,7 +788,7 @@
             },
             {
               "systemKey": "onlineAccessLocation",
-              "label": "Where access info lives",
+              "label": "How to access",
               "helperText": "Access location if not stored in password manager.",
               "type": "text",
               "required": false,
@@ -855,13 +897,22 @@
               "order": 4
             },
             {
+              "systemKey": "documentDigitalFile",
+              "label": "Attached copy",
+              "helperText": "Optional. A scanned or digital copy of this document, attached to the vault.",
+              "type": "file",
+              "required": false,
+              "protected": false,
+              "order": 5
+            },
+            {
               "systemKey": "documentAccessNotes",
               "label": "Notes",
               "helperText": "Anything needed to reach it — who has the safe key, which attorney to call, whose name the box is under.",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 5
+              "order": 6
             }
           ]
         }
@@ -880,6 +931,7 @@
               "documentCategory",
               "documentPhysicalLocation",
               "documentDigitalLocation",
+              "documentDigitalFile",
               "documentAccessNotes"
             ]
           }
@@ -900,22 +952,40 @@
           "order": 1,
           "fields": [
             {
-              "systemKey": "backupLocation",
-              "label": "Backup physical location",
-              "helperText": "Where it physically or digitally lives — \"the black external drive in the desk drawer\", \"My desktop computer\", \"Backblaze under my main email\".",
-              "type": "textarea",
+              "systemKey": "backupDevice",
+              "label": "Device",
+              "type": "text",
               "required": true,
               "protected": true,
-              "order": 1
+              "order": 1,
+              "helperText": "The item you created in device inventory that is being backed up. Computer, phone or other device."
             },
             {
-              "systemKey": "field_1785342259535_nbwd2",
-              "label": "Backup computer location",
-              "type": "path",
+              "systemKey": "backupSoftware",
+              "label": "Backup software or app",
+              "type": "text",
               "required": false,
               "protected": false,
               "order": 2,
-              "helperText": "Location on computer where data is backed up."
+              "helperText": "Name of the desktop software or app used for backup."
+            },
+            {
+              "systemKey": "backupDeviceLocation",
+              "label": "Device backup location",
+              "type": "path",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "helperText": "Location on device where data is backed up."
+            },
+            {
+              "systemKey": "backupLocation",
+              "label": "Other device backup location",
+              "helperText": "Where it physically or digitally lives. External drive or cloud service and any additional details necessary.",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "order": 4
             },
             {
               "systemKey": "backupContents",
@@ -924,7 +994,7 @@
               "type": "text",
               "required": false,
               "protected": false,
-              "order": 3
+              "order": 5
             },
             {
               "systemKey": "backupFrequency",
@@ -954,7 +1024,7 @@
                   "label": "Rarely"
                 }
               ],
-              "order": 4
+              "order": 6
             },
             {
               "systemKey": "backupEncrypted",
@@ -977,7 +1047,7 @@
                   "label": "Not sure"
                 }
               ],
-              "order": 5
+              "order": 7
             },
             {
               "systemKey": "backupAccessNotes",
@@ -986,14 +1056,14 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 6
+              "order": 8
             }
           ]
         }
       ],
       "readinessRule": {
         "requiredKeys": [
-          "backupLocation"
+          "backupDevice"
         ]
       },
       "kitMapping": {
@@ -1001,6 +1071,9 @@
           {
             "heading": "Backups and storage",
             "fields": [
+              "backupDevice",
+              "backupSoftware",
+              "backupDeviceLocation",
               "backupLocation",
               "backupContents",
               "backupFrequency",
@@ -1015,135 +1088,66 @@
       "sectionKey": "platform-legacy",
       "title": "Platform Legacy Tools",
       "lede": "Apple, Google, and Facebook each have a built-in legacy setting — free, official, and far easier for your family than support tickets and death certificates. Each takes about ten minutes to set up. They only cover part of the picture, but they're the easiest wins in this whole checklist.",
-      "multiRecord": false,
+      "multiRecord": true,
       "order": 9,
       "groups": [
         {
-          "groupKey": "apple",
-          "title": "Apple Legacy Contact",
+          "groupKey": "platform",
+          "title": "Platform",
           "repeatable": false,
           "order": 1,
           "fields": [
             {
-              "systemKey": "appleLegacyStatus",
-              "label": "Status",
-              "helperText": "Set up in Settings > [your name] > Sign-In & Security > Legacy Contact — add the person and make sure they keep the access key.",
+              "systemKey": "legacyPlatform",
+              "label": "Platform",
               "type": "select",
               "required": true,
               "protected": true,
+              "order": 1,
+              "helperText": "Select a platform legacy tool.",
               "options": [
                 {
-                  "value": "not-set-up",
-                  "label": "Not set up"
+                  "value": "apple-legacy-contact",
+                  "label": "Apple Legacy Contact"
                 },
                 {
-                  "value": "in-progress",
-                  "label": "In progress"
+                  "value": "google-inactive-account-manager",
+                  "label": "Google Inactive Account Manager"
                 },
                 {
-                  "value": "completed",
-                  "label": "Completed"
+                  "value": "facebook-memorialization",
+                  "label": "Facebook Memorialization"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
                 }
-              ],
-              "order": 1
+              ]
             },
             {
-              "systemKey": "appleLegacyNotes",
-              "label": "Legacy contact or setting notes",
-              "helperText": "Who you named as your Legacy Contact and where their copy of the access key is kept.",
+              "systemKey": "legacyContact",
+              "label": "Legacy contact",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 2,
+              "helperText": "The person you setup as a legacy contact on this platform."
+            },
+            {
+              "systemKey": "legacyNotes",
+              "label": "Notes",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 2
-            }
-          ]
-        },
-        {
-          "groupKey": "google",
-          "title": "Google Inactive Account Manager",
-          "repeatable": false,
-          "order": 2,
-          "fields": [
-            {
-              "systemKey": "googleLegacyStatus",
-              "label": "Status",
-              "helperText": "Set up at myaccount.google.com/inactive — Google shares your chosen data with trusted contacts after a period of inactivity you pick.",
-              "type": "select",
-              "required": true,
-              "protected": true,
-              "options": [
-                {
-                  "value": "not-set-up",
-                  "label": "Not set up"
-                },
-                {
-                  "value": "in-progress",
-                  "label": "In progress"
-                },
-                {
-                  "value": "completed",
-                  "label": "Completed"
-                }
-              ],
-              "order": 1
-            },
-            {
-              "systemKey": "googleLegacyNotes",
-              "label": "Legacy contact or setting notes",
-              "helperText": "Who you listed as trusted contacts, the inactivity period you chose, and what data they'll receive.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 2
-            }
-          ]
-        },
-        {
-          "groupKey": "facebook",
-          "title": "Facebook Memorialization",
-          "repeatable": false,
-          "order": 3,
-          "fields": [
-            {
-              "systemKey": "facebookLegacyStatus",
-              "label": "Status",
-              "helperText": "Choose a legacy contact or memorialization preference in Facebook Settings > Memorialization — or request deletion after death instead.",
-              "type": "select",
-              "required": true,
-              "protected": true,
-              "options": [
-                {
-                  "value": "not-set-up",
-                  "label": "Not set up"
-                },
-                {
-                  "value": "in-progress",
-                  "label": "In progress"
-                },
-                {
-                  "value": "completed",
-                  "label": "Completed"
-                }
-              ],
-              "order": 1
-            },
-            {
-              "systemKey": "facebookLegacyNotes",
-              "label": "Legacy contact or setting notes",
-              "helperText": "Who you named as legacy contact, or whether you chose memorialization or deletion.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 2
+              "order": 3,
+              "helperText": "Provide any additional details."
             }
           ]
         }
       ],
       "readinessRule": {
         "requiredKeys": [
-          "appleLegacyStatus",
-          "googleLegacyStatus",
-          "facebookLegacyStatus"
+          "legacyPlatform"
         ]
       },
       "kitMapping": {
@@ -1151,116 +1155,13 @@
           {
             "heading": "Platform legacy tools",
             "fields": [
-              "appleLegacyStatus",
-              "appleLegacyNotes",
-              "googleLegacyStatus",
-              "googleLegacyNotes",
-              "facebookLegacyStatus",
-              "facebookLegacyNotes"
+              "legacyPlatform",
+              "legacyContact",
+              "legacyNotes"
             ]
           }
         ]
       }
-    }
-  ],
-  "modules": [
-    {
-      "moduleId": "secrets",
-      "title": "Store passwords",
-      "question": "Do you want the vault to hold your actual passwords and PINs, or only where to find them?",
-      "helperText": "Passwords and PINs are encrypted in this vault. Choose \"Locations only\" to keep this vault free of live credentials.",
-      "order": 1,
-      "defaultOptionId": "off",
-      "options": [
-        {
-          "optionId": "off",
-          "label": "Locations only"
-        },
-        {
-          "optionId": "on",
-          "label": "Store the actual passwords",
-          "addFields": [
-            {
-              "sectionKey": "password-manager",
-              "groupKey": "plan",
-              "order": 4,
-              "field": {
-                "systemKey": "passwordManagerMasterPassword",
-                "label": "Master password",
-                "helperText": "The actual master password for your password manager. It is stored encrypted in this vault.",
-                "type": "text",
-                "required": false,
-                "protected": false,
-                "order": 4
-              }
-            },
-            {
-              "sectionKey": "devices",
-              "groupKey": "device",
-              "order": 4,
-              "field": {
-                "systemKey": "devicePin",
-                "label": "PIN or passcode",
-                "helperText": "The actual unlock PIN or passcode for this device. It is stored encrypted in this vault.",
-                "type": "text",
-                "required": false,
-                "protected": false,
-                "order": 4
-              }
-            }
-          ],
-          "kitAdditions": {
-            "password-manager": [
-              "passwordManagerMasterPassword"
-            ],
-            "devices": [
-              "devicePin"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "moduleId": "file-method",
-      "title": "File handling",
-      "question": "For documents, do you want to point to where a file lives, or attach the file into your vault?",
-      "helperText": "\"Point to a location\" stores only a path. \"Attach the file\" encrypts a copy into this vault.",
-      "order": 2,
-      "defaultOptionId": "path",
-      "options": [
-        {
-          "optionId": "path",
-          "label": "Point to a location on disk"
-        },
-        {
-          "optionId": "attach",
-          "label": "Attach the file into the vault",
-          "removeKeys": [
-            "documentDigitalLocation"
-          ],
-          "addFields": [
-            {
-              "sectionKey": "documents",
-              "groupKey": "document",
-              "order": 4,
-              "field": {
-                "systemKey": "documentDigitalFile",
-                "label": "Attached copy",
-                "helperText": "Attach a scanned or digital copy. It is stored encrypted in this vault.",
-                "type": "file",
-                "required": false,
-                "protected": false,
-                "order": 4
-              }
-            }
-          ],
-          "kitAdditions": {
-            "documents": [
-              "documentDigitalFile"
-            ]
-          }
-        }
-      ]
     }
   ],
   "migrations": []

@@ -59,7 +59,7 @@ describe("pack-editor save-plugin POST /__pack", () => {
 
   it("writes the posted pack straight to default-pack.json as 2-space JSON with a trailing newline", async () => {
     const handler = getHandler();
-    const pack = { packId: "x", modules: [{ moduleId: "m" }] };
+    const pack = { packId: "x", sections: [{ sectionKey: "s", title: "S" }] };
     const req = makeReq("POST", "/", pack);
     const res = makeRes();
     handler(req, res, () => {});

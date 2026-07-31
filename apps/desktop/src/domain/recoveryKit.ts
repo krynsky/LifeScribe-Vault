@@ -7,6 +7,13 @@
  * listed in each section's `kitMapping`; no other field can reach the
  * output (the record label is likewise derived from mapped values only).
  *
+ * Credential keys are dropped here, not only at validation time. `validatePack`
+ * rejects a kitMapping that names one, but it never runs on the pack the Kit
+ * actually renders from: `resolveBasePack` returns a stored `customPack`
+ * as-authored, and `handleSavePack` persists one without validating. Enforcing
+ * at the point of consumption makes the guarantee above true for EVERY pack
+ * that reaches this module, however it got here.
+ *
  * Rules:
  * - Sections render in pack order; entries in mapping order; fields in the
  *   mapping entry's order.
@@ -16,6 +23,10 @@
  *   entirely.
  * - Multi-record sections (and repeatable groups) emit one block per
  *   record, labeled by the record's summary value.
+ * - A `select` field's stored value is resolved to its option's label (a
+ *   printed page reading "apple-legacy-contact" instead of "Apple Legacy
+ *   Contact" is a defect); an orphaned value with no matching option falls
+ *   back to printing itself rather than disappearing.
  * - Archived answers are NEVER included.
  *
  * Staleness: `computeKitFingerprint` is a stable, deterministic hash over
@@ -30,8 +41,11 @@ import {
   type KitMapping,
   type ReadinessRule,
 } from "./formModel";
+import { KIT_EXCLUDED_SYSTEM_KEYS } from "./packValidation";
 import type { KitMeta, SectionMetaMap, VaultProfile } from "./snapshot";
 import type { SectionRecord, VaultValues } from "./valuesStore";
+
+const KIT_EXCLUDED_SET: ReadonlySet<string> = new Set(KIT_EXCLUDED_SYSTEM_KEYS);
 
 /**
  * The structural slice of a section the Kit derivation needs. Both
@@ -117,7 +131,9 @@ function buildItems(
     const displayValue =
       field.type === "file"
         ? (record.attachments?.find((a) => a.id === value)?.fileName ?? value)
-        : value;
+        : field.type === "select"
+          ? (field.options?.find((o) => o.value === value)?.label ?? value)
+          : value;
     items.push({ systemKey, label: field.label, value: displayValue });
   }
   return items;
@@ -183,16 +199,19 @@ export function buildRecoveryKit(
     const fieldIndex = indexSectionFields(section);
 
     for (const entry of section.kitMapping.entries) {
+      // Drop credential keys before anything reads them: they must reach
+      // neither an item nor a block label.
+      const mappedKeys = entry.fields.filter((key) => !KIT_EXCLUDED_SET.has(key));
       const blocks: RecoveryKitBlock[] = [];
       for (const record of sectionValues.records) {
-        const items = buildItems(record, entry.fields, fieldIndex);
+        const items = buildItems(record, mappedKeys, fieldIndex);
         if (items.length === 0) {
           continue;
         }
         blocks.push({
           recordId: record.id,
           recordLabel: isLabeledRecord(section, record)
-            ? blockLabel(section, record, entry.fields, items)
+            ? blockLabel(section, record, mappedKeys, items)
             : null,
           items,
         });

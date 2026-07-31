@@ -1,7 +1,7 @@
 /**
  * Vite dev-server plugin backing the pack editor. Dev-only.
  *   GET  /__pack        -> { pack } (the base pack) read from disk
- *   POST /__pack        -> writes the edited base FormPack (with its modules)
+ *   POST /__pack        -> writes the edited base FormPack
  *                          straight to default-pack.json
  *   POST /__pack/backup -> copies the hint pack into a timestamped folder
  *                          under scripts/pack-backups/ for continuity.
@@ -66,7 +66,7 @@ export function packEditorSavePlugin() {
           req.on("end", () => {
             try {
               const editedPack = JSON.parse(body);
-              // Write the edited base pack (with its modules) straight to disk.
+              // Write the edited base pack straight to disk.
               writeFileSync(HINT_PATH, serializePack(editedPack));
               sendJson(res, 200, { ok: true });
             } catch (error) {

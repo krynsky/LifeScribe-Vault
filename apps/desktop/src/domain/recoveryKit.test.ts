@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { composePack } from "./composePack";
+
 import type { FormPack, PackSection, ResolvedField } from "./formModel";
 import { validatePack } from "./packValidation";
 import {
@@ -156,6 +156,49 @@ describe("buildRecoveryKit", () => {
       { systemKey: "provider", label: "Provider", value: "1Password" },
       { systemKey: "accessNotes", label: "Access notes", value: "Emergency kit in the fire safe" },
     ]);
+  });
+
+  it("resolves a select field's stored value to its option label", () => {
+    const pack = makeKitPack();
+    const sections = pack.sections.map((section) =>
+      section.sectionKey === "plan"
+        ? {
+            ...section,
+            groups: section.groups.map((group) => ({
+              ...group,
+              fields: group.fields.map((field) =>
+                field.systemKey === "provider"
+                  ? {
+                      ...field,
+                      options: [
+                        { value: "apple-legacy-contact", label: "Apple Legacy Contact" },
+                        { value: "Other", label: "Other" },
+                      ],
+                    }
+                  : field,
+              ),
+            })),
+          }
+        : section,
+    );
+    const values = kitPackValues();
+    values.plan.records[0]!.values.provider = "apple-legacy-contact";
+
+    const kit = buildRecoveryKit(sections, values);
+    const item = kit.entries[0]!.blocks[0]!.items.find((i) => i.systemKey === "provider")!;
+    expect(item.value).toBe("Apple Legacy Contact");
+    expect(allKitStrings(kit)).not.toContain("apple-legacy-contact");
+  });
+
+  it("falls back to the raw value for a select value with no matching option", () => {
+    const pack = makeKitPack();
+    const values = kitPackValues();
+    // Simulates a value stored under an option that was since renamed/removed.
+    values.plan.records[0]!.values.provider = "some-retired-provider-slug";
+
+    const kit = buildRecoveryKit(pack.sections, values);
+    const item = kit.entries[0]!.blocks[0]!.items.find((i) => i.systemKey === "provider")!;
+    expect(item.value).toBe("some-retired-provider-slug");
   });
 
   it("carries the owner name as the generated-at header concept", () => {
@@ -417,14 +460,9 @@ describe("kitMeta snapshot round-trip (additive)", () => {
   });
 });
 
-describe("Recovery Kit with the secrets module composed in", () => {
-  function loadPackWithSecretsModule(): FormPack {
-    const base = loadShippedPack();
-    return composePack(base, base.modules ?? [], { secrets: "on" });
-  }
-
-  it("includes the master password in the Recovery Kit when the secrets module is on", () => {
-    const pack = loadPackWithSecretsModule();
+describe("Recovery Kit and the permanent credential fields", () => {
+  it("names an attached document but emits neither the master password nor the device PIN", () => {
+    const pack = loadShippedPack();
     const values = makeVaultValues([
       makeSectionValues("password-manager", [
         makeRecord({
@@ -435,9 +473,92 @@ describe("Recovery Kit with the secrets module composed in", () => {
           },
         }),
       ]),
+      makeSectionValues("devices", [
+        makeRecord({
+          id: "dev-1",
+          values: {
+            deviceName: "Mom's iPhone",
+            devicePin: "480215",
+          },
+        }),
+      ]),
+      makeSectionValues("documents", [
+        makeRecord({
+          id: "doc-1",
+          values: {
+            documentTitle: "Last will",
+            documentDigitalLocation: "D:/Estate/will.pdf",
+            documentDigitalFile: "att-1",
+          },
+          attachments: [{ id: "att-1", fileName: "last-will-signed.pdf", sizeBytes: 2048 }],
+        }),
+      ]),
     ]);
+
     const kit = buildRecoveryKit(pack.sections, values);
-    expect(allKitStrings(kit)).toContain("hunter2-correct-horse");
+    const strings = allKitStrings(kit);
+
+    // R16: the attachment reaches the Kit as its file NAME (a pointer).
+    expect(strings).toContain("last-will-signed.pdf");
+    expect(strings).toContain("D:/Estate/will.pdf");
+
+    // R17: live credentials never reach the printed page.
+    expect(strings).not.toContain("hunter2-correct-horse");
+    expect(strings).not.toContain("480215");
+    const emittedKeys = kit.entries.flatMap((entry) =>
+      entry.blocks.flatMap((block) => block.items.map((item) => item.systemKey)),
+    );
+    expect(emittedKeys).not.toContain("passwordManagerMasterPassword");
+    expect(emittedKeys).not.toContain("devicePin");
+  });
+
+  it("drops credential keys from a pack whose kitMapping names them", () => {
+    // `validatePack` rejects such a pack, but it never runs on the pack the Kit
+    // actually renders from: a stored `customPack` is returned as-authored and
+    // persisted without validation. So the Kit must defend itself.
+    const shipped = loadShippedPack();
+    const leaky: PackSection[] = shipped.sections.map((section) => ({
+      ...section,
+      kitMapping: {
+        entries: section.kitMapping.entries.map((entry) => ({
+          ...entry,
+          fields:
+            section.sectionKey === "password-manager"
+              ? [...entry.fields, "passwordManagerMasterPassword"]
+              : section.sectionKey === "devices"
+                ? [...entry.fields, "devicePin"]
+                : entry.fields,
+        })),
+      },
+    }));
+
+    const values = makeVaultValues([
+      makeSectionValues("password-manager", [
+        makeRecord({
+          id: "pm-1",
+          values: {
+            passwordManagerProvider: "1Password",
+            passwordManagerMasterPassword: "hunter2-correct-horse",
+          },
+        }),
+      ]),
+      makeSectionValues("devices", [
+        makeRecord({
+          id: "dev-1",
+          values: { deviceName: "Mom's iPhone", devicePin: "480215" },
+        }),
+      ]),
+    ]);
+
+    const strings = allKitStrings(buildRecoveryKit(leaky, values));
+
+    // The non-credential mapped values still come through — the filter is
+    // targeted, not a blanket drop of the sections.
+    expect(strings).toContain("1Password");
+    expect(strings).toContain("Mom's iPhone");
+
+    expect(strings).not.toContain("hunter2-correct-horse");
+    expect(strings).not.toContain("480215");
   });
 });
 

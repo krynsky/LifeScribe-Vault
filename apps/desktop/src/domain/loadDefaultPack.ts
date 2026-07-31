@@ -1,11 +1,10 @@
 /**
  * Default-pack loading seam (U6).
  *
- * There is now a single bundled base ("hint") pack; per-module fields (e.g.
- * secrets, file-method) are declared on it as `FormModule`s and composed in
- * at load time via `composePack(base, base.modules, profile.moduleSelections)`
- * — see `resolveBasePack` in Dashboard.tsx. This loader only resolves the
- * base pack itself; it does not know about modules or selections.
+ * There is a single bundled base pack, used exactly as authored — there is no
+ * composition step. This loader resolves that pack; callers prefer the user's
+ * own saved `customPack` when one exists (see `resolveBasePack` in
+ * Dashboard.tsx).
  *
  * Primary source: the bundled Tauri resource, read through the Rust
  * `read_default_pack` command (the frontend has no fs scope; dev builds
@@ -17,7 +16,6 @@
  * before anything renders — never silent acceptance, never partial loads.
  */
 
-import type { FormMode } from "./snapshot";
 import basePackJson from "../../src-tauri/resources/packs/default-pack.json";
 import { readDefaultPack } from "../api/vaultApi";
 import type { FormPack } from "./formModel";
@@ -31,11 +29,7 @@ function loadStaticBasePack(): FormPack {
   return result.pack;
 }
 
-// `_mode` is retained (ignored) so existing call sites compile without
-// churn; there is only one base pack now, composed with module selections
-// by the caller.
-export async function loadDefaultPack(mode: FormMode = "hint"): Promise<FormPack> {
-  void mode; // vestigial: retained only so existing call sites compile.
+export async function loadDefaultPack(): Promise<FormPack> {
   let raw: unknown;
   try {
     raw = await readDefaultPack();

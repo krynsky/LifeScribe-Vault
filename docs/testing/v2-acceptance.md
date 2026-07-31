@@ -25,8 +25,10 @@ Record the environment at the top of your run:
 ## 2. First-run setup wizard
 
 - [ ] Unlock screen appears with "Create vault" option.
+- [ ] Setup asks where the vault should live, defaulting to the app-data folder; the default is accepted without browsing.
+- [ ] Setup is a **single screen** — no form-style or privacy-posture questions.
 - [ ] Create a vault with a strong test password (do not use a real master password).
-- [ ] Dashboard shows all nine sections in the sidebar: Digital Executors, Password Manager, Documents, Device Inventory, Financial Accounts, Subscriptions, Online Accounts & Domains, Platform Legacy Tools, Backups & Storage.
+- [ ] Dashboard shows all nine sections in the sidebar, in pack order: Digital Executors, Password Manager, Device Inventory, Financial Accounts, Subscriptions, Online Accounts, Documents, Backups & Storage, Platform Legacy Tools.
 - [ ] Readiness indicators are visible on the dashboard checklist.
 - [ ] Recovery Kit section is present and shows "not yet generated" state.
 
@@ -35,9 +37,10 @@ Record the environment at the top of your run:
 For each section, open it and verify:
 
 - [ ] **Digital Executors** — form renders; primary and backup executor records can be added with multi-record support.
-- [ ] **Password Manager** — single-record form renders; all fields visible.
-- [ ] **Documents** — multi-record; at least one document record can be added with a physical location field.
-- [ ] **Device Inventory** — multi-record form renders.
+- [ ] **Password Manager** — single-record form renders; all fields visible, including an optional master-password field.
+- [ ] **Documents** — multi-record; at least one document record can be added with a physical location field and an optional file attachment.
+- [ ] **Device Inventory** — multi-record form renders, including an optional PIN/passcode field.
+- [ ] No field anywhere is missing because of a setup choice — every field ships present and optional.
 - [ ] **Financial Accounts** — multi-record form renders.
 - [ ] **Subscriptions** — multi-record form renders; each entry captures the service and its keep/cancel action.
 - [ ] **Online Accounts & Domains** — multi-record form renders.
@@ -71,22 +74,27 @@ For each section, open it and verify:
 - [ ] Kit renders with all sections' key information (no blank/error panels for sections with saved data).
 - [ ] After generating, the dashboard readiness indicator for Recovery Kit shows "up to date".
 - [ ] Edit a section field; verify Recovery Kit shows a staleness indicator.
+- [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Device Inventory, save, then regenerate the Kit. **Neither value appears anywhere on it**, on screen or in print preview. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
+- [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.
 
 ## 8. Backup and restore
 
 - [ ] Create a backup via the Backups sidebar item; file dialog opens; `.lsvbackup` file is produced.
 - [ ] Verify the backup file is not plaintext: open in a hex editor or `Format-Hex` — no readable strings matching any vault content.
-- [ ] Lock the vault; overwrite the vault file (or delete `%APPDATA%\com.lifescribe.vault.v2\vault.sqlite3`).
+- [ ] Lock the vault; overwrite the vault file (or delete `vault.sqlite3` from the vault folder — the default is `%APPDATA%\com.lifescribe.vault.v2\`, and Settings → Vault location shows the current path).
 - [ ] Restore from the backup file using the correct password; vault data is fully restored.
 - [ ] Attempt restore with the wrong password; error is shown; vault is not corrupted.
 
-## 9. v1 Import (if a v1 vault file is available)
+## 9. Vault location
 
-- [ ] Navigate to "Import from v1" in the sidebar.
-- [ ] Select the v1 vault directory and enter the v1 master password.
-- [ ] Dry-run report appears showing sections to be imported.
-- [ ] Confirm import; data appears in the corresponding v2 sections.
-- [ ] The v1 vault directory is unchanged (import is read-only).
+- [ ] **Settings → Vault location** shows the current folder as a real path.
+- [ ] **Move vault…** to a second folder. The vault locks and asks for the master password.
+- [ ] After unlocking, all data and attachments are intact at the new location.
+- [ ] The new folder contains `vault.sqlite3` and the `attachments/` tree.
+- [ ] **Unrelated files already in the destination folder are untouched.** Seed the destination with a file of your own beforehand and confirm it survives — an early version of this feature deleted the destination's contents.
+- [ ] Point the vault at a removable drive, disconnect it, relaunch: the app shows "Your vault folder can't be reached" with the path, and does **not** silently create a fresh vault at the default location.
+- [ ] Reconnect the drive; the vault opens normally.
+- [ ] Choosing a folder that already holds a LifeScribe vault opens that vault rather than replacing it.
 
 ## 10. Clipboard hygiene
 
@@ -111,9 +119,10 @@ For each section, open it and verify:
 ## 13. Uninstall / residue check
 
 - [ ] Uninstall via Add or Remove Programs (or the NSIS uninstaller).
-- [ ] After uninstall, verify `%APPDATA%\com.lifescribe.vault.v2\` is **not** removed — vault data must be preserved on uninstall (Tauri default behaviour; user retains their data).
+- [ ] After uninstall, verify the vault folder is **not** removed — vault data must be preserved on uninstall (Tauri default behaviour; user retains their data). Check both the default `%APPDATA%\com.lifescribe.vault.v2\` and any custom folder the vault was moved to.
 - [ ] Verify the Start menu shortcut and installed binary are gone.
 - [ ] Open the remaining `vault.sqlite3` in a hex editor; confirm no plaintext master password or decrypted vault content is visible.
+- [ ] Open a file under `attachments/` in a hex editor; confirm the original file's contents are not readable.
 
 ---
 
@@ -129,7 +138,7 @@ For each section, open it and verify:
 | 6. Draft stash | Pass / Fail | |
 | 7. Recovery Kit | Pass / Fail | |
 | 8. Backup/restore | Pass / Fail | |
-| 9. v1 Import | Pass / Fail / N/A | |
+| 9. Vault location | Pass / Fail | |
 | 10. Clipboard hygiene | Pass / Fail | |
 | 11. Pack integrity | Pass / Fail | |
 | 12. Pack-authoring inert | Pass / Fail | |

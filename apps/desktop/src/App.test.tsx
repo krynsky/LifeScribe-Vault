@@ -25,8 +25,8 @@ vi.mock("./api/vaultApi", () => ({
   // Backup commands — not asserted in App-level tests.
   createBackup: vi.fn(),
   restoreBackup: vi.fn(),
-  // Vault location — the setup wizard's folder step only calls these when the
-  // user picks a folder; App-level tests accept the default.
+  // Vault location — setup only calls these when the user picks a folder;
+  // App-level tests accept the default.
   setVaultLocation: vi.fn(),
   checkVaultLocation: vi.fn(),
   relocateVault: vi.fn(),
@@ -39,31 +39,15 @@ const mocked = vi.mocked(vaultApi);
 const SETUP_PASSWORD = "correct horse battery staple";
 
 /**
- * Drive the setup wizard: accept the default vault folder (step 0), fill step 1
- * (name + password + acknowledgment), then advance through each module step to
- * the final Create action. When `chooseSecrets` is set, the secrets module's
- * "on" option is selected on its step. The wizard shows one module per step
- * (secrets, then file-method).
+ * Drive the single setup screen: keep the default vault folder, fill in the
+ * name and master password, acknowledge that there is no recovery, and create
+ * the vault.
  */
-async function completeSetupWizard(
-  user: ReturnType<typeof userEvent.setup>,
-  options: { chooseSecrets?: boolean } = {},
-) {
-  // Step 0: vault folder — keep the default.
-  await user.click(await screen.findByRole("button", { name: /^next$/i }));
+async function completeSetup(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText("Your name"), "Dana");
   await user.type(screen.getByLabelText("Master password"), SETUP_PASSWORD);
   await user.type(screen.getByLabelText("Confirm master password"), SETUP_PASSWORD);
   await user.click(screen.getByLabelText(/I understand there is no recovery/i));
-  await user.click(screen.getByRole("button", { name: /^next$/i }));
-
-  // Step 2: secrets module.
-  if (options.chooseSecrets) {
-    await user.click(screen.getByRole("radio", { name: /store the actual passwords/i }));
-  }
-  await user.click(screen.getByRole("button", { name: /^next$/i }));
-
-  // Step 3 (final): file-method module — Create the vault.
   await user.click(screen.getByRole("button", { name: "Create vault" }));
 }
 
@@ -96,7 +80,7 @@ describe("App", () => {
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await completeSetupWizard(user);
+    await completeSetup(user);
 
     expect(mocked.createVault).toHaveBeenCalledWith(
       "correct horse battery staple",
@@ -115,7 +99,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Backup" })).toBeInTheDocument();
   });
 
-  it("persists the chosen form mode into an initial snapshot on create", async () => {
+  it("persists the owner name into an initial snapshot on create", async () => {
     mocked.getVaultStatus.mockResolvedValue({ unlocked: false, vaultExists: false, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
     mocked.createVault.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
     render(<App />);
@@ -123,16 +107,12 @@ describe("App", () => {
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
 
     const user = userEvent.setup();
-    // Choose the secrets ("credential") option at onboarding.
-    await completeSetupWizard(user, { chooseSecrets: true });
+    await completeSetup(user);
 
     // The onboarding choice is written straight into a generation-0 CAS save,
     // so it survives a relaunch even before the user enters any data.
     expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
-    const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
-    expect((snapshot as { profile: { formMode: string } }).profile.formMode).toBe(
-      "credential",
-    );
+    const [, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
     expect(baseGeneration).toBe(0);
   });
 
@@ -146,7 +126,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();
     const user = userEvent.setup();
-    await completeSetupWizard(user);
+    await completeSetup(user);
 
     await screen.findByText("Welcome, Dana");
     expect(localStorage.getItem("lifescribe.packEditorEnabled")).not.toBe("true");

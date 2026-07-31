@@ -14,106 +14,21 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  addSectionToTarget,
-  renameSectionInTarget,
-  type EditTarget,
-} from "../src/creator/editorEdits";
-import type { EditorView, EditorViewSection, ViewSource } from "../src/creator/editorView";
-import { maxOrder } from "../src/creator/packEdits";
-import { isCustomFieldKey } from "../src/domain/formModel";
+import { addSection, updateSection } from "../src/creator/packEdits";
 import type { FormPack, PackSection } from "../src/domain/formModel";
 
 export interface SectionNavProps {
   base: FormPack;
-  view: EditorView;
-  activeTarget: EditTarget;
   activeSection: string;
   onSelectSection: (sectionKey: string) => void;
   onChangeBase: (next: FormPack) => void;
 }
 
-/** Which module/option (or "Base") a section's source layer names for display. */
-function ownerLabel(source: ViewSource, base: FormPack): string {
-  if (source.kind === "base") return "Base";
-  const module = (base.modules ?? []).find((m) => m.moduleId === source.moduleId);
-  const option = module?.options.find((o) => o.optionId === source.optionId);
-  return `${module?.title ?? source.moduleId} → ${option?.label ?? source.optionId}`;
-}
-
-/** "base" | "active" | "other" — purely for provenance styling, mirroring OverlayDesign. */
-function layerOf(source: ViewSource, activeTarget: EditTarget): "base" | "active" | "other" {
-  if (source.kind === "base") return "base";
-  const isActive =
-    activeTarget.kind === "module" &&
-    activeTarget.moduleId === source.moduleId &&
-    activeTarget.optionId === source.optionId;
-  return isActive ? "active" : "other";
-}
-
-/** Whether the active target owns this section, i.e. edits to it are live, not silently dropped. */
-function isActiveOwner(source: ViewSource, activeTarget: EditTarget): boolean {
-  if (activeTarget.kind === "base") return source.kind === "base";
-  return layerOf(source, activeTarget) === "active";
-}
-
-function uniqueKey(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function uniqueSectionKey(existingKeys: Set<string>): string {
-  let key = uniqueKey("section");
-  while (existingKeys.has(key)) key = uniqueKey("section");
-  return key;
-}
-
-function uniqueFieldKey(): string {
-  let key: string;
-  do {
-    key = uniqueKey("field");
-  } while (isCustomFieldKey(key));
-  return key;
-}
-
-/** Seeds a fresh section with one group + one unprotected field, so it is valid on save. */
-function seededSection(order: number, existingKeys: Set<string>): PackSection {
-  const title = "New Section";
-  return {
-    sectionKey: uniqueSectionKey(existingKeys),
-    title,
-    lede: "",
-    multiRecord: false,
-    order,
-    groups: [
-      {
-        groupKey: uniqueKey("group"),
-        title: "Details",
-        repeatable: false,
-        order: 1,
-        fields: [
-          {
-            systemKey: uniqueFieldKey(),
-            label: "New Field",
-            type: "text",
-            required: false,
-            protected: false,
-            order: 1,
-          },
-        ],
-      },
-    ],
-    readinessRule: { requiredKeys: [] },
-    kitMapping: { entries: [{ heading: title, fields: [] }] },
-  };
-}
-
 /**
  * Moves `fromKey` next to `toKey` within `base.sections`, renumbering
- * sequentially. A no-op (referential-identity `base`) if either key isn't
- * base-sourced — the nav renders the MIXED view list, so a dragged/dropped
- * view row may belong to a module option instead.
+ * sequentially. A no-op (referential-identity `base`) if either key is unknown.
  */
-function reorderBaseSections(base: FormPack, fromKey: string, toKey: string): FormPack {
+function reorderSections(base: FormPack, fromKey: string, toKey: string): FormPack {
   const sorted = [...base.sections].sort((a, b) => a.order - b.order);
   const fromIndex = sorted.findIndex((s) => s.sectionKey === fromKey);
   const toIndex = sorted.findIndex((s) => s.sectionKey === toKey);
@@ -126,56 +41,34 @@ function reorderBaseSections(base: FormPack, fromKey: string, toKey: string): Fo
 }
 
 interface RowProps {
-  section: EditorViewSection;
-  base: FormPack;
-  activeTarget: EditTarget;
+  section: PackSection;
   active: boolean;
-  editable: boolean;
-  reorderable: boolean;
   onSelect: (sectionKey: string) => void;
   onRename: (sectionKey: string, title: string) => void;
 }
 
-function SectionRow({
-  section,
-  base,
-  activeTarget,
-  active,
-  editable,
-  reorderable,
-  onSelect,
-  onRename,
-}: RowProps) {
-  // useSortable's `disabled` shorthand only disables DRAGGING when passed a
-  // plain boolean (droppable stays enabled for backwards compatibility), so a
-  // non-reorderable row would still be a valid drop target unless both flags
-  // are set explicitly.
+function SectionRow({ section, active, onSelect, onRename }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: section.sectionKey,
-    disabled: { draggable: !reorderable, droppable: !reorderable },
   });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : undefined,
   };
-  const layer = layerOf(section.source, activeTarget);
 
   return (
     <li
       ref={setNodeRef}
       style={style}
       className={active ? "section-nav__row section-nav__row--active" : "section-nav__row"}
-      data-layer={layer}
       data-section-key={section.sectionKey}
-      data-removed={section.removed ? "true" : undefined}
       aria-current={active ? "page" : undefined}
     >
       <button
         type="button"
         className="section-nav__handle"
         aria-label={`Drag to reorder ${section.title}`}
-        disabled={!reorderable}
         {...attributes}
         {...listeners}
       >
@@ -186,50 +79,37 @@ function SectionRow({
         className="section-nav__title"
         aria-label={`Rename section: ${section.title}`}
         value={section.title}
-        readOnly={!editable}
-        style={section.removed ? { textDecoration: "line-through" } : undefined}
         onFocus={() => onSelect(section.sectionKey)}
-        onChange={(e) => {
-          if (editable) onRename(section.sectionKey, e.target.value);
-        }}
+        onChange={(e) => onRename(section.sectionKey, e.target.value)}
       />
-      {section.source.kind !== "base" ? (
-        <span className="section-nav__from">{`from ${ownerLabel(section.source, base)}`}</span>
-      ) : null}
     </li>
   );
 }
 
-export function SectionNav({
-  base,
-  view,
-  activeTarget,
-  activeSection,
-  onSelectSection,
-  onChangeBase,
-}: SectionNavProps) {
+export function SectionNav({ base, activeSection, onSelectSection, onChangeBase }: SectionNavProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const ids = view.sections.map((s) => s.sectionKey);
+  const sections = [...base.sections].sort((a, b) => a.order - b.order);
+  const ids = sections.map((s) => s.sectionKey);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    onChangeBase(reorderBaseSections(base, String(active.id), String(over.id)));
+    onChangeBase(reorderSections(base, String(active.id), String(over.id)));
   }
 
   function handleRename(sectionKey: string, title: string) {
-    onChangeBase(renameSectionInTarget(base, activeTarget, sectionKey, title));
+    onChangeBase(updateSection(base, sectionKey, (s) => ({ ...s, title })));
   }
 
   function handleAdd() {
-    const existingKeys = new Set(view.sections.map((s) => s.sectionKey));
-    const order = maxOrder(view.sections) + 1;
-    const section = seededSection(order, existingKeys);
-    onChangeBase(addSectionToTarget(base, activeTarget, section));
-    onSelectSection(section.sectionKey);
+    const before = new Set(base.sections.map((s) => s.sectionKey));
+    const next = addSection(base);
+    onChangeBase(next);
+    const created = next.sections.find((s) => !before.has(s.sectionKey));
+    if (created) onSelectSection(created.sectionKey);
   }
 
   return (
@@ -237,24 +117,15 @@ export function SectionNav({
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           <ul className="section-nav__rows">
-            {view.sections.map((section) => {
-              const owner = isActiveOwner(section.source, activeTarget);
-              const reorderable = section.source.kind === "base" && !section.removed;
-              const editable = owner && !section.removed;
-              return (
-                <SectionRow
-                  key={section.sectionKey}
-                  section={section}
-                  base={base}
-                  activeTarget={activeTarget}
-                  active={section.sectionKey === activeSection}
-                  editable={editable}
-                  reorderable={reorderable}
-                  onSelect={onSelectSection}
-                  onRename={handleRename}
-                />
-              );
-            })}
+            {sections.map((section) => (
+              <SectionRow
+                key={section.sectionKey}
+                section={section}
+                active={section.sectionKey === activeSection}
+                onSelect={onSelectSection}
+                onRename={handleRename}
+              />
+            ))}
           </ul>
         </SortableContext>
       </DndContext>

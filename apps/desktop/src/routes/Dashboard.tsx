@@ -41,7 +41,6 @@ import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
-import { composePack } from "../domain/composePack";
 import {
   capRecordSchemaVersions,
   migrateVaultValues,
@@ -56,7 +55,6 @@ import {
 import { computeKitFingerprint, isKitStale } from "../domain/recoveryKit";
 import {
   buildSnapshot,
-  formModeFromModuleSelections,
   normalizeSnapshot,
   SNAPSHOT_FORMAT,
   type KitMeta,
@@ -85,8 +83,6 @@ import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 export interface DashboardProps {
   /** Owner name from the setup flow, used until the first snapshot exists. */
   ownerNameHint?: string;
-  /** Module selections chosen at setup; seed the profile until the first snapshot exists. */
-  moduleSelectionsHint?: Record<string, string>;
   /**
    * Called once the vault is locked (auto or manual). The optional notice
    * explains why, when the lock was a side effect of something else (a move).
@@ -129,20 +125,12 @@ function errorCode(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-// Module-scope constant so the default prop value is a STABLE reference. The
-// load effect depends on `moduleSelectionsHint`; a fresh object literal default
-// would change identity every render and re-trigger the effect in a loop.
-const DEFAULT_MODULE_SELECTIONS_HINT: Record<string, string> = { secrets: "off" };
-
 /**
  * The pack this vault renders from: the saved customPack (form-editor edits) or
- * the bundled base pack, composed with the profile's module selections. Legacy
- * customPacks predate modules (base.modules undefined) so compose is a no-op for
- * them — they already baked in their mode's fields.
+ * the bundled base pack, as authored — no composition step.
  */
 async function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
-  const base = parsed.customPack ?? (await loadDefaultPack());
-  return composePack(base, base.modules ?? [], parsed.profile.moduleSelections);
+  return parsed.customPack ?? (await loadDefaultPack());
 }
 
 /**
@@ -150,12 +138,9 @@ async function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
  * renamed custom fields -> migrate-on-read (in memory only) -> reconcile
  * records against the resolved definition. Pure; persists nothing.
  *
- * Callers produce `parsed` via `normalizeSnapshot(raw, ownerNameHint,
- * moduleSelectionsHint)` — the hints seed the profile only for a fresh vault
- * (raw null, or a snapshot with no persisted moduleSelections); an existing
- * snapshot keeps its own values. Without the module-selections hint the
- * onboarding choice would never reach the profile and the first save would
- * persist the defaults, silently discarding it.
+ * Callers produce `parsed` via `normalizeSnapshot(raw, ownerNameHint)` — the
+ * hint seeds the owner name only for a fresh vault (raw null, or a snapshot
+ * with no persisted owner name); an existing snapshot keeps its own value.
  */
 function buildLoadedVault(
   pack: FormPack,
@@ -221,7 +206,7 @@ function buildLoadedVault(
   };
 }
 
-export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_MODULE_SELECTIONS_HINT, onLocked }: DashboardProps) {
+export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked" | "error">("loading");
   const [blockedMessage, setBlockedMessage] = useState("");
   const [loaded, setLoaded] = useState<LoadedVault | null>(null);
@@ -296,10 +281,8 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
         // Fresh vault: no snapshot saved yet; base generation stays 0.
       }
 
-      // Use the user's personal pack if saved, else fall back to the bundled
-      // default for the module selections stored in the snapshot (or the prop
-      // hint when the vault is new).
-      const parsed = normalizeSnapshot(raw, ownerNameHint, moduleSelectionsHint);
+      // Use the user's personal pack if saved, else the bundled default.
+      const parsed = normalizeSnapshot(raw, ownerNameHint);
       let pack: FormPack;
       try {
         pack = await resolveBasePack(parsed);
@@ -377,7 +360,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     return () => {
       isCurrent = false;
     };
-  }, [ownerNameHint, moduleSelectionsHint, loadKey]);
+  }, [ownerNameHint, loadKey]);
 
   // -------------------------------------------------------------------------
   // Lock flow: in-flight save completes -> dirty draft stashed (encrypted
@@ -567,61 +550,6 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   }
 
   /**
-   * Apply a new set of module selections (from the Settings page). Saved
-   * through the common `persist` path so the save registers in saveInFlightRef
-   * (the lock flow awaits it) and purges any stashed draft like every other
-   * committed save. customPack is cleared so the vault rebuilds from the base
-   * pack composed with the new selections.
-   */
-  async function applyModuleSelections(next: Record<string, string>): Promise<boolean> {
-    if (!loaded) return false;
-    const current = loaded.vault.profile.moduleSelections;
-    const unchanged = Object.keys({ ...current, ...next }).every((k) => current[k] === next[k]);
-    if (unchanged) return true;
-    // Best-effort: stamp the base pack id and schemaVersion; if the pack can't
-    // be loaded the id is dropped and the post-reload save re-stamps it.
-    let nextBasePackId: string | undefined;
-    let baseSchemaVersion = loaded.schemaVersion;
-    try {
-      const basePack = await loadDefaultPack();
-      nextBasePackId = basePack.packId;
-      baseSchemaVersion = basePack.schemaVersion;
-    } catch {
-      nextBasePackId = undefined;
-    }
-    // Cap records at the base pack's schemaVersion. When the user had a
-    // customPack with a higher schemaVersion, records carry its stamp; without
-    // capping, checkSnapshotReadable would block the next load.
-    const nextValues = capRecordSchemaVersions(loaded.vault.savedValues, baseSchemaVersion);
-    const nextLoaded: LoadedVault = {
-      ...loaded,
-      schemaVersion: baseSchemaVersion,
-      vault: {
-        ...loaded.vault,
-        profile: {
-          ...loaded.vault.profile,
-          moduleSelections: next,
-          formMode: formModeFromModuleSelections(next),
-          basePackId: nextBasePackId,
-        },
-        customPack: null,
-      },
-    };
-    const ok = await persist(
-      nextLoaded,
-      nextValues,
-      loaded.vault.sectionMeta,
-      null,
-    );
-    if (ok) {
-      // Reload so sections rebuild from the newly-composed pack.
-      setPhase("loading");
-      setLoadKey((k) => k + 1);
-    }
-    return ok;
-  }
-
-  /**
    * Move the vault's data files. Relocation requires a locked vault, so this
    * locks first (via the normal lock path, which completes an in-flight save
    * and stashes dirty drafts), then moves, then leaves the user on the locked
@@ -694,7 +622,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     let fresh: LoadedVault;
     try {
       const response = await loadVaultSnapshot();
-      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, moduleSelectionsHint);
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint);
       const pack = await resolveBasePack(parsed);
       const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {
@@ -730,7 +658,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
   async function handleDiscardConflict(sectionKey: string) {
     try {
       const response = await loadVaultSnapshot();
-      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint, moduleSelectionsHint);
+      const parsed = normalizeSnapshot(response.snapshot, ownerNameHint);
       const pack = await resolveBasePack(parsed);
       const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
       if ("blocked" in result) {
@@ -1395,18 +1323,7 @@ export function Dashboard({ ownerNameHint = "", moduleSelectionsHint = DEFAULT_M
     content = <BackupPage />;
   } else if (route.kind === "settings") {
     content = (
-      <SettingsPage
-        selections={loaded.vault.profile.moduleSelections}
-        onApply={async (next) => {
-          // On failure applyModuleSelections leaves the vault unchanged and the
-          // shared save-error banner set (rendered above this pane), and the
-          // route stays "settings" so the user can retry. On success it reloads
-          // and the Settings pane remounts with the new selections.
-          await applyModuleSelections(next);
-        }}
-        vaultDir={vaultDir}
-        onRelocate={handleRelocate}
-      />
+      <SettingsPage vaultDir={vaultDir} onRelocate={handleRelocate} />
     );
   }
 

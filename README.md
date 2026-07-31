@@ -16,15 +16,15 @@ LifeScribe Vault walks you through nine guided sections of your digital legacy p
 |---|---|
 | **Digital Executors** | Primary and backup executors — contact info, responsibilities, step-in notes |
 | **Password Manager** | Provider, vault location, and how a trusted person gains emergency access |
-| **Documents** | Wills, trusts, insurance, deeds, tax records, and where they're kept |
 | **Device Inventory** | The phones and computers your family would need to unlock |
 | **Financial Accounts** | Institutions and accounts, so nothing is missed |
 | **Subscriptions** | Recurring services and what should happen to each (keep / cancel) |
-| **Online Accounts & Domains** | Email, domains, and accounts that matter |
-| **Platform Legacy Tools** | Google Inactive Account Manager, Apple Legacy Contact, and similar |
+| **Online Accounts** | Email, domains, and accounts that matter |
+| **Documents** | Wills, trusts, insurance, deeds, tax records, and where they're kept |
 | **Backups & Storage** | Where backups live and how to get into them |
+| **Platform Legacy Tools** | Google Inactive Account Manager, Apple Legacy Contact, and similar |
 
-A **Recovery Kit** — an auto-generated, printable summary pulled from every section — is the document your family starts from. Each section drives a dashboard readiness indicator, so the app won't let you forget what's missing.
+Every field is optional — fill in what's relevant and skip the rest. A **Recovery Kit** — an auto-generated, printable summary pulled from every section — is the document your family starts from. Each section drives a dashboard readiness indicator, so the app won't let you forget what's missing.
 
 ---
 
@@ -57,9 +57,15 @@ A **Recovery Kit** — an auto-generated, printable summary pulled from every se
 The vault is stored as an encrypted opaque JSON blob (`VaultSnapshot`). Rust never inspects field names — it stores and returns bytes identically, so the TypeScript domain model is the only place the shape is defined. Unknown fields from newer app versions are preserved verbatim on every round-trip.
 
 ### Form Pack System
-Forms are driven by a versioned **FormPack** — a data-only definition of sections, groups, fields, readiness rules, and Recovery Kit mappings. Optional features (e.g. storing real secrets vs. locations only) are declared as **FormModules** and composed into the pack at load from the profile's module selections. On top of that, users can apply a **UserOverlay** (relabel fields, reorder, add custom fields, hide optional ones); the overlay is constrained — it cannot delete or retype protected fields.
+Forms are driven by a versioned **FormPack** — a data-only definition of sections, groups, fields, readiness rules, and Recovery Kit mappings. The app ships one bundled pack and uses it as authored; every field is either protected (structural) or optional, and nothing is gated behind a setup question. On top of that, users can apply a **UserOverlay** (relabel fields, reorder, add custom fields, hide optional ones); the overlay is constrained — it cannot delete or retype protected fields.
 
 Pack migrations run on read, in memory, and are pure and idempotent. Changes only persist via the normal save path.
+
+### Recovery Kit
+An auto-generated, printable summary derived only from each section's Kit mappings. It is pointer-based: it names *where* things are and who to contact, and emits raw values with no redaction of its own. Credential fields are excluded from it at two layers — pack validation and Kit generation — so a master password or device PIN can never reach the printed page.
+
+### Vault Location
+The vault directory is chosen during setup and changeable from Settings. A pointer file in the app config dir names the folder; if that folder can't be reached (an external drive that isn't connected), the app says so rather than silently starting a fresh vault elsewhere.
 
 ### Draft Stash
 A separate encrypted draft stash holds in-progress edits so a locked session never loses unsaved work.
@@ -99,15 +105,17 @@ apps/desktop/
   src/
     api/          # Tauri IPC wrappers (vaultApi.ts)
     components/   # Shared UI components
-    creator/      # Pack editing tools (packEdits, packAutoMigrate, packExport,
-    |             # editorView, editorEdits)
-    domain/       # Pure domain logic (formModel, packMerge, composePack,
-    |             # packMigrations, packValidation, readiness, snapshot, recoveryKit)
-    routes/       # Page components (Dashboard, SectionPage, BackupPage,
-                  # RecoveryKitPage, LockedScreen, SetupScreen)
+    creator/      # Pack editing tools (packEdits, packAutoMigrate, packExport)
+    domain/       # Pure domain logic (formModel, packMerge, packMigrations,
+    |             # packValidation, readiness, snapshot, recoveryKit, valuesStore)
+    forms/        # FormRenderer, field controls, structure editor
+    routes/       # Page components (Dashboard, SectionPage, SetupScreen,
+                  # SettingsPage, BackupPage, RecoveryKitPage, LockedScreen,
+                  # VaultUnavailableScreen)
   src-tauri/
     src/          # Rust: commands, crypto, repository, attachments,
-                  # backup, draft_stash, clipboard, recovery
+                  # vault_location, backup, draft_stash, clipboard
+  pack-editor/    # Dev-only Vite app for editing the bundled pack
 ```
 
 ### Testing Conventions
@@ -128,10 +136,19 @@ apps/desktop/
 
 ## Documentation
 
-- `docs/user-guide.md` — user-facing guide for people who download the app
+**Current — describes how the app works today:**
+
+- `CLAUDE.md` — architecture laws and working rules, the short version
 - `docs/development.md` — developer documentation (architecture, data flows, conventions)
-- `docs/plans/2026-06-10-001-feat-lifescribe-vault-v2-rebuild-plan.md` — authoritative v2 rebuild plan
-- `docs/superpowers/specs/` — feature design specs
-- `docs/superpowers/plans/` — implementation plans
+- `docs/user-guide.md` — user-facing guide for people who download the app
+- `docs/creator-mode.md` — pack authoring (dev workflow)
 - `docs/release/windows-packaging.md` — build and release process
 - `docs/testing/v2-acceptance.md` — acceptance checklist
+
+**Historical — dated design records, kept for rationale:**
+
+- `docs/plans/` — implementation plans, including the original v2 rebuild plan
+- `docs/superpowers/specs/` and `docs/superpowers/plans/` — feature specs and plans
+- `requirements.md`, `challenges.md` — the original brief and market research
+
+Historical documents describe what was decided at the time. Some describe systems since removed — the composable form-module system, deleted 2026-07-30, is the big one. Read them for *why*; where they disagree with `docs/development.md` or the code, they are out of date.

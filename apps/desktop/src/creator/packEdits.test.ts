@@ -6,9 +6,11 @@ import {
   removeField,
   addGroup,
   addSection,
+  removeSection,
   ensureSectionHasGroup,
   setSectionMultiRecord,
   setSectionEntryLabel,
+  setFieldReadinessRequired,
   maxOrder,
 } from "./packEdits";
 import type { FormPack } from "../domain/formModel";
@@ -256,6 +258,112 @@ describe("addSection", () => {
   it("produces a pack that passes validatePack (regression: groupless section was unsavable)", () => {
     const updated = addSection(MINIMAL_PACK, "My New Section");
     expect(validatePack(updated).ok).toBe(true);
+  });
+});
+
+describe("setFieldReadinessRequired", () => {
+  it("makes an ordinary field protected + required and adds it to requiredKeys", () => {
+    const next = setFieldReadinessRequired(MINIMAL_PACK, "personal", "basics", "nickname", true);
+    const field = next.sections[0]!.groups[0]!.fields.find((f) => f.systemKey === "nickname")!;
+    expect(field.protected).toBe(true);
+    expect(field.required).toBe(true);
+    expect(next.sections[0]!.readinessRule.requiredKeys).toEqual(["full_name", "nickname"]);
+  });
+
+  it("is idempotent — anchoring an already-anchored field doesn't duplicate the key", () => {
+    const next = setFieldReadinessRequired(MINIMAL_PACK, "personal", "basics", "full_name", true);
+    expect(next.sections[0]!.readinessRule.requiredKeys).toEqual(["full_name"]);
+  });
+
+  it("releases a protected field to ordinary and drops it from requiredKeys", () => {
+    const next = setFieldReadinessRequired(MINIMAL_PACK, "personal", "basics", "full_name", false);
+    const field = next.sections[0]!.groups[0]!.fields.find((f) => f.systemKey === "full_name")!;
+    expect(field.protected).toBe(false);
+    expect(next.sections[0]!.readinessRule.requiredKeys).toEqual([]);
+    // Un-anchoring only unlocks removability; it doesn't silently flip the
+    // author's separate "Required" choice.
+    expect(field.required).toBe(true);
+  });
+
+  it("leaves the other readiness field untouched in a two-key section", () => {
+    const twoKeys: FormPack = {
+      ...MINIMAL_PACK,
+      sections: [
+        {
+          ...MINIMAL_PACK.sections[0]!,
+          readinessRule: { requiredKeys: ["full_name", "nickname"] },
+          groups: [
+            {
+              ...MINIMAL_PACK.sections[0]!.groups[0]!,
+              fields: MINIMAL_PACK.sections[0]!.groups[0]!.fields.map((f) =>
+                f.systemKey === "nickname" ? { ...f, protected: true, required: true } : f,
+              ),
+            },
+          ],
+        },
+      ],
+    };
+    const next = setFieldReadinessRequired(twoKeys, "personal", "basics", "nickname", false);
+    expect(next.sections[0]!.readinessRule.requiredKeys).toEqual(["full_name"]);
+    const fullName = next.sections[0]!.groups[0]!.fields.find((f) => f.systemKey === "full_name")!;
+    expect(fullName.protected).toBe(true);
+  });
+
+  it("returns the pack unchanged (referential identity) for an unknown field", () => {
+    expect(setFieldReadinessRequired(MINIMAL_PACK, "personal", "basics", "nope", true)).toBe(
+      MINIMAL_PACK,
+    );
+  });
+
+  it("saved through validatePack: promoting then demoting the anchor stays valid", () => {
+    const promoted = setFieldReadinessRequired(MINIMAL_PACK, "personal", "basics", "nickname", true);
+    expect(validatePack(promoted).errors).toEqual([]);
+    const demoted = setFieldReadinessRequired(promoted, "personal", "basics", "full_name", false);
+    expect(validatePack(demoted).errors).toEqual([]);
+  });
+});
+
+describe("removeSection", () => {
+  it("drops only the named section", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+
+    const updated = removeSection(twoSections, second.sectionKey);
+
+    expect(updated.sections.map((s) => s.sectionKey)).not.toContain(second.sectionKey);
+    expect(updated.sections).toHaveLength(twoSections.sections.length - 1);
+  });
+
+  it("keeps referential identity of the sections it did not touch", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+    const kept = twoSections.sections.find((s) => s.sectionKey === "personal")!;
+
+    const updated = removeSection(twoSections, second.sectionKey);
+
+    expect(updated.sections.find((s) => s.sectionKey === "personal")).toBe(kept);
+  });
+
+  it("does not mutate the input pack", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const before = twoSections.sections.length;
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+
+    removeSection(twoSections, second.sectionKey);
+
+    expect(twoSections.sections).toHaveLength(before);
+  });
+
+  it("returns pack unchanged when the sectionKey is unknown", () => {
+    const result = removeSection(MINIMAL_PACK, "nonexistent");
+    // Same reference since nothing changed.
+    expect(result).toBe(MINIMAL_PACK);
+  });
+
+  it("produces a pack that still passes validatePack", () => {
+    const twoSections = addSection(MINIMAL_PACK, "Second");
+    const second = twoSections.sections.find((s) => s.title === "Second")!;
+    expect(validatePack(removeSection(twoSections, second.sectionKey)).ok).toBe(true);
   });
 });
 

@@ -6,9 +6,22 @@ import { uniqueOptionValue } from "./optionValue";
 export interface FieldPropertyPanelProps {
   field: FieldDefinition | null;
   onChange: (updated: FieldDefinition) => void;
+  /**
+   * Whether this field counts toward its section's readiness (the dashboard
+   * checklist and the Recovery Kit's default record label both key off this).
+   * Omit both this and `onToggleReadinessAnchor` when the caller has no
+   * section context to offer — the control is hidden rather than shown inert.
+   */
+  isReadinessAnchor?: boolean;
+  onToggleReadinessAnchor?: () => void;
 }
 
-export function FieldPropertyPanel({ field, onChange }: FieldPropertyPanelProps) {
+export function FieldPropertyPanel({
+  field,
+  onChange,
+  isReadinessAnchor,
+  onToggleReadinessAnchor,
+}: FieldPropertyPanelProps) {
   const [optionLabel, setOptionLabel] = useState("");
 
   if (!field) {
@@ -78,6 +91,25 @@ export function FieldPropertyPanel({ field, onChange }: FieldPropertyPanelProps)
         />
         <span>Required</span>
       </label>
+
+      {onToggleReadinessAnchor ? (
+        <div className="field-panel__anchor">
+          <label className="field-panel__check">
+            <input
+              type="checkbox"
+              checked={isReadinessAnchor ?? false}
+              onChange={onToggleReadinessAnchor}
+            />
+            <span>Required for section readiness</span>
+          </label>
+          <p className="field-panel__note">
+            The section shows "ready" on the dashboard once every field marked
+            here has a value. Checking this also locks the field as required
+            and un-removable; unchecking releases it back to an ordinary
+            optional field.
+          </p>
+        </div>
+      ) : null}
 
       {field.type === "select" ? (
         <div className="field-panel__options">

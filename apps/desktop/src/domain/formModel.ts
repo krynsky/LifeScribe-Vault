@@ -108,58 +108,6 @@ export interface MigrationStep {
   operations: MigrationOperation[];
 }
 
-// ---------------------------------------------------------------------------
-// Composable form modules — an onboarding question whose selected option adds
-// or removes whole fields on the base pack. Declarative data only (no scripts).
-// Composition happens in composePack.ts; selection lives in the vault profile.
-// ---------------------------------------------------------------------------
-
-/** A whole field a module option inserts, with its placement in the base pack. */
-export interface ModuleAddField {
-  sectionKey: string;
-  groupKey: string;
-  /** Desired FINAL slot; inserted at order-0.5 then the group is renumbered. */
-  order: number;
-  field: FieldDefinition;
-}
-
-/** A whole section a module option inserts, with its placement among sections. */
-export interface ModuleAddSection {
-  /** Desired FINAL slot among sections; inserted at order-0.5 then renumbered. */
-  order: number;
-  section: PackSection;
-}
-
-/** One mutually-exclusive answer to a module's question. */
-export interface FormModuleOption {
-  optionId: string;
-  label?: string;
-  description?: string;
-  /** Whole fields this option inserts into the composed pack. */
-  addFields?: ModuleAddField[];
-  /** systemKeys this option removes from the composed pack. */
-  removeKeys?: string[];
-  /** sectionKey -> systemKeys appended to the section's first kitMapping entry. */
-  kitAdditions?: Record<string, string[]>;
-  /** Whole sections this option inserts into the composed pack. */
-  addSections?: ModuleAddSection[];
-  /** sectionKeys this option removes from the composed pack. */
-  removeSectionKeys?: string[];
-}
-
-/** An onboarding question. A binary toggle is just a 2-option module. */
-export interface FormModule {
-  moduleId: string;
-  title: string;
-  question: string;
-  helperText?: string;
-  options: FormModuleOption[];
-  /** optionId used when the profile has no selection for this module. */
-  defaultOptionId: string;
-  /** Onboarding display order and composition order (ascending). */
-  order: number;
-}
-
 export interface FormPack {
   packId: string;
   packVersion: string;
@@ -167,8 +115,6 @@ export interface FormPack {
   minAppVersion: string;
   sections: PackSection[];
   migrations: MigrationStep[];
-  /** Optional onboarding modules composed onto this pack at load. */
-  modules?: FormModule[];
 }
 
 // ---------------------------------------------------------------------------

@@ -10,12 +10,10 @@
 import {
   FIELD_TYPES,
   type FieldDefinition,
-  type FormModule,
   type FormPack,
   type MigrationOperation,
   isCustomFieldKey,
 } from "./formModel";
-import { composePack } from "./composePack";
 
 export type PackValidationResult =
   | { ok: true; pack: FormPack; errors: [] }
@@ -48,6 +46,26 @@ export interface LoadPackResult {
 }
 
 const FIELD_TYPE_SET: ReadonlySet<string> = new Set(FIELD_TYPES);
+
+/**
+ * Credential systemKeys that may never reach the Recovery Kit. The Kit is a
+ * PRINTABLE document meant for the user's family, and recoveryKit.ts emits the
+ * raw value of every field a section's kitMapping names.
+ *
+ * This is the AUTHORING gate: it stops a leaky pack being written or exported.
+ * It is not the last line of defence, because it never runs on the pack the Kit
+ * actually renders from — a stored `customPack` is returned as-authored by
+ * `resolveBasePack` and persisted unvalidated by `handleSavePack`. The
+ * enforcement that always runs lives in recoveryKit.ts, which drops these keys
+ * at the point of consumption. Keep both: this one gives the author an error
+ * message, that one guarantees the printed page.
+ */
+export const KIT_EXCLUDED_SYSTEM_KEYS: readonly string[] = [
+  "passwordManagerMasterPassword",
+  "devicePin",
+];
+
+const KIT_EXCLUDED_SET: ReadonlySet<string> = new Set(KIT_EXCLUDED_SYSTEM_KEYS);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -275,6 +293,11 @@ function validateSection(candidate: unknown, errors: string[]): void {
         if (!fieldIndex.has(key)) {
           errors.push(`Section ${sectionKey}: kit mapping references unknown field ${key}.`);
         }
+        if (KIT_EXCLUDED_SET.has(key)) {
+          errors.push(
+            `Section ${sectionKey}: kit mapping may not include credential field ${key} — the Recovery Kit is a printable document.`,
+          );
+        }
       }
     }
   }
@@ -384,163 +407,10 @@ export function validatePack(candidate: unknown): PackValidationResult {
     }
   }
 
-  if (candidate.modules !== undefined && !Array.isArray(candidate.modules)) {
-    errors.push("Pack modules must be an array when present.");
-  } else if (errors.length === 0 && Array.isArray(candidate.modules) && candidate.modules.length > 0) {
-    // Only validate modules against a structurally-sound base (sections/groups
-    // are then guaranteed well-formed). Wrapped so untrusted input can never
-    // throw out of validatePack — it always becomes a validation error.
-    try {
-      errors.push(...validateModules(candidate as unknown as FormPack, composePack).errors);
-    } catch (error) {
-      errors.push(`Pack modules could not be validated: ${String((error as Error).message ?? error)}`);
-    }
-  }
-
   if (errors.length > 0) {
     return { ok: false, pack: null, errors };
   }
   return { ok: true, pack: candidate as unknown as FormPack, errors: [] };
-}
-
-/**
- * Build a pack-wide flat systemKey -> { protected } map. `validateSection`
- * only enforces systemKey uniqueness within a single section, not across
- * sections — this map does not itself enforce cross-section uniqueness
- * either; if a key were reused across sections, the last section's
- * `protected` flag would silently win.
- */
-function indexModuleBaseFields(pack: FormPack): Map<string, { protected: boolean }> {
-  const index = new Map<string, { protected: boolean }>();
-  for (const section of pack.sections) {
-    for (const group of section.groups) {
-      for (const field of group.fields) {
-        index.set(field.systemKey, { protected: field.protected });
-      }
-    }
-  }
-  return index;
-}
-
-/**
- * Validate a pack's optional `modules`. Modules may only add or remove
- * UNPROTECTED fields; added keys must be globally unique, outside the custom.*
- * namespace, and never contributed by two modules; each option must compose to
- * a pack that passes validatePack. `compose` is injected to keep this decoupled
- * from composePack.ts.
- */
-export function validateModules(
-  pack: FormPack,
-  compose: (base: FormPack, modules: FormModule[], selections: Record<string, string>) => FormPack,
-): { errors: string[] } {
-  const errors: string[] = [];
-  const modules = pack.modules ?? [];
-  const baseFields = indexModuleBaseFields(pack);
-  const addedBy = new Map<string, string>(); // systemKey -> moduleId
-  const baseSectionKeys = new Set(pack.sections.map((section) => section.sectionKey));
-  const sectionAddedBy = new Map<string, string>(); // sectionKey -> moduleId
-  const seenModuleIds = new Set<string>();
-
-  for (const module of modules) {
-    const label = `module "${module.moduleId}"`;
-    if (seenModuleIds.has(module.moduleId)) {
-      errors.push(`Duplicate moduleId "${module.moduleId}".`);
-    }
-    seenModuleIds.add(module.moduleId);
-    if (module.options.length < 2) {
-      errors.push(`${label} must offer at least two options.`);
-    }
-    const optionIds = new Set(module.options.map((option) => option.optionId));
-    if (!optionIds.has(module.defaultOptionId)) {
-      errors.push(`${label} defaultOptionId "${module.defaultOptionId}" is not one of its options.`);
-    }
-
-    for (const option of module.options) {
-      for (const key of option.removeKeys ?? []) {
-        const existing = baseFields.get(key);
-        if (!existing) {
-          errors.push(`${label} option "${option.optionId}" removeKeys references unknown field "${key}".`);
-        } else if (existing.protected) {
-          errors.push(`${label} option "${option.optionId}" may not remove the protected field "${key}".`);
-        }
-      }
-      for (const add of option.addFields ?? []) {
-        if (add.field.protected) {
-          errors.push(`${label} option "${option.optionId}" may not add a protected field "${add.field.systemKey}".`);
-        }
-        if (isCustomFieldKey(add.field.systemKey)) {
-          errors.push(`${label} option "${option.optionId}" added field "${add.field.systemKey}" must not use the custom.* namespace.`);
-        }
-        const priorModule = addedBy.get(add.field.systemKey);
-        if (priorModule && priorModule !== module.moduleId) {
-          errors.push(`Field "${add.field.systemKey}" is added by more than one module ("${priorModule}" and "${module.moduleId}").`);
-        }
-        addedBy.set(add.field.systemKey, module.moduleId);
-      }
-      // Unlike removeKeys (which forbids removing a protected field to avoid a
-      // dangling readiness reference), removing a WHOLE section is
-      // intentionally allowed even if it contains protected fields — the
-      // section's readinessRule/kitMapping/data are removed with it, so no
-      // dangling reference results. Forbidding it would make section removal
-      // useless: every base section has a protected readiness field by
-      // convention.
-      for (const key of option.removeSectionKeys ?? []) {
-        if (!baseSectionKeys.has(key)) {
-          errors.push(`${label} option "${option.optionId}" removeSectionKeys references unknown section "${key}".`);
-        }
-      }
-      const removedThisOption = new Set(option.removeSectionKeys ?? []);
-      for (const add of option.addSections ?? []) {
-        const key = add.section.sectionKey;
-        if (baseSectionKeys.has(key) && !removedThisOption.has(key)) {
-          errors.push(`${label} option "${option.optionId}" added section "${key}" collides with a base section.`);
-        }
-        const priorModule = sectionAddedBy.get(key);
-        if (priorModule && priorModule !== module.moduleId) {
-          errors.push(`Section "${key}" is added by more than one module ("${priorModule}" and "${module.moduleId}").`);
-        }
-        sectionAddedBy.set(key, module.moduleId);
-        // A whole added section is self-contained: it legitimately carries its
-        // own protected readiness field(s), so protected fields here are NOT
-        // forbidden (unlike addFields into an existing section). We still
-        // enforce cross-module systemKey uniqueness via the shared addedBy map.
-        for (const group of add.section.groups) {
-          for (const field of group.fields) {
-            const priorFieldModule = addedBy.get(field.systemKey);
-            if (priorFieldModule && priorFieldModule !== module.moduleId) {
-              errors.push(`Field "${field.systemKey}" (in module-added section "${key}") is added by more than one module ("${priorFieldModule}" and "${module.moduleId}").`);
-            }
-            addedBy.set(field.systemKey, module.moduleId);
-          }
-        }
-      }
-    }
-  }
-
-  // Compose each option alone onto the base pack and revalidate. This
-  // intentionally collects all errors across all options rather than
-  // stopping at the first failure, so an option that produces an invalid
-  // pack may append a follow-on error alongside an already-flagged module.
-  for (const module of modules) {
-    for (const option of module.options) {
-      let composed: FormPack;
-      try {
-        composed = compose(pack, [module], { [module.moduleId]: option.optionId });
-      } catch (error) {
-        errors.push(`module "${module.moduleId}" option "${option.optionId}" failed to compose: ${String((error as Error).message ?? error)}`);
-        continue;
-      }
-      // Strip modules so this nested validatePack call does not recurse back into validateModules.
-      const result = validatePack({ ...composed, modules: undefined });
-      if (!result.ok) {
-        errors.push(
-          `module "${module.moduleId}" option "${option.optionId}" produces an invalid pack: ${result.errors.join("; ")}`,
-        );
-      }
-    }
-  }
-
-  return { errors };
 }
 
 interface FieldRecordInfo {

@@ -297,6 +297,64 @@ export function removeField(
 }
 
 /**
+ * Toggles whether a field counts toward its section's readiness (the
+ * dashboard checklist and the Recovery Kit's default record label both read
+ * `readinessRule.requiredKeys`; readiness is "every key has a value").
+ *
+ * A field can only appear there while `protected: true` (validatePack's
+ * rule), and a protected field must be `required: true` — so this single
+ * toggle owns all three: setting it true makes the field protected + required
+ * and adds its key to `requiredKeys`; setting it false releases the field to
+ * an ordinary optional one and drops the key. Returns the pack unchanged
+ * (referential identity) if the field is not found.
+ *
+ * A section may have zero, one, or several readiness fields — Digital
+ * Executors requires two, Platform Legacy Tools three — so this only ever
+ * adds or removes one key; it never clears the others.
+ */
+export function setFieldReadinessRequired(
+  pack: FormPack,
+  sectionKey: string,
+  groupKey: string,
+  systemKey: string,
+  required: boolean,
+): FormPack {
+  const section = pack.sections.find((s) => s.sectionKey === sectionKey);
+  const field = section?.groups
+    .find((g) => g.groupKey === groupKey)
+    ?.fields.find((f) => f.systemKey === systemKey);
+  if (!field) return pack;
+
+  const withField = updateField(pack, sectionKey, groupKey, systemKey, (f) => ({
+    ...f,
+    protected: required,
+    required: required ? true : f.required,
+  }));
+  return updateSection(withField, sectionKey, (s) => ({
+    ...s,
+    readinessRule: {
+      ...s.readinessRule,
+      requiredKeys: required
+        ? s.readinessRule.requiredKeys.includes(systemKey)
+          ? s.readinessRule.requiredKeys
+          : [...s.readinessRule.requiredKeys, systemKey]
+        : s.readinessRule.requiredKeys.filter((key) => key !== systemKey),
+    },
+  }));
+}
+
+/**
+ * Removes a section by sectionKey.
+ * - Returns the pack unchanged (referential identity) if the key is unknown.
+ * - Surviving sections keep referential identity; `order` is left as-is, since
+ *   the pack is always read in sorted order and gaps are harmless.
+ */
+export function removeSection(pack: FormPack, sectionKey: string): FormPack {
+  if (!pack.sections.some((s) => s.sectionKey === sectionKey)) return pack;
+  return { ...pack, sections: pack.sections.filter((s) => s.sectionKey !== sectionKey) };
+}
+
+/**
  * Swaps the `order` of the target field with the adjacent field in the given
  * direction. Returns the pack unchanged if already at the boundary.
  */
