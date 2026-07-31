@@ -76,6 +76,7 @@ For each section, open it and verify:
 - [ ] Edit a section field; verify Recovery Kit shows a staleness indicator.
 - [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Device Inventory, save, then regenerate the Kit. **Neither value appears anywhere on it**, on screen or in print preview. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
 - [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.
+- [ ] A dropdown field mapped into the Kit (e.g. Device Inventory's device type, or Platform Legacy Tools' platform) shows its **readable option text** — "External drive," "Apple Legacy Contact" — never the underlying stored value like "external-drive" or "apple-legacy-contact".
 
 ## 8. Backup and restore
 

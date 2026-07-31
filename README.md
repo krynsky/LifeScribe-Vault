@@ -62,7 +62,7 @@ Forms are driven by a versioned **FormPack** — a data-only definition of secti
 Pack migrations run on read, in memory, and are pure and idempotent. Changes only persist via the normal save path.
 
 ### Recovery Kit
-An auto-generated, printable summary derived only from each section's Kit mappings. It is pointer-based: it names *where* things are and who to contact, and emits raw values with no redaction of its own. Credential fields are excluded from it at two layers — pack validation and Kit generation — so a master password or device PIN can never reach the printed page.
+An auto-generated, printable summary derived only from each section's Kit mappings. It is pointer-based: it names *where* things are and who to contact, showing readable text (a dropdown's chosen label, an attachment's filename) rather than internal stored values, with no redaction of its own. Credential fields are excluded from it at two layers — pack validation and Kit generation — so a master password or device PIN can never reach the printed page.
 
 ### Vault Location
 The vault directory is chosen during setup and changeable from Settings. A pointer file in the app config dir names the folder; if that folder can't be reached (an external drive that isn't connected), the app says so rather than silently starting a fresh vault elsewhere.

@@ -83,6 +83,22 @@ a migration op to the pack's `migrations` array and bump its `schemaVersion`
 > bundled pack. If you edit the bundled pack and don't write the migration
 > yourself, there is no migration.
 
+**Adding or moving which field anchors a section's readiness** is a UI
+control, not a hand-edit: select the field and check **"Required for section
+readiness"** in its panel. It sets that field `protected` + `required` and adds
+it to the section's `readinessRule.requiredKeys` without touching any other
+readiness field the section already has — a section can require more than one
+(Digital Executors requires two). Unchecking releases the field back to
+ordinary and drops it from the rule. Get this wrong and the dashboard's "ready"
+checkmark quietly means the wrong thing — that's exactly how Backups & Storage
+ended up anchored on its fallback field after a restructure, before this
+control existed.
+
+There is still no equivalent control for a section's **groups** — no UI path
+creates, renames, or removes one. A section that legitimately needs more than
+one group (structurally distinct from `multiRecord`, which repeats one group)
+has to be authored by hand-editing the JSON.
+
 ### 5. Know who actually receives it
 
 `resolveBasePack` returns the user's `customPack` when they have one, and the
@@ -135,7 +151,9 @@ gh pr create --fill
 
 If a new field is meant to hold a secret — a password, a PIN, a recovery code —
 it must **not** appear in any section's `kitMapping`. The Recovery Kit is a
-printable document and emits raw values with no redaction of its own.
+printable document, and while it does resolve a `select` to its option's label
+and a `file` to its filename, that's display, not redaction — nothing is
+hidden by field name or type.
 
 `validatePack` rejects the keys in `KIT_EXCLUDED_SYSTEM_KEYS`, but that is a
 literal list of two systemKeys. A *new* credential field is not covered by it

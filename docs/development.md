@@ -249,6 +249,16 @@ The user simply leaves them blank if they don't want them.
 in-app structure editor passes no locked keys (`NO_LOCKED_KEYS`), so only
 protected fields are undeletable.
 
+**Designating a section's readiness anchor is a Pack Editor UI control, not a
+hand-edit.** `setFieldReadinessRequired` in `packEdits.ts` is the single toggle
+behind the field panel's "Required for section readiness" checkbox — it keeps
+`protected`, `required`, and membership in `readinessRule.requiredKeys` in sync
+for one field, without disturbing a section's other readiness fields (Digital
+Executors requires two; Platform Legacy Tools requires the identifying field of
+each record). Before this existed, changing which field anchored a section's
+readiness meant editing the JSON directly, which is exactly how Backups &
+Storage ended up with its anchor on the wrong field after a restructure.
+
 **`customPack` is not validated on save or on read.** `handleSavePack` persists
 it directly and `resolveBasePack` returns it as-authored. Anything that must
 hold for *every* pack the app renders cannot rely on `validatePack` alone.
@@ -257,8 +267,12 @@ hold for *every* pack the app renders cannot rely on `validatePack` alone.
 
 The Kit (`domain/recoveryKit.ts`) is a **printable** document for the user's
 family. It is pointer-based: it emits only the systemKeys each section's
-`kitMapping` names, and it emits their **raw values** with no redaction of its
-own. A file field contributes its *filename*, not its contents.
+`kitMapping` names, and it applies **no redaction of its own** — nothing is
+hidden by field name or type. What it emits is *display*, not the stored value
+verbatim: a `select` field resolves to its option's **label** (an orphaned
+value with no matching option falls back to printing itself, rather than
+disappearing), and a `file` field contributes its **filename**, not its
+contents or its stored attachment id.
 
 Credential keys (`passwordManagerMasterPassword`, `devicePin`) may never appear
 on it. That is enforced twice, deliberately:
@@ -369,6 +383,14 @@ a base pack or a module option was deleted with the module system.
 Real, deliberately unfixed, and worth knowing before you touch nearby code:
 
 - `customPack` is validated at neither save nor read.
+- **No UI path exists to create, rename, or remove a group within a section.**
+  `addGroup` in `packEdits.ts` is never called by the Pack Editor, there is no
+  `removeGroup` at all, and a group's title renders as a static heading. Every
+  section in the shipped pack currently has exactly one group — Platform
+  Legacy Tools was the only exception, restructured to match the rest rather
+  than exercising this gap — but the moment a section legitimately needs more
+  than one group again, this has to be authored by hand-editing the JSON, the
+  same way the readiness anchor did before it got a UI control.
 - Attachments from different vaults share one directory tree, so the sweep must
   check ownership per file. A per-vault `attachments/<vault_id>/` subdirectory
   would remove the class of bug; `create_backup` also scoops both vaults' blobs.
