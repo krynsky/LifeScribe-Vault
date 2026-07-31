@@ -268,13 +268,22 @@
               "order": 3
             },
             {
+              "systemKey": "passwordManagerMasterPassword",
+              "label": "Master password",
+              "helperText": "Optional. The master password for your password manager.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 4
+            },
+            {
               "systemKey": "passwordManagerEmergencyAccess",
               "label": "Emergency access method",
               "helperText": "How a trusted person gets in — for example 1Password family recovery, Bitwarden Emergency Access with a waiting period, or a sealed recovery kit. Describe the steps, not the secrets.",
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 4
+              "order": 5
             },
             {
               "systemKey": "passwordManagerRecoveryLocation",
@@ -283,7 +292,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 5
+              "order": 6
             },
             {
               "systemKey": "passwordManagerTwoFactorNotes",
@@ -292,7 +301,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 6
+              "order": 7
             },
             {
               "systemKey": "passwordManagerTrustedEmergencyContact",
@@ -301,7 +310,7 @@
               "type": "textarea",
               "required": false,
               "protected": false,
-              "order": 7
+              "order": 8
             },
             {
               "systemKey": "passwordManagerAccessTested",
@@ -320,15 +329,6 @@
                   "label": "Not tested yet"
                 }
               ],
-              "order": 8
-            },
-            {
-              "systemKey": "passwordManagerMasterPassword",
-              "label": "Master password",
-              "helperText": "Optional. The master password for your password manager.",
-              "type": "text",
-              "required": false,
-              "protected": false,
               "order": 9
             },
             {
