@@ -38,6 +38,39 @@ describe("FieldPropertyPanel", () => {
     );
   });
 
+  it("hides the readiness-anchor control when the caller offers no section context", () => {
+    render(<FieldPropertyPanel field={field} onChange={vi.fn()} />);
+    expect(screen.queryByText(/required for section readiness/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the readiness-anchor checkbox unchecked, and emits the toggle on click", async () => {
+    const onToggle = vi.fn();
+    render(
+      <FieldPropertyPanel
+        field={field}
+        onChange={vi.fn()}
+        isReadinessAnchor={false}
+        onToggleReadinessAnchor={onToggle}
+      />,
+    );
+    const checkbox = screen.getByRole("checkbox", { name: /required for section readiness/i });
+    expect(checkbox).not.toBeChecked();
+    await userEvent.click(checkbox);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the readiness-anchor checkbox checked when the field is already an anchor", () => {
+    render(
+      <FieldPropertyPanel
+        field={field}
+        onChange={vi.fn()}
+        isReadinessAnchor={true}
+        onToggleReadinessAnchor={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("checkbox", { name: /required for section readiness/i })).toBeChecked();
+  });
+
   it("adds an option from a single Value input, auto-generating the stored value", async () => {
     const onChange = vi.fn();
     const selectField: FieldDefinition = { ...field, type: "select", options: [] };

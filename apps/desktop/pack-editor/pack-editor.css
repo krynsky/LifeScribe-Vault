@@ -27,6 +27,8 @@
 .field-panel--empty { color: var(--color-ink-tertiary); }
 .field-panel__control { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-xs); color: var(--color-ink-secondary); }
 .field-panel__check { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--color-ink-secondary); }
+.field-panel__anchor { display: flex; flex-direction: column; gap: 4px; }
+.field-panel__note { margin: 0; font-size: var(--text-xs); color: var(--color-ink-tertiary); }
 .field-panel__options ul { list-style: none; margin: 0 0 var(--space-2); padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .field-panel__options li { display: flex; align-items: center; justify-content: space-between; font-size: var(--text-xs); }
 .field-panel__option-add { display: flex; gap: 6px; }

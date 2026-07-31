@@ -16,7 +16,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
 import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
-import { addOptionalField, removeField, updateField, updateSection } from "../src/creator/packEdits";
+import {
+  addOptionalField,
+  removeField,
+  setFieldReadinessRequired,
+  updateField,
+  updateSection,
+} from "../src/creator/packEdits";
 import { FIELD_TYPES } from "../src/domain/formModel";
 import type { FieldDefinition, FieldType, FormPack, PackSection } from "../src/domain/formModel";
 import { SectionPropertyPanel } from "./SectionPropertyPanel";
@@ -164,6 +170,10 @@ export function OverlayDesign({
     }
   }
 
+  function handleToggleReadinessAnchor(groupKey: string, systemKey: string, next: boolean) {
+    onChangeBase(setFieldReadinessRequired(base, section.sectionKey, groupKey, systemKey, next));
+  }
+
   function handleDuplicate(groupKey: string, systemKey: string) {
     onChangeBase(duplicateField(base, section.sectionKey, groupKey, systemKey));
   }
@@ -244,6 +254,15 @@ export function OverlayDesign({
                 updated.systemKey,
                 () => updated,
               ),
+            );
+          }}
+          isReadinessAnchor={section.readinessRule.requiredKeys.includes(selectedField.systemKey)}
+          onToggleReadinessAnchor={() => {
+            if (!selectedGroupKey) return;
+            handleToggleReadinessAnchor(
+              selectedGroupKey,
+              selectedField.systemKey,
+              !section.readinessRule.requiredKeys.includes(selectedField.systemKey),
             );
           }}
         />

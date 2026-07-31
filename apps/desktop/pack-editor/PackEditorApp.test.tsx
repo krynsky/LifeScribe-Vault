@@ -425,6 +425,37 @@ describe("PackEditorApp", () => {
         .find((f) => f.systemKey === "nickname")!;
       expect(field.required).toBe(true);
     });
+
+    it("marking a field as the readiness anchor persists it to the saved pack", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit field Nickname/i }));
+      const checkbox = screen.getByRole("checkbox", { name: /required for section readiness/i });
+      expect(checkbox).not.toBeChecked();
+      await userEvent.click(checkbox);
+
+      await save();
+      const section = savedPack().sections.find((s) => s.sectionKey === "identity")!;
+      const field = section.groups.flatMap((g) => g.fields).find((f) => f.systemKey === "nickname")!;
+      expect(field.protected).toBe(true);
+      expect(field.required).toBe(true);
+      expect(section.readinessRule.requiredKeys).toEqual(["fullName", "nickname"]);
+    });
+
+    it("un-anchoring the existing protected field releases it and drops it from requiredKeys", async () => {
+      mocked.savePack.mockResolvedValue(undefined);
+      render(<PackEditorApp />);
+      await userEvent.click(await screen.findByRole("button", { name: /edit field Full name/i }));
+      const checkbox = screen.getByRole("checkbox", { name: /required for section readiness/i });
+      expect(checkbox).toBeChecked();
+      await userEvent.click(checkbox);
+
+      await save();
+      const section = savedPack().sections.find((s) => s.sectionKey === "identity")!;
+      const field = section.groups.flatMap((g) => g.fields).find((f) => f.systemKey === "fullName")!;
+      expect(field.protected).toBe(false);
+      expect(section.readinessRule.requiredKeys).toEqual([]);
+    });
   });
 
   describe("section nav", () => {
