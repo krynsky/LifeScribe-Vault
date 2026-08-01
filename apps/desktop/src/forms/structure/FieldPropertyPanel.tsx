@@ -273,19 +273,11 @@ export function FieldPropertyPanel({
                             );
                             return;
                           }
-                          const selectedKeys = new Set([
-                            ...field.reference.displayFields.map((candidate) => candidate.systemKey),
-                            sourceField.systemKey,
-                          ]);
                           updateReferenceDisplayFields(
-                            referenceSourceFields
-                              .filter((candidate) => selectedKeys.has(candidate.systemKey))
-                              .map(
-                                (candidate) =>
-                                  field.reference!.displayFields.find(
-                                    (part) => part.systemKey === candidate.systemKey,
-                                  ) ?? { systemKey: candidate.systemKey },
-                              ),
+                            [
+                              ...field.reference.displayFields,
+                              { systemKey: sourceField.systemKey },
+                            ],
                           );
                         }}
                       />

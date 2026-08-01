@@ -62,6 +62,7 @@ interface HarnessProps {
   validationIssues?: import("../domain/sectionValidation").SectionValidationIssue[];
   allSections?: ResolvedSection[];
   referenceValues?: VaultValues;
+  effectiveReferenceValues?: VaultValues;
 }
 
 function Harness({
@@ -72,6 +73,7 @@ function Harness({
   validationIssues,
   allSections,
   referenceValues,
+  effectiveReferenceValues,
 }: HarnessProps) {
   const [values, setValues] = useState<SectionValues>(
     initial ?? makeSectionValues(section.sectionKey),
@@ -94,7 +96,7 @@ function Harness({
           ? {
               sections: allSections,
               savedValues: referenceValues ?? {},
-              effectiveValues: referenceValues ?? {},
+              effectiveValues: effectiveReferenceValues ?? referenceValues ?? {},
             }
           : undefined
       }
@@ -209,6 +211,70 @@ describe("RecordList", () => {
     expect(screen.getByText(/Backups & Storage: Family photos/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
     expect(captureRef.current).toBeNull();
+  });
+
+  it("blocks deletion while an unsaved working record references the source record", async () => {
+    const user = userEvent.setup();
+    const devices = makeDevicesPack().sections[0]!;
+    const backups = makeSection({
+      sectionKey: "backups",
+      title: "Backups & Storage",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "backup",
+          title: "Backup",
+          fields: [
+            makeField({ systemKey: "backupName", label: "Backup name", order: 1 }),
+            makeField({
+              systemKey: "backupDevice",
+              label: "Device",
+              type: "recordRef",
+              reference: {
+                sectionKey: "devices",
+                displayFields: [{ systemKey: "deviceName" }],
+                separator: " — ",
+              },
+              order: 2,
+            }),
+          ],
+        }),
+      ],
+    });
+    const merged = mergePackWithOverlay(makePack({ sections: [devices, backups] }));
+    const deviceSection = merged.resolved.sections.find((s) => s.sectionKey === "devices")!;
+    const deviceValues = makeSectionValues("devices", [
+      { id: "device-1", schemaVersion: 1, values: { deviceName: "Home NAS" } },
+    ]);
+    const savedValues: VaultValues = {
+      devices: deviceValues,
+      backups: makeSectionValues("backups"),
+    };
+    const effectiveValues: VaultValues = {
+      ...savedValues,
+      backups: makeSectionValues("backups", [
+        {
+          id: "backup-draft",
+          schemaVersion: 1,
+          values: { backupName: "Unsaved photos", backupDevice: "device-1" },
+        },
+      ]),
+    };
+
+    render(
+      <Harness
+        section={deviceSection}
+        allSections={merged.resolved.sections}
+        referenceValues={savedValues}
+        effectiveReferenceValues={effectiveValues}
+        initial={deviceValues}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByText(/cannot be deleted because it is used by/i)).toBeInTheDocument();
+    expect(screen.getByText(/Backups & Storage: Unsaved photos/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).not.toBeInTheDocument();
   });
 
   it("labels a record without readiness-field value by its first non-empty value, else Untitled", async () => {

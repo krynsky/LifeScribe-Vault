@@ -97,6 +97,8 @@ describe("valueConformsToField", () => {
     // A path is a free-form string: any value conforms (folder or file path).
     expect(valueConformsToField("C:\\Users\\Dana\\Estate", { type: "path" })).toBe(true);
     expect(valueConformsToField("", { type: "path" })).toBe(true);
+    expect(valueConformsToField("saved-record-id", { type: "recordRef" })).toBe(true);
+    expect(valueConformsToField("", { type: "recordRef" })).toBe(false);
   });
 });
 
@@ -115,6 +117,27 @@ describe("applyKeyRenames", () => {
 });
 
 describe("reconcileSectionValues — orphaned field values", () => {
+  it("preserves a nonempty unresolved id when a field changes to recordRef", () => {
+    const section = resolvedPlanSection((pack) => {
+      const provider = pack.sections[0].groups[0].fields[0];
+      provider.type = "recordRef";
+      provider.options = undefined;
+      provider.reference = {
+        sectionKey: "devices",
+        displayFields: [{ systemKey: "deviceName" }],
+        separator: " — ",
+      };
+    });
+    const sectionValues = makeSectionValues("plan", [
+      makeRecord({ id: "m1", values: { provider: "missing-device-id" } }),
+    ]);
+
+    const result = reconcileSectionValues(sectionValues, section, PLAN_PREVIOUS_FIELDS);
+
+    expect(result.sectionValues.records[0].values.provider).toBe("missing-device-id");
+    expect(result.newlyArchived).toEqual([]);
+  });
+
   it("archives an orphaned value with its original label and a reason", () => {
     const section = resolvedPlanSection((pack) => {
       pack.sections[0].groups[0].fields = pack.sections[0].groups[0].fields.filter(
