@@ -42,6 +42,7 @@ import {
   type ReadinessRule,
 } from "./formModel";
 import { KIT_EXCLUDED_SYSTEM_KEYS } from "./packValidation";
+import { resolveRecordReference } from "./recordReferences";
 import type { KitMeta, SectionMetaMap, VaultProfile } from "./snapshot";
 import type { SectionRecord, VaultValues } from "./valuesStore";
 
@@ -114,6 +115,8 @@ function buildItems(
   record: SectionRecord,
   mappedKeys: readonly string[],
   fieldIndex: Map<string, FieldDefinition>,
+  sections: readonly KitSourceSection[],
+  values: VaultValues,
 ): RecoveryKitItem[] {
   const items: RecoveryKitItem[] = [];
   for (const systemKey of mappedKeys) {
@@ -133,6 +136,10 @@ function buildItems(
         ? (record.attachments?.find((a) => a.id === value)?.fileName ?? value)
         : field.type === "select"
           ? (field.options?.find((o) => o.value === value)?.label ?? value)
+          : field.type === "recordRef"
+            ? (resolveRecordReference(field, sections, values, value).options.find(
+                (option) => option.value === value,
+              )?.label ?? "Unavailable saved record")
           : value;
     items.push({ systemKey, label: field.label, value: displayValue });
   }
@@ -146,7 +153,6 @@ function buildItems(
  */
 function blockLabel(
   section: KitSourceSection,
-  record: SectionRecord,
   mappedKeys: readonly string[],
   items: RecoveryKitItem[],
 ): string {
@@ -155,9 +161,9 @@ function blockLabel(
     if (!mapped.has(key)) {
       continue;
     }
-    const value = (record.values[key] ?? "").trim();
-    if (value.length > 0) {
-      return value;
+    const item = items.find((candidate) => candidate.systemKey === key);
+    if (item) {
+      return item.value;
     }
   }
   return items[0]?.value ?? "Untitled";
@@ -204,14 +210,14 @@ export function buildRecoveryKit(
       const mappedKeys = entry.fields.filter((key) => !KIT_EXCLUDED_SET.has(key));
       const blocks: RecoveryKitBlock[] = [];
       for (const record of sectionValues.records) {
-        const items = buildItems(record, mappedKeys, fieldIndex);
+        const items = buildItems(record, mappedKeys, fieldIndex, ordered, values);
         if (items.length === 0) {
           continue;
         }
         blocks.push({
           recordId: record.id,
           recordLabel: isLabeledRecord(section, record)
-            ? blockLabel(section, record, mappedKeys, items)
+            ? blockLabel(section, mappedKeys, items)
             : null,
           items,
         });

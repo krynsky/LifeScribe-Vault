@@ -563,6 +563,66 @@ describe("Recovery Kit and the permanent credential fields", () => {
 });
 
 describe("Recovery Kit from the shipped default pack", () => {
+  it("prints a recordRef display label instead of its internal record id", () => {
+    const devices = makeSection({
+      sectionKey: "devices",
+      title: "Devices",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "device",
+          fields: [
+            makeField({
+              systemKey: "deviceName",
+              label: "Device name",
+              required: true,
+              protected: true,
+            }),
+          ],
+        }),
+      ],
+      readinessRule: { requiredKeys: ["deviceName"] },
+    });
+    const backups = makeSection({
+      sectionKey: "backups",
+      title: "Backups & Storage",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "backup",
+          fields: [
+            makeField({
+              systemKey: "backupDevice",
+              label: "Device",
+              type: "recordRef",
+              required: true,
+              protected: true,
+              reference: {
+                sectionKey: "devices",
+                displayFields: [{ systemKey: "deviceName" }],
+                separator: " — ",
+              },
+            }),
+          ],
+        }),
+      ],
+      readinessRule: { requiredKeys: ["backupDevice"] },
+      kitMapping: { entries: [{ heading: "Backups", fields: ["backupDevice"] }] },
+    });
+    const values = makeVaultValues([
+      makeSectionValues("devices", [
+        makeRecord({ id: "device-1", values: { deviceName: "Home NAS" } }),
+      ]),
+      makeSectionValues("backups", [
+        makeRecord({ id: "backup-1", values: { backupDevice: "device-1" } }),
+      ]),
+    ]);
+
+    const strings = allKitStrings(buildRecoveryKit([devices, backups], values));
+    expect(strings).toContain("Home NAS");
+    expect(strings).not.toContain("device-1");
+  });
+
   function shippedValues(): VaultValues {
     return makeVaultValues([
       makeSectionValues("digital-executors", [

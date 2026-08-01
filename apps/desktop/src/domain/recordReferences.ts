@@ -1,8 +1,6 @@
 import {
-  sectionFields,
   type FieldDefinition,
   type FieldOption,
-  type PackSection,
   type RecordReferenceDisplayField,
 } from "./formModel";
 import type { SectionRecord, VaultValues } from "./valuesStore";
@@ -19,6 +17,17 @@ export interface RecordReferenceUsage {
   recordLabel: string;
   fieldSystemKey: string;
   fieldLabel: string;
+}
+
+export interface RecordReferenceSourceSection {
+  sectionKey: string;
+  title: string;
+  readinessRule: { requiredKeys: string[] };
+  groups: ReadonlyArray<{ fields: ReadonlyArray<FieldDefinition> }>;
+}
+
+function sourceSectionFields(section: RecordReferenceSourceSection): FieldDefinition[] {
+  return section.groups.flatMap((group) => group.fields);
 }
 
 function formatDisplayPart(value: string, field: RecordReferenceDisplayField): string {
@@ -45,7 +54,7 @@ export function recordReferenceLabel(
 
 export function resolveRecordReference(
   field: Pick<FieldDefinition, "type" | "reference">,
-  sections: ReadonlyArray<PackSection>,
+  sections: ReadonlyArray<RecordReferenceSourceSection>,
   values: VaultValues,
   selectedValue = "",
 ): ResolvedRecordReference {
@@ -72,17 +81,17 @@ export function resolveRecordReference(
   };
 }
 
-function usageRecordLabel(
-  section: PackSection,
+export function recordReferenceAwareSummaryLabel(
   record: SectionRecord,
-  sections: ReadonlyArray<PackSection>,
+  orderedFields: ReadonlyArray<FieldDefinition>,
+  readinessKeys: readonly string[],
+  sections: ReadonlyArray<RecordReferenceSourceSection>,
   values: VaultValues,
 ): string {
-  const fields = sectionFields(section);
-  const readiness = new Set(section.readinessRule.requiredKeys);
+  const readiness = new Set(readinessKeys);
   const candidates = [
-    ...fields.filter((field) => readiness.has(field.systemKey)),
-    ...fields.filter((field) => !readiness.has(field.systemKey)),
+    ...orderedFields.filter((field) => readiness.has(field.systemKey)),
+    ...orderedFields.filter((field) => !readiness.has(field.systemKey)),
   ];
   for (const field of candidates) {
     const value = record.values[field.systemKey]?.trim();
@@ -103,12 +112,12 @@ function usageRecordLabel(
 export function findRecordReferenceUsages(
   sourceSectionKey: string,
   sourceRecordId: string,
-  sections: ReadonlyArray<PackSection>,
+  sections: ReadonlyArray<RecordReferenceSourceSection>,
   values: VaultValues,
 ): RecordReferenceUsage[] {
   const usages: RecordReferenceUsage[] = [];
   for (const section of sections) {
-    const referencingFields = sectionFields(section).filter(
+    const referencingFields = sourceSectionFields(section).filter(
       (field) =>
         field.type === "recordRef" && field.reference?.sectionKey === sourceSectionKey,
     );
@@ -120,7 +129,13 @@ export function findRecordReferenceUsages(
           sectionKey: section.sectionKey,
           sectionTitle: section.title,
           recordId: record.id,
-          recordLabel: usageRecordLabel(section, record, sections, values),
+          recordLabel: recordReferenceAwareSummaryLabel(
+            record,
+            sourceSectionFields(section),
+            section.readinessRule.requiredKeys,
+            sections,
+            values,
+          ),
           fieldSystemKey: field.systemKey,
           fieldLabel: field.label,
         });

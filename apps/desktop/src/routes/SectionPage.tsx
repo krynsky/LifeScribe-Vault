@@ -6,7 +6,7 @@ import type { FieldDefinition, FieldType, PackSection, ResolvedSection } from ".
 import type { SectionStatus } from "../domain/readiness";
 import type { SectionMeta } from "../domain/snapshot";
 import type { SectionValidationIssue } from "../domain/sectionValidation";
-import type { SectionValues } from "../domain/valuesStore";
+import type { SectionValues, VaultValues } from "../domain/valuesStore";
 
 export interface DraftBannerState {
   stashedAt: string | null;
@@ -27,6 +27,9 @@ export interface SectionPageProps {
   conflict: boolean;
   draftBanner: DraftBannerState | null;
   validationIssues: SectionValidationIssue[];
+  allSections: ResolvedSection[];
+  referenceValues: VaultValues;
+  referenceUsageValues: VaultValues;
   onChange: (values: SectionValues) => void;
   onSave: () => void;
   onSaveAgain: () => void;
@@ -76,6 +79,9 @@ export function SectionPage({
   conflict,
   draftBanner,
   validationIssues,
+  allSections,
+  referenceValues,
+  referenceUsageValues,
   onChange,
   onSave,
   onSaveAgain,
@@ -178,6 +184,9 @@ export function SectionPage({
             schemaVersion={schemaVersion}
             onChange={onChange}
             validationIssues={validationIssues}
+            allSections={allSections}
+            referenceValues={referenceValues}
+            referenceUsageValues={referenceUsageValues}
           />
         )}
       </div>

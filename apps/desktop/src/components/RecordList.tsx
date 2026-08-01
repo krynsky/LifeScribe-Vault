@@ -16,8 +16,12 @@
 
 import { useState } from "react";
 import type { ResolvedField, ResolvedSection } from "../domain/formModel";
+import {
+  findRecordReferenceUsages,
+  recordReferenceAwareSummaryLabel,
+} from "../domain/recordReferences";
 import type { SectionValidationIssue } from "../domain/sectionValidation";
-import type { SectionRecord, SectionValues } from "../domain/valuesStore";
+import type { SectionRecord, SectionValues, VaultValues } from "../domain/valuesStore";
 import { FormRenderer } from "../forms/FormRenderer";
 import { createRecordId, recordSummaryLabel } from "../forms/recordUtils";
 import { ArchivedAnswers } from "./ArchivedAnswers";
@@ -32,6 +36,11 @@ export interface RecordListProps {
   onSave?: (values: SectionValues) => void;
   /** Page-level required-field issues, rendered inline under each field. */
   validationIssues?: SectionValidationIssue[];
+  allSections?: ResolvedSection[];
+  /** Saved values for recordRef choices. */
+  referenceValues?: VaultValues;
+  /** Saved + working values for inbound-reference deletion checks. */
+  referenceUsageValues?: VaultValues;
 }
 
 export function RecordList({
@@ -41,6 +50,9 @@ export function RecordList({
   onChange,
   onSave,
   validationIssues,
+  allSections = [],
+  referenceValues = {},
+  referenceUsageValues = referenceValues,
 }: RecordListProps) {
   // `undefined` means the user has not yet touched the disclosure, so a record
   // carrying a validation issue may auto-expand; `null` is an explicit collapse.
@@ -72,6 +84,9 @@ export function RecordList({
           onChange={onChange}
           onSave={onSave}
           externalIssues={validationIssues}
+          allSections={allSections}
+          referenceValues={referenceValues}
+          referenceUsageValues={referenceUsageValues}
         />
         {archived}
       </div>
@@ -140,8 +155,26 @@ export function RecordList({
         <>
           <ul className="record-list__items">
             {plainRecords.map((record) => {
-              const label = recordSummaryLabel(record, orderedFields, readinessKeys);
+              const label =
+                allSections.length > 0
+                  ? recordReferenceAwareSummaryLabel(
+                      record,
+                      orderedFields,
+                      readinessKeys,
+                      allSections,
+                      referenceValues,
+                    )
+                  : recordSummaryLabel(record, orderedFields, readinessKeys);
               const expanded = effectiveActiveId === record.id;
+              const usages =
+                pendingDeleteId === record.id
+                  ? findRecordReferenceUsages(
+                      section.sectionKey,
+                      record.id,
+                      allSections,
+                      referenceUsageValues,
+                    )
+                  : [];
               return (
                 <li className="record-list__item" key={record.id}>
                   <div className="record-list__row">
@@ -173,12 +206,27 @@ export function RecordList({
                   </div>
                   {pendingDeleteId === record.id ? (
                     <div className="record-list__confirm">
-                      <p>Delete “{label}”? This cannot be undone.</p>
-                      <button type="button" onClick={() => deleteRecord(record)}>
-                        Confirm delete
-                      </button>
+                      {usages.length > 0 ? (
+                        <>
+                          <p>“{label}” cannot be deleted because it is used by:</p>
+                          <ul>
+                            {usages.map((usage) => (
+                              <li key={`${usage.sectionKey}:${usage.recordId}:${usage.fieldSystemKey}`}>
+                                {usage.sectionTitle}: {usage.recordLabel}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : (
+                        <>
+                          <p>Delete “{label}”? This cannot be undone.</p>
+                          <button type="button" onClick={() => deleteRecord(record)}>
+                            Confirm delete
+                          </button>
+                        </>
+                      )}
                       <button type="button" onClick={() => setPendingDeleteId(null)}>
-                        Cancel
+                        {usages.length > 0 ? "Close" : "Cancel"}
                       </button>
                     </div>
                   ) : null}
@@ -192,6 +240,9 @@ export function RecordList({
                         onChange={onChange}
                         onSave={onSave}
                         externalIssues={validationIssues}
+                        allSections={allSections}
+                        referenceValues={referenceValues}
+                        referenceUsageValues={referenceUsageValues}
                       />
                     </div>
                   ) : null}

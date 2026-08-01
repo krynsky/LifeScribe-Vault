@@ -1288,6 +1288,9 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             section={displaySection}
             status={statusFor(section)}
             validationIssues={validationIssues}
+            allSections={loaded.sections}
+            referenceValues={loaded.vault.savedValues}
+            referenceUsageValues={{ ...loaded.vault.savedValues, ...workingValues }}
             values={sectionWorkingValues(section.sectionKey)}
             onChange={(values) => handleSectionChange(section.sectionKey, values)}
             onDiscardConflict={() => void handleDiscardConflict(section.sectionKey)}
