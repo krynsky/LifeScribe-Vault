@@ -13,13 +13,39 @@
  *   delete or retype protected fields.
  */
 
-export const FIELD_TYPES = ["text", "textarea", "date", "select", "email", "phone", "file", "path"] as const;
+export const FIELD_TYPES = [
+  "text",
+  "textarea",
+  "date",
+  "select",
+  "recordRef",
+  "email",
+  "phone",
+  "file",
+  "path",
+] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 export interface FieldOption {
   value: string;
   label: string;
+}
+
+export const RECORD_REFERENCE_FORMATS = ["plain", "last4"] as const;
+
+export type RecordReferenceFormat = (typeof RECORD_REFERENCE_FORMATS)[number];
+
+export interface RecordReferenceDisplayField {
+  systemKey: string;
+  format?: RecordReferenceFormat;
+}
+
+/** Declarative description of records that populate a recordRef control. */
+export interface RecordReferenceDefinition {
+  sectionKey: string;
+  displayFields: RecordReferenceDisplayField[];
+  separator: string;
 }
 
 /**
@@ -38,6 +64,7 @@ export interface FieldDefinition {
   required: boolean;
   protected: boolean;
   options?: FieldOption[];
+  reference?: RecordReferenceDefinition;
   visibleWhen?: VisibleWhen;
   order: number;
 }
@@ -138,6 +165,7 @@ export interface CustomFieldDefinition {
   helperText?: string;
   type: FieldType;
   options?: FieldOption[];
+  reference?: RecordReferenceDefinition;
   order: number;
 }
 

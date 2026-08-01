@@ -9,6 +9,7 @@
 
 import {
   FIELD_TYPES,
+  RECORD_REFERENCE_FORMATS,
   type FieldDefinition,
   type FormPack,
   type MigrationOperation,
@@ -46,6 +47,7 @@ export interface LoadPackResult {
 }
 
 const FIELD_TYPE_SET: ReadonlySet<string> = new Set(FIELD_TYPES);
+const RECORD_REFERENCE_FORMAT_SET: ReadonlySet<string> = new Set(RECORD_REFERENCE_FORMATS);
 
 /**
  * Credential systemKeys that may never reach the Recovery Kit. The Kit is a
@@ -122,6 +124,44 @@ function validateVisibleWhen(
   }
 }
 
+function validateRecordReference(
+  candidate: unknown,
+  fieldLabel: string,
+  errors: string[],
+): void {
+  if (!isRecord(candidate)) {
+    errors.push(`Field ${fieldLabel}: recordRef requires a reference object.`);
+    return;
+  }
+  if (!isNonEmptyString(candidate.sectionKey)) {
+    errors.push(`Field ${fieldLabel}: reference.sectionKey must be a non-empty string.`);
+  }
+  if (typeof candidate.separator !== "string") {
+    errors.push(`Field ${fieldLabel}: reference.separator must be a string.`);
+  }
+  if (!Array.isArray(candidate.displayFields) || candidate.displayFields.length === 0) {
+    errors.push(`Field ${fieldLabel}: reference.displayFields must be a non-empty array.`);
+    return;
+  }
+  for (const displayField of candidate.displayFields) {
+    if (!isRecord(displayField) || !isNonEmptyString(displayField.systemKey)) {
+      errors.push(
+        `Field ${fieldLabel}: every reference display field must name a systemKey.`,
+      );
+      continue;
+    }
+    if (
+      displayField.format !== undefined &&
+      (typeof displayField.format !== "string" ||
+        !RECORD_REFERENCE_FORMAT_SET.has(displayField.format))
+    ) {
+      errors.push(
+        `Field ${fieldLabel}: unsupported display format "${String(displayField.format)}".`,
+      );
+    }
+  }
+}
+
 function validateField(
   candidate: unknown,
   sectionKey: string,
@@ -179,6 +219,16 @@ function validateField(
       );
     }
   }
+  if (candidate.type === "recordRef") {
+    validateRecordReference(candidate.reference, `${sectionKey}.${label}`, errors);
+    if (candidate.options !== undefined) {
+      errors.push(`Section ${sectionKey}: recordRef field ${label} must not declare options.`);
+    }
+  } else if (candidate.reference !== undefined) {
+    errors.push(
+      `Section ${sectionKey}: only recordRef field ${label} may declare a reference.`,
+    );
+  }
   if ((candidate.type === "file" || candidate.type === "path") && candidate.options !== undefined) {
     errors.push(
       `Section ${sectionKey}: ${candidate.type} field ${label} must not declare options.`,
@@ -186,6 +236,66 @@ function validateField(
   }
   if (candidate.visibleWhen !== undefined) {
     validateVisibleWhen(candidate.visibleWhen, `${sectionKey}.${label}`, errors);
+  }
+}
+
+function validateRecordReferenceTargets(sections: unknown[], errors: string[]): void {
+  const sectionIndex = new Map<string, Record<string, unknown>>();
+  for (const section of sections) {
+    if (isRecord(section) && isNonEmptyString(section.sectionKey)) {
+      sectionIndex.set(section.sectionKey, section);
+    }
+  }
+
+  const fieldIndex = (section: Record<string, unknown>): Map<string, Record<string, unknown>> => {
+    const fields = new Map<string, Record<string, unknown>>();
+    if (!Array.isArray(section.groups)) return fields;
+    for (const group of section.groups) {
+      if (!isRecord(group) || !Array.isArray(group.fields)) continue;
+      for (const field of group.fields) {
+        if (isRecord(field) && isNonEmptyString(field.systemKey)) {
+          fields.set(field.systemKey, field);
+        }
+      }
+    }
+    return fields;
+  };
+
+  for (const [sectionKey, section] of sectionIndex) {
+    for (const field of fieldIndex(section).values()) {
+      if (field.type !== "recordRef" || !isRecord(field.reference)) continue;
+      const fieldKey = isNonEmptyString(field.systemKey) ? field.systemKey : "(missing systemKey)";
+      const sourceKey = field.reference.sectionKey;
+      if (!isNonEmptyString(sourceKey)) continue;
+      if (sourceKey === sectionKey) {
+        errors.push(
+          `Section ${sectionKey}: recordRef field ${fieldKey} may not reference its own section.`,
+        );
+        continue;
+      }
+      const sourceSection = sectionIndex.get(sourceKey);
+      if (!sourceSection) {
+        errors.push(
+          `Section ${sectionKey}: recordRef field ${fieldKey} references unknown section ${sourceKey}.`,
+        );
+        continue;
+      }
+      const sourceFields = fieldIndex(sourceSection);
+      if (!Array.isArray(field.reference.displayFields)) continue;
+      for (const displayField of field.reference.displayFields) {
+        if (!isRecord(displayField) || !isNonEmptyString(displayField.systemKey)) continue;
+        const sourceField = sourceFields.get(displayField.systemKey);
+        if (!sourceField) {
+          errors.push(
+            `Section ${sectionKey}: recordRef field ${fieldKey} references unknown display field ${sourceKey}.${displayField.systemKey}.`,
+          );
+        } else if (sourceField.type === "recordRef") {
+          errors.push(
+            `Section ${sectionKey}: recordRef field ${fieldKey} may not use recordRef display field ${sourceKey}.${displayField.systemKey}.`,
+          );
+        }
+      }
+    }
   }
 }
 
@@ -386,6 +496,7 @@ export function validatePack(candidate: unknown): PackValidationResult {
         sectionKeys.add(section.sectionKey);
       }
     }
+    validateRecordReferenceTargets(candidate.sections, errors);
   }
 
   if (!Array.isArray(candidate.migrations)) {
