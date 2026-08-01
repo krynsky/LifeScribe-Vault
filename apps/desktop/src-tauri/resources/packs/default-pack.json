@@ -541,7 +541,7 @@
               "required": false,
               "protected": false,
               "order": 3,
-              "helperText": "Credit card name or other name identifier"
+              "helperText": "Credit card name \"Saphire Reserve\", \"Platinum\" or other name identifier"
             },
             {
               "systemKey": "accountNumber",
