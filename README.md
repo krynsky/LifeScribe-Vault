@@ -16,7 +16,7 @@ LifeScribe Vault walks you through nine guided sections of your digital legacy p
 |---|---|
 | **Digital Executors** | Primary and backup executors — contact info, responsibilities, step-in notes |
 | **Password Manager** | Provider, vault location, and how a trusted person gains emergency access |
-| **Device Inventory** | The phones and computers your family would need to unlock |
+| **Devices** | The phones and computers your family would need to unlock |
 | **Financial Accounts** | Institutions and accounts, so nothing is missed |
 | **Subscriptions** | Recurring services and what should happen to each (keep / cancel) |
 | **Online Accounts** | Email, domains, and accounts that matter |

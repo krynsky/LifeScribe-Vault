@@ -28,7 +28,7 @@ Record the environment at the top of your run:
 - [ ] Setup asks where the vault should live, defaulting to the app-data folder; the default is accepted without browsing.
 - [ ] Setup is a **single screen** — no form-style or privacy-posture questions.
 - [ ] Create a vault with a strong test password (do not use a real master password).
-- [ ] Dashboard shows all nine sections in the sidebar, in pack order: Digital Executors, Password Manager, Device Inventory, Financial Accounts, Subscriptions, Online Accounts, Documents, Backups & Storage, Platform Legacy Tools.
+- [ ] Dashboard shows all nine sections in the sidebar, in pack order: Digital Executors, Password Manager, Devices, Financial Accounts, Subscriptions, Online Accounts, Documents, Backups & Storage, Platform Legacy Tools.
 - [ ] Readiness indicators are visible on the dashboard checklist.
 - [ ] Recovery Kit section is present and shows "not yet generated" state.
 
@@ -39,7 +39,7 @@ For each section, open it and verify:
 - [ ] **Digital Executors** — form renders; primary and backup executor records can be added with multi-record support.
 - [ ] **Password Manager** — single-record form renders; all fields visible, including an optional master-password field.
 - [ ] **Documents** — multi-record; at least one document record can be added with a physical location field and an optional file attachment.
-- [ ] **Device Inventory** — multi-record form renders, including an optional PIN/passcode field.
+- [ ] **Devices** — multi-record form renders, including an optional PIN/passcode field.
 - [ ] No field anywhere is missing because of a setup choice — every field ships present and optional.
 - [ ] **Financial Accounts** — multi-record form renders.
 - [ ] **Subscriptions** — multi-record form renders; each entry captures the service and its keep/cancel action.
@@ -74,9 +74,9 @@ For each section, open it and verify:
 - [ ] Kit renders with all sections' key information (no blank/error panels for sections with saved data).
 - [ ] After generating, the dashboard readiness indicator for Recovery Kit shows "up to date".
 - [ ] Edit a section field; verify Recovery Kit shows a staleness indicator.
-- [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Device Inventory, save, then regenerate the Kit. **Neither value appears anywhere on it**, on screen or in print preview. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
+- [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Devices, save, then regenerate the Kit. **Neither value appears anywhere on it**, on screen or in print preview. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
 - [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.
-- [ ] A dropdown field mapped into the Kit (e.g. Device Inventory's device type, or Platform Legacy Tools' platform) shows its **readable option text** — "External drive," "Apple Legacy Contact" — never the underlying stored value like "external-drive" or "apple-legacy-contact".
+- [ ] A dropdown field mapped into the Kit (e.g. Devices' device type, or Platform Legacy Tools' platform) shows its **readable option text** — "External drive," "Apple Legacy Contact" — never the underlying stored value like "external-drive" or "apple-legacy-contact".
 
 ## 8. Backup and restore
 

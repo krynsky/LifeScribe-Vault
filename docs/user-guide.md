@@ -34,10 +34,10 @@ The sections cover:
 - **Digital Executors** — who steps in, how to reach them, and what they're responsible for
 - **Password Manager** — your provider, where the vault lives, and how emergency access works
 - **Documents** — wills, insurance, deeds, tax records, and where they're kept
-- **Device Inventory** — the phones and computers your family would need to unlock
+- **Devices** — the phones and computers your family would need to unlock
 - **Financial Accounts** — the institutions and accounts that exist, so nothing is missed
 - **Subscriptions** — recurring services and what should happen to each (keep or cancel), so nothing keeps billing unnoticed
-- **Online Accounts & Domains** — email, domains, and accounts that matter
+- **Online Accounts** — email, domains, and accounts that matter
 - **Platform Legacy Tools** — Google Inactive Account Manager, Apple Legacy Contact, and similar
 - **Backups & Storage** — where your data backups live and how to get into them
 
@@ -56,7 +56,7 @@ where a document lives, how to reach an account. A few fields go further and
 can hold the secret itself:
 
 - **Password Manager → Master password**
-- **Device Inventory → PIN or passcode**
+- **Devices → PIN or passcode**
 - **Documents → Attached copy**, which stores an actual scanned file in the vault alongside the "Digital location" that says where the original lives
 
 These fields are always there and always optional. Filling one in puts that

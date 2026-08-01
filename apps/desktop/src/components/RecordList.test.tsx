@@ -29,7 +29,7 @@ function makeDevicesPack(): FormPack {
     sections: [
       makeSection({
         sectionKey: "devices",
-        title: "Device Inventory",
+        title: "Devices",
         lede: "List every device your family would need to unlock.",
         multiRecord: true,
         groups: [

@@ -367,7 +367,7 @@
     },
     {
       "sectionKey": "devices",
-      "title": "Device Inventory",
+      "title": "Devices",
       "lede": "A locked phone is one of the first walls families hit — photos, messages, and authenticator apps all behind one passcode. List the devices that matter and where a hint to each one is kept, so your family isn't locked out of your life's records.",
       "multiRecord": true,
       "order": 3,
