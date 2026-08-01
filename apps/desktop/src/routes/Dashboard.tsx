@@ -1301,6 +1301,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             onSetNa={(na) => void handleSetNa(section.sectionKey, na)}
             editing={isSectionEditing}
             packSection={packSectionForEdit}
+            packSections={workingPack?.sections}
             onEditField={(sk, gk, field) => handleEditField(sk, gk, field)}
             onRemoveField={(sk, gk, key) => handleRemoveField(sk, gk, key)}
             onDuplicateField={(sk, gk, key) => handleDuplicateField(sk, gk, key)}

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { FieldDefinition } from "../../domain/formModel";
+import { makeField, makeGroup, makeSection } from "../../domain/testing/fixtures";
 import { FieldPropertyPanel } from "./FieldPropertyPanel";
 
 const field: FieldDefinition = {
@@ -103,6 +104,72 @@ describe("FieldPropertyPanel", () => {
           { value: "checking-account", label: "Checking Account" },
           { value: "checking-account-2", label: "Checking account" },
         ],
+      }),
+    );
+  });
+
+  it("configures a recordRef source, display order, formatting, and separator", async () => {
+    const onChange = vi.fn();
+    const recordRefField: FieldDefinition = {
+      ...field,
+      type: "recordRef",
+      reference: {
+        sectionKey: "accounts",
+        displayFields: [
+          { systemKey: "institution" },
+          { systemKey: "accountNumber" },
+        ],
+        separator: " — ",
+      },
+    };
+    const accounts = makeSection({
+      sectionKey: "accounts",
+      title: "Financial Accounts",
+      groups: [
+        makeGroup({
+          groupKey: "account",
+          fields: [
+            makeField({ systemKey: "institution", label: "Institution", order: 1 }),
+            makeField({ systemKey: "accountName", label: "Account name", order: 2 }),
+            makeField({ systemKey: "accountNumber", label: "Account number", order: 3 }),
+          ],
+        }),
+      ],
+    });
+    const current = makeSection({ sectionKey: "subscriptions", title: "Subscriptions" });
+
+    render(
+      <FieldPropertyPanel
+        field={recordRefField}
+        onChange={onChange}
+        sections={[accounts, current]}
+        currentSectionKey="subscriptions"
+      />,
+    );
+
+    expect(screen.getByLabelText("Source section")).toHaveValue("accounts");
+    await userEvent.click(screen.getByRole("checkbox", { name: "Include Account name" }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reference: expect.objectContaining({
+          displayFields: [
+            { systemKey: "institution" },
+            { systemKey: "accountName" },
+            { systemKey: "accountNumber" },
+          ],
+        }),
+      }),
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText("Format Account number"), "last4");
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reference: expect.objectContaining({
+          displayFields: [
+            { systemKey: "institution" },
+            { systemKey: "accountNumber", format: "last4" },
+          ],
+        }),
       }),
     );
   });

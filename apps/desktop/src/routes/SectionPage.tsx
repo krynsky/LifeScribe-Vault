@@ -41,6 +41,7 @@ export interface SectionPageProps {
   editing?: boolean;
   /** Raw PackSection edited by the structure editor when `editing`. */
   packSection?: PackSection;
+  packSections?: PackSection[];
   /** Called when a field's definition is changed. */
   onEditField?: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
   /** Called when a field is removed. */
@@ -91,6 +92,7 @@ export function SectionPage({
   onSetNa,
   editing,
   packSection,
+  packSections,
   onEditField,
   onRemoveField,
   onDuplicateField,
@@ -171,6 +173,7 @@ export function SectionPage({
         {editing && packSection ? (
           <SectionStructureEditor
             section={packSection}
+            sections={packSections ?? [packSection]}
             onEditField={(sk, gk, field) => onEditField?.(sk, gk, field)}
             onRemoveField={(sk, gk, key) => onRemoveField?.(sk, gk, key)}
             onDuplicateField={(sk, gk, key) => onDuplicateField?.(sk, gk, key)}

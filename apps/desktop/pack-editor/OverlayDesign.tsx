@@ -244,6 +244,8 @@ export function OverlayDesign({
       {selectedField ? (
         <FieldPropertyPanel
           field={selectedField}
+          sections={base.sections}
+          currentSectionKey={section.sectionKey}
           onChange={(updated) => {
             if (!selectedGroupKey) return;
             onChangeBase(

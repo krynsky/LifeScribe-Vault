@@ -1,6 +1,13 @@
 import { useState } from "react";
-import type { FieldDefinition, FieldOption, FieldType } from "../../domain/formModel";
-import { FIELD_TYPES } from "../../domain/formModel";
+import type {
+  FieldDefinition,
+  FieldOption,
+  FieldType,
+  PackSection,
+  RecordReferenceDisplayField,
+  RecordReferenceFormat,
+} from "../../domain/formModel";
+import { FIELD_TYPES, RECORD_REFERENCE_FORMATS } from "../../domain/formModel";
 import { uniqueOptionValue } from "./optionValue";
 
 export interface FieldPropertyPanelProps {
@@ -14,6 +21,9 @@ export interface FieldPropertyPanelProps {
    */
   isReadinessAnchor?: boolean;
   onToggleReadinessAnchor?: () => void;
+  /** Full pack context for declaratively configuring recordRef fields. */
+  sections?: PackSection[];
+  currentSectionKey?: string;
 }
 
 export function FieldPropertyPanel({
@@ -21,6 +31,8 @@ export function FieldPropertyPanel({
   onChange,
   isReadinessAnchor,
   onToggleReadinessAnchor,
+  sections = [],
+  currentSectionKey,
 }: FieldPropertyPanelProps) {
   const [optionLabel, setOptionLabel] = useState("");
 
@@ -41,6 +53,53 @@ export function FieldPropertyPanel({
     const next: FieldOption = { value: uniqueOptionValue(label, existingValues), label };
     onChange({ ...field!, options: [...(field!.options ?? []), next] });
     setOptionLabel("");
+  }
+
+  const referenceSourceSections = sections.filter(
+    (section) => section.sectionKey !== currentSectionKey,
+  );
+  const referenceSource = referenceSourceSections.find(
+    (section) => section.sectionKey === field.reference?.sectionKey,
+  );
+  const referenceSourceFields =
+    referenceSource?.groups
+      .flatMap((group) => group.fields)
+      .filter((candidate) => candidate.type !== "recordRef") ?? [];
+
+  function changeType(type: FieldType) {
+    const next: FieldDefinition = { ...field!, type };
+    if (type === "recordRef") {
+      delete next.options;
+      const source = referenceSourceSections[0];
+      const sourceFields = source?.groups
+        .flatMap((group) => group.fields)
+        .filter((candidate) => candidate.type !== "recordRef");
+      const defaultDisplayKey =
+        source?.readinessRule.requiredKeys.find((key) =>
+          sourceFields?.some((candidate) => candidate.systemKey === key),
+        ) ?? sourceFields?.[0]?.systemKey;
+      next.reference = source
+        ? {
+            sectionKey: source.sectionKey,
+            displayFields: defaultDisplayKey ? [{ systemKey: defaultDisplayKey }] : [],
+            separator: " — ",
+          }
+        : undefined;
+    } else {
+      delete next.reference;
+      if (type === "select") {
+        next.options = next.options ?? [];
+      }
+    }
+    onChange(next);
+  }
+
+  function updateReferenceDisplayFields(displayFields: RecordReferenceDisplayField[]) {
+    if (!field!.reference) return;
+    onChange({
+      ...field!,
+      reference: { ...field!.reference, displayFields },
+    });
   }
 
   return (
@@ -69,7 +128,7 @@ export function FieldPropertyPanel({
         <span>Type</span>
         <select
           value={field.type}
-          onChange={(e) => onChange({ ...field, type: e.target.value as FieldType })}
+          onChange={(e) => changeType(e.target.value as FieldType)}
         >
           {FIELD_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -161,6 +220,173 @@ export function FieldPropertyPanel({
               Add option
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {field.type === "recordRef" ? (
+        <div className="field-panel__options">
+          <span className="field-panel__options-title">Record source</span>
+          <label className="field-panel__control">
+            <span>Source section</span>
+            <select
+              value={field.reference?.sectionKey ?? ""}
+              onChange={(event) => {
+                const source = referenceSourceSections.find(
+                  (candidate) => candidate.sectionKey === event.target.value,
+                );
+                const sourceFields =
+                  source?.groups
+                    .flatMap((group) => group.fields)
+                    .filter((candidate) => candidate.type !== "recordRef") ?? [];
+                const firstKey =
+                  source?.readinessRule.requiredKeys.find((key) =>
+                    sourceFields.some((candidate) => candidate.systemKey === key),
+                  ) ?? sourceFields[0]?.systemKey;
+                onChange({
+                  ...field,
+                  reference: {
+                    sectionKey: event.target.value,
+                    displayFields: firstKey ? [{ systemKey: firstKey }] : [],
+                    separator: field.reference?.separator ?? " — ",
+                  },
+                });
+              }}
+            >
+              <option value="">Select a source section</option>
+              {referenceSourceSections.map((section) => (
+                <option key={section.sectionKey} value={section.sectionKey}>
+                  {section.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {referenceSource ? (
+            <div className="field-panel__options">
+              <span className="field-panel__options-title">Display fields</span>
+              {referenceSourceFields.map((sourceField) => {
+                const selectedIndex =
+                  field.reference?.displayFields.findIndex(
+                    (candidate) => candidate.systemKey === sourceField.systemKey,
+                  ) ?? -1;
+                const selected = selectedIndex >= 0;
+                const displayField = selected
+                  ? field.reference!.displayFields[selectedIndex]
+                  : undefined;
+                return (
+                  <div className="field-panel__anchor" key={sourceField.systemKey}>
+                    <label className="field-panel__check">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(event) => {
+                          if (!field.reference) return;
+                          if (!event.target.checked) {
+                            updateReferenceDisplayFields(
+                              field.reference.displayFields.filter(
+                                (candidate) => candidate.systemKey !== sourceField.systemKey,
+                              ),
+                            );
+                            return;
+                          }
+                          const selectedKeys = new Set([
+                            ...field.reference.displayFields.map((candidate) => candidate.systemKey),
+                            sourceField.systemKey,
+                          ]);
+                          updateReferenceDisplayFields(
+                            referenceSourceFields
+                              .filter((candidate) => selectedKeys.has(candidate.systemKey))
+                              .map(
+                                (candidate) =>
+                                  field.reference!.displayFields.find(
+                                    (part) => part.systemKey === candidate.systemKey,
+                                  ) ?? { systemKey: candidate.systemKey },
+                              ),
+                          );
+                        }}
+                      />
+                      <span>Include {sourceField.label}</span>
+                    </label>
+                    {selected && displayField ? (
+                      <div className="field-panel__option-add">
+                        <label className="field-panel__control">
+                          <span className="sr-only">Format {sourceField.label}</span>
+                          <select
+                            aria-label={`Format ${sourceField.label}`}
+                            value={displayField.format ?? "plain"}
+                            onChange={(event) => {
+                              const format = event.target.value as RecordReferenceFormat;
+                              updateReferenceDisplayFields(
+                                field.reference!.displayFields.map((candidate) =>
+                                  candidate.systemKey === sourceField.systemKey
+                                    ? {
+                                        systemKey: candidate.systemKey,
+                                        ...(format === "plain" ? {} : { format }),
+                                      }
+                                    : candidate,
+                                ),
+                              );
+                            }}
+                          >
+                            {RECORD_REFERENCE_FORMATS.map((format) => (
+                              <option key={format} value={format}>
+                                {format === "last4" ? "Mask except last 4" : "Plain text"}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          className="button button--ghost button--small"
+                          disabled={selectedIndex === 0}
+                          onClick={() => {
+                            const next = [...field.reference!.displayFields];
+                            [next[selectedIndex - 1], next[selectedIndex]] = [
+                              next[selectedIndex]!,
+                              next[selectedIndex - 1]!,
+                            ];
+                            updateReferenceDisplayFields(next);
+                          }}
+                        >
+                          Move up
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--ghost button--small"
+                          disabled={selectedIndex === field.reference!.displayFields.length - 1}
+                          onClick={() => {
+                            const next = [...field.reference!.displayFields];
+                            [next[selectedIndex], next[selectedIndex + 1]] = [
+                              next[selectedIndex + 1]!,
+                              next[selectedIndex]!,
+                            ];
+                            updateReferenceDisplayFields(next);
+                          }}
+                        >
+                          Move down
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <label className="field-panel__control">
+            <span>Separator</span>
+            <input
+              type="text"
+              value={field.reference?.separator ?? " — "}
+              onChange={(event) => {
+                if (!field.reference) return;
+                onChange({
+                  ...field,
+                  reference: { ...field.reference, separator: event.target.value },
+                });
+              }}
+            />
+          </label>
         </div>
       ) : null}
     </div>

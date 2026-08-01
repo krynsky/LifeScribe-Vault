@@ -111,6 +111,12 @@ function resolveCustomFields(
       required: false,
       protected: false,
       options: customField.options?.map((option) => ({ ...option })),
+      reference: customField.reference
+        ? {
+            ...customField.reference,
+            displayFields: customField.reference.displayFields.map((part) => ({ ...part })),
+          }
+        : undefined,
       order: customField.order,
       source: "custom",
       hidden: false,
@@ -227,6 +233,12 @@ function mergeSection(
           label: relabel?.label?.trim() ? relabel.label : field.label,
           helperText: relabel?.helperText !== undefined ? relabel.helperText : field.helperText,
           options: field.options?.map((option) => ({ ...option })),
+          reference: field.reference
+            ? {
+                ...field.reference,
+                displayFields: field.reference.displayFields.map((part) => ({ ...part })),
+              }
+            : undefined,
           visibleWhen: resolveCondition(field.visibleWhen, field.label),
           source: "pack",
           hidden: hiddenSet.has(field.systemKey),

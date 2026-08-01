@@ -127,6 +127,35 @@ describe("shipped default pack", () => {
     }
   });
 
+  it("links subscriptions to financial accounts and backups to devices", () => {
+    const payment = allFields(sectionByKey("subscriptions")).find(
+      (field) => field.systemKey === "subscriptionPaymentAccount",
+    );
+    expect(payment).toMatchObject({
+      type: "recordRef",
+      reference: {
+        sectionKey: "financial-accounts",
+        displayFields: [
+          { systemKey: "accountInstitution" },
+          { systemKey: "accountName" },
+          { systemKey: "accountNumber", format: "last4" },
+        ],
+        separator: " — ",
+      },
+    });
+
+    const backupDevice = allFields(sectionByKey("backups")).find(
+      (field) => field.systemKey === "backupDevice",
+    );
+    expect(backupDevice).toMatchObject({
+      type: "recordRef",
+      reference: {
+        sectionKey: "devices",
+        displayFields: [{ systemKey: "deviceName" }],
+      },
+    });
+  });
+
   it("every visibleWhen conditional references an existing field in its own section", () => {
     for (const section of pack.sections) {
       const keys = fieldKeys(section);

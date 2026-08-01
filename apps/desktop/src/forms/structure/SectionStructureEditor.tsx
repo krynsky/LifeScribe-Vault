@@ -23,6 +23,7 @@ const NO_LOCKED_KEYS: Set<string> = new Set();
 export interface SectionStructureEditorProps {
   /** Raw, editable pack section (structural definitions, not resolved values). */
   section: PackSection;
+  sections: PackSection[];
   onEditField: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
   onRemoveField: (sectionKey: string, groupKey: string, systemKey: string) => void;
   onDuplicateField: (sectionKey: string, groupKey: string, systemKey: string) => void;
@@ -37,6 +38,7 @@ export interface SectionStructureEditorProps {
 
 export function SectionStructureEditor({
   section,
+  sections,
   onEditField,
   onRemoveField,
   onDuplicateField,
@@ -73,6 +75,8 @@ export function SectionStructureEditor({
       />
       <FieldPropertyPanel
         field={selectedField}
+        sections={sections}
+        currentSectionKey={section.sectionKey}
         onChange={(updated) => {
           if (!selectedGroupKey) return;
           onEditField(section.sectionKey, selectedGroupKey, updated);
