@@ -41,13 +41,21 @@ For each section, open it and verify:
 - [ ] **Documents** — multi-record; at least one document record can be added with a physical location field and an optional file attachment.
 - [ ] **Devices** — multi-record form renders, including an optional PIN/passcode field.
 - [ ] No field anywhere is missing because of a setup choice — every field ships present and optional.
-- [ ] **Financial Accounts** — multi-record form renders.
+- [ ] **Financial Accounts** — multi-record form renders, including Account Name and Account Number.
 - [ ] **Subscriptions** — multi-record form renders; each entry captures the service and its keep/cancel action.
-- [ ] **Online Accounts & Domains** — multi-record form renders.
-- [ ] **Platform Legacy Tools** — checklist-style fields render; Apple/Google/Facebook entries present.
+- [ ] **Online Accounts** — multi-record form renders.
+- [ ] **Platform Legacy Tools** — multi-record form renders; one record per platform, with a Platform dropdown (Apple / Google / Facebook / Other).
 - [ ] **Backups & Storage** — multi-record form renders; backup type field visible.
 - [ ] Fill in one or two fields in a section; save succeeds with no error banner.
 - [ ] Reload (lock → unlock) and verify saved values persist.
+
+### Linked fields (records that point at other records)
+
+- [ ] Add two devices in **Devices**, then open **Backups & Storage**: the **Device** field offers both by name, and **does not** offer any PIN or password as part of the option text.
+- [ ] Pick one, save, then rename that device in **Devices**. Return to Backups — the link now shows the **new name** without being re-picked.
+- [ ] Give two devices the **same name**; confirm both still appear as separate options and picking each yields a distinct saved entry.
+- [ ] Try to delete a device that a backup points at. **The delete is refused**, and the app names the backup using it.
+- [ ] Clear that backup's Device field, save, then delete the device — it now succeeds.
 
 ## 4. Attachments
 
@@ -77,6 +85,7 @@ For each section, open it and verify:
 - [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Devices, save, then regenerate the Kit. **Neither value appears anywhere on it**, on screen or in print preview. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
 - [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.
 - [ ] A dropdown field mapped into the Kit (e.g. Devices' device type, or Platform Legacy Tools' platform) shows its **readable option text** — "External drive," "Apple Legacy Contact" — never the underlying stored value like "external-drive" or "apple-legacy-contact".
+- [ ] A linked field mapped into the Kit (Backups & Storage → Device) prints the **name of the entry it points at**, never an internal record id.
 
 ## 8. Backup and restore
 

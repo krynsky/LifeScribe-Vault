@@ -623,6 +623,73 @@ describe("Recovery Kit from the shipped default pack", () => {
     expect(strings).not.toContain("device-1");
   });
 
+  it("drops a credential key used as a recordRef display field", () => {
+    // A reference label is a second route into a source record's values, so
+    // the kitMapping-based exclusion does not cover it. `validatePack` rejects
+    // such a pack, but never runs on a stored customPack — so the Kit must
+    // defend itself here too.
+    const devices = makeSection({
+      sectionKey: "devices",
+      title: "Devices",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "device",
+          fields: [
+            makeField({
+              systemKey: "deviceName",
+              label: "Device name",
+              required: true,
+              protected: true,
+            }),
+            makeField({ systemKey: "devicePin", label: "PIN or Password", order: 2 }),
+          ],
+        }),
+      ],
+      readinessRule: { requiredKeys: ["deviceName"] },
+    });
+    const backups = makeSection({
+      sectionKey: "backups",
+      title: "Backups & Storage",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "backup",
+          fields: [
+            makeField({
+              systemKey: "backupDevice",
+              label: "Device",
+              type: "recordRef",
+              required: true,
+              protected: true,
+              reference: {
+                sectionKey: "devices",
+                // Hostile: identify the device by its unlock PIN.
+                displayFields: [{ systemKey: "deviceName" }, { systemKey: "devicePin" }],
+                separator: " — ",
+              },
+            }),
+          ],
+        }),
+      ],
+      readinessRule: { requiredKeys: ["backupDevice"] },
+      kitMapping: { entries: [{ heading: "Backups", fields: ["backupDevice"] }] },
+    });
+    const values = makeVaultValues([
+      makeSectionValues("devices", [
+        makeRecord({ id: "device-1", values: { deviceName: "Mom's iPhone", devicePin: "480215" } }),
+      ]),
+      makeSectionValues("backups", [
+        makeRecord({ id: "backup-1", values: { backupDevice: "device-1" } }),
+      ]),
+    ]);
+
+    const strings = allKitStrings(buildRecoveryKit([devices, backups], values));
+    // The non-credential part of the label still identifies the record.
+    expect(strings).toContain("Mom's iPhone");
+    expect(strings.join(" ")).not.toContain("480215");
+  });
+
   function shippedValues(): VaultValues {
     return makeVaultValues([
       makeSectionValues("digital-executors", [

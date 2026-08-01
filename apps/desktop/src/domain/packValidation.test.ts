@@ -122,6 +122,35 @@ describe("validatePack", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("rejects a recordRef that displays a credential field", () => {
+    // A reference label reaches the printed Kit through recoveryKit's
+    // recordRef branch, bypassing the kitMapping-based exclusion.
+    const result = validatePack(
+      mutatePack((pack) => {
+        const sections = pack.sections as Array<JsonSection & { sectionKey: string }>;
+        sections[0].groups[0].fields.push({
+          systemKey: "executorDevice",
+          label: "Device",
+          type: "recordRef",
+          required: false,
+          protected: false,
+          reference: {
+            sectionKey: "devices",
+            displayFields: [{ systemKey: "deviceName" }, { systemKey: "devicePin" }],
+            separator: " — ",
+          },
+          order: 99,
+        });
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/may not display credential field devicePin/i),
+      ]),
+    );
+  });
+
   it("rejects malformed and dangling recordRef definitions", () => {
     const result = validatePack(
       mutatePack((pack) => {

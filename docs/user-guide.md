@@ -68,6 +68,28 @@ later if you change your mind.
 Whichever way you go, the master password and the device PIN are **never
 printed in the Recovery Kit** — see below.
 
+### Fields that link to another entry
+
+Some fields ask you to pick something you've already entered elsewhere rather
+than retype it. "Backups & Storage → Device" lists the devices from your Device
+list; "Subscriptions → Payment method" lists your financial accounts.
+
+- **Rename once, updated everywhere.** The link remembers *which* entry you
+  picked, not the words on screen. Rename a device and every backup pointing at
+  it follows automatically.
+- **Two entries can share a name.** Two cards both called "Chase" stay distinct
+  — the app tracks them separately even though they read alike.
+- **You can't delete something still in use.** If you try to remove a device
+  that a backup points at, the app tells you what's using it instead of deleting
+  it and leaving a broken link. Clear or repoint those entries first, then
+  delete.
+- **A link that can't be found still shows.** If an entry goes missing, the
+  field says so rather than quietly emptying itself, so you can fix it
+  deliberately.
+
+Where a linked field appears on the Recovery Kit, it prints the readable name of
+the entry it points at — never an internal id, and never a password or PIN.
+
 ### Attaching files
 
 Fields that accept a file (for example, a scanned document) encrypt the file into the vault when you attach it. From there you can:

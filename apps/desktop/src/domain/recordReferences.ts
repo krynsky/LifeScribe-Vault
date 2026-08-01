@@ -1,3 +1,18 @@
+/**
+ * Record references (`recordRef`): a field whose value is another section
+ * record's id, displayed as a label composed from that record's fields.
+ *
+ * Credential keys may never appear in a reference label. A reference label is
+ * an *identifier* — it names which record is meant — and a master password or
+ * device PIN is never a sensible identifier, so the exclusion is applied here
+ * globally rather than only on the Recovery Kit path. That matters twice over:
+ * a reference label reaches the printed Kit through `recoveryDisplayValue`,
+ * which is a second route into record values that the Kit's own
+ * `kitMapping`-based filter does not cover; and keeping one rule in one place
+ * means the form dropdown and the printed page can never disagree about what
+ * a record is called.
+ */
+
 import {
   type FieldDefinition,
   type FieldOption,
@@ -6,7 +21,10 @@ import {
   type RecordReferenceDisplayField,
   type ResolvedSection,
 } from "./formModel";
+import { KIT_EXCLUDED_SYSTEM_KEYS } from "./packValidation";
 import type { SectionRecord, VaultValues } from "./valuesStore";
+
+const KIT_EXCLUDED_SET: ReadonlySet<string> = new Set(KIT_EXCLUDED_SYSTEM_KEYS);
 
 export interface ResolvedRecordReference {
   options: FieldOption[];
@@ -39,8 +57,16 @@ function sourceSectionFields(section: RecordReferenceSourceSection): FieldDefini
   return section.groups.flatMap((group) => group.fields);
 }
 
+/**
+ * Fields of a source section that may compose a reference label: never
+ * another `recordRef` (which would chain), never a credential key.
+ * Feeds both the authoring picker and `defaultRecordReference`, so neither
+ * can offer or auto-select something the label builder would then drop.
+ */
 export function recordReferenceSourceFields(section: RecordReferenceSourceSection): FieldDefinition[] {
-  return sourceSectionFields(section).filter((field) => field.type !== "recordRef");
+  return sourceSectionFields(section).filter(
+    (field) => field.type !== "recordRef" && !KIT_EXCLUDED_SET.has(field.systemKey),
+  );
 }
 
 export function defaultRecordReference(
@@ -76,6 +102,11 @@ export function recordReferenceLabel(
   const reference = field.reference;
   if (!reference) return "Untitled record";
   const label = reference.displayFields
+    // Dropped here, not only at validation time: `validatePack` rejects a
+    // reference naming one, but it never runs on the pack the app actually
+    // renders from — a stored `customPack` is returned as-authored. A label
+    // built from an unvalidated pack still cannot carry a credential.
+    .filter((part) => !KIT_EXCLUDED_SET.has(part.systemKey))
     .map((part) => formatDisplayPart(record.values[part.systemKey] ?? "", part))
     .filter(Boolean)
     .join(reference.separator);

@@ -284,6 +284,16 @@ function validateRecordReferenceTargets(sections: unknown[], errors: string[]): 
       if (!Array.isArray(field.reference.displayFields)) continue;
       for (const displayField of field.reference.displayFields) {
         if (!isRecord(displayField) || !isNonEmptyString(displayField.systemKey)) continue;
+        if (KIT_EXCLUDED_SET.has(displayField.systemKey)) {
+          // A reference label reaches the printed Recovery Kit via
+          // recoveryKit.ts's recordRef branch — a second route into record
+          // values that the kitMapping filter does not cover. recordReferences.ts
+          // drops these regardless; this is the authoring-time error message.
+          errors.push(
+            `Section ${sectionKey}: recordRef field ${fieldKey} may not display credential field ${displayField.systemKey} — reference labels reach the Recovery Kit.`,
+          );
+          continue;
+        }
         const sourceField = sourceFields.get(displayField.systemKey);
         if (!sourceField) {
           errors.push(

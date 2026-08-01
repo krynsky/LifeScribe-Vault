@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { FieldDefinition, PackSection } from "./formModel";
 import {
+  defaultRecordReference,
   findRecordReferenceUsages,
+  recordReferenceLabel,
+  recordReferenceSourceFields,
   resolveRecordReference,
 } from "./recordReferences";
 import type { VaultValues } from "./valuesStore";
@@ -198,5 +201,120 @@ describe("record references", () => {
         fieldLabel: "Device",
       },
     ]);
+  });
+});
+
+describe("record reference labels and credential keys", () => {
+  const deviceRecord = {
+    id: "device-1",
+    schemaVersion: 1,
+    values: { deviceName: "Mom's iPhone", devicePin: "480215" },
+  };
+
+  it("drops a credential display field from the composed label", () => {
+    const label = recordReferenceLabel(deviceRecord, {
+      reference: {
+        sectionKey: "devices",
+        displayFields: [{ systemKey: "deviceName" }, { systemKey: "devicePin" }],
+        separator: " — ",
+      },
+    });
+    expect(label).toBe("Mom's iPhone");
+  });
+
+  it("falls back to Untitled rather than printing a credential-only label", () => {
+    const label = recordReferenceLabel(deviceRecord, {
+      reference: {
+        sectionKey: "devices",
+        displayFields: [{ systemKey: "devicePin" }],
+        separator: " — ",
+      },
+    });
+    expect(label).toBe("Untitled record");
+  });
+
+  it("masking a credential with last4 still does not print it", () => {
+    const label = recordReferenceLabel(deviceRecord, {
+      reference: {
+        sectionKey: "devices",
+        displayFields: [{ systemKey: "devicePin", format: "last4" }],
+        separator: " — ",
+      },
+    });
+    expect(label).not.toContain("0215");
+  });
+
+  it("never offers a credential key as a selectable display field", () => {
+    const source = {
+      sectionKey: "devices",
+      title: "Devices",
+      readinessRule: { requiredKeys: ["deviceName"] },
+      groups: [
+        {
+          fields: [
+            {
+              systemKey: "deviceName",
+              label: "Device name",
+              type: "text" as const,
+              required: true,
+              protected: true,
+              order: 1,
+            },
+            {
+              systemKey: "devicePin",
+              label: "PIN or Password",
+              type: "text" as const,
+              required: false,
+              protected: false,
+              order: 2,
+            },
+          ],
+        },
+      ],
+    };
+    expect(recordReferenceSourceFields(source).map((field) => field.systemKey)).toEqual([
+      "deviceName",
+    ]);
+  });
+
+  it("never auto-selects a credential key when seeding a new reference", () => {
+    const pinFirst: PackSection = {
+      sectionKey: "devices",
+      title: "Devices",
+      lede: "",
+      multiRecord: true,
+      order: 1,
+      groups: [
+        {
+          groupKey: "device",
+          title: "Device",
+          repeatable: false,
+          order: 1,
+          fields: [
+            {
+              systemKey: "devicePin",
+              label: "PIN or Password",
+              type: "text",
+              required: false,
+              protected: false,
+              order: 1,
+            },
+            {
+              systemKey: "deviceName",
+              label: "Device name",
+              type: "text",
+              required: false,
+              protected: false,
+              order: 2,
+            },
+          ],
+        },
+      ],
+      // No readiness key to steer it, so it falls back to the first field —
+      // which must skip the credential.
+      readinessRule: { requiredKeys: [] },
+      kitMapping: { entries: [] },
+    };
+    expect(defaultRecordReference(pinFirst)?.displayFields).toEqual([{ systemKey: "deviceName" }]);
   });
 });
