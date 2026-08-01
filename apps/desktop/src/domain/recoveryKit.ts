@@ -42,7 +42,7 @@ import {
   type ReadinessRule,
 } from "./formModel";
 import { KIT_EXCLUDED_SYSTEM_KEYS } from "./packValidation";
-import { resolveRecordReference } from "./recordReferences";
+import { recordReferenceLabel } from "./recordReferences";
 import type { KitMeta, SectionMetaMap, VaultProfile } from "./snapshot";
 import type { SectionRecord, VaultValues } from "./valuesStore";
 
@@ -111,12 +111,30 @@ function indexSectionFields(section: KitSourceSection): Map<string, FieldDefinit
   return index;
 }
 
+function recoveryDisplayValue(
+  field: FieldDefinition,
+  record: SectionRecord,
+  value: string,
+  recordIndex: ReadonlyMap<string, ReadonlyMap<string, SectionRecord>>,
+): string {
+  if (field.type === "file") {
+    return record.attachments?.find((attachment) => attachment.id === value)?.fileName ?? value;
+  }
+  if (field.type === "select") {
+    return field.options?.find((option) => option.value === value)?.label ?? value;
+  }
+  if (field.type === "recordRef" && field.reference) {
+    const sourceRecord = recordIndex.get(field.reference.sectionKey)?.get(value);
+    return sourceRecord ? recordReferenceLabel(sourceRecord, field) : "Unavailable saved record";
+  }
+  return value;
+}
+
 function buildItems(
   record: SectionRecord,
   mappedKeys: readonly string[],
   fieldIndex: Map<string, FieldDefinition>,
-  sections: readonly KitSourceSection[],
-  values: VaultValues,
+  recordIndex: ReadonlyMap<string, ReadonlyMap<string, SectionRecord>>,
 ): RecoveryKitItem[] {
   const items: RecoveryKitItem[] = [];
   for (const systemKey of mappedKeys) {
@@ -131,16 +149,7 @@ function buildItems(
     if (value.length === 0) {
       continue;
     }
-    const displayValue =
-      field.type === "file"
-        ? (record.attachments?.find((a) => a.id === value)?.fileName ?? value)
-        : field.type === "select"
-          ? (field.options?.find((o) => o.value === value)?.label ?? value)
-          : field.type === "recordRef"
-            ? (resolveRecordReference(field, sections, values, value).options.find(
-                (option) => option.value === value,
-              )?.label ?? "Unavailable saved record")
-          : value;
+    const displayValue = recoveryDisplayValue(field, record, value, recordIndex);
     items.push({ systemKey, label: field.label, value: displayValue });
   }
   return items;
@@ -193,6 +202,12 @@ export function buildRecoveryKit(
 ): RecoveryKit {
   const entries: RecoveryKitEntry[] = [];
   const ordered = [...sections].sort((left, right) => left.order - right.order);
+  const recordIndex = new Map(
+    Object.entries(values).map(([sectionKey, sectionValues]) => [
+      sectionKey,
+      new Map(sectionValues.records.map((record) => [record.id, record])),
+    ]),
+  );
 
   for (const section of ordered) {
     if (sectionMeta[section.sectionKey]?.na) {
@@ -210,7 +225,7 @@ export function buildRecoveryKit(
       const mappedKeys = entry.fields.filter((key) => !KIT_EXCLUDED_SET.has(key));
       const blocks: RecoveryKitBlock[] = [];
       for (const record of sectionValues.records) {
-        const items = buildItems(record, mappedKeys, fieldIndex, ordered, values);
+        const items = buildItems(record, mappedKeys, fieldIndex, recordIndex);
         if (items.length === 0) {
           continue;
         }

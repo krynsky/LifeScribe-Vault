@@ -1,7 +1,10 @@
 import {
   type FieldDefinition,
   type FieldOption,
+  type PackSection,
+  type RecordReferenceDefinition,
   type RecordReferenceDisplayField,
+  type ResolvedSection,
 } from "./formModel";
 import type { SectionRecord, VaultValues } from "./valuesStore";
 
@@ -26,8 +29,35 @@ export interface RecordReferenceSourceSection {
   groups: ReadonlyArray<{ fields: ReadonlyArray<FieldDefinition> }>;
 }
 
+export interface RecordReferenceContext {
+  sections: ResolvedSection[];
+  savedValues: VaultValues;
+  effectiveValues: VaultValues;
+}
+
 function sourceSectionFields(section: RecordReferenceSourceSection): FieldDefinition[] {
   return section.groups.flatMap((group) => group.fields);
+}
+
+export function recordReferenceSourceFields(section: RecordReferenceSourceSection): FieldDefinition[] {
+  return sourceSectionFields(section).filter((field) => field.type !== "recordRef");
+}
+
+export function defaultRecordReference(
+  section: PackSection | undefined,
+): RecordReferenceDefinition | undefined {
+  if (!section) return undefined;
+  const fields = recordReferenceSourceFields(section);
+  const displayKey =
+    section.readinessRule.requiredKeys.find((key) =>
+      fields.some((field) => field.systemKey === key),
+    ) ?? fields[0]?.systemKey;
+  if (!displayKey) return undefined;
+  return {
+    sectionKey: section.sectionKey,
+    displayFields: [{ systemKey: displayKey }],
+    separator: " — ",
+  };
 }
 
 function formatDisplayPart(value: string, field: RecordReferenceDisplayField): string {
@@ -81,12 +111,31 @@ export function resolveRecordReference(
   };
 }
 
-export function recordReferenceAwareSummaryLabel(
+function displayFieldValue(
+  field: FieldDefinition,
+  value: string,
+  sections: ReadonlyArray<RecordReferenceSourceSection>,
+  values: VaultValues,
+): string {
+  if (field.type === "recordRef") {
+    return (
+      resolveRecordReference(field, sections, values, value).options.find(
+        (option) => option.value === value,
+      )?.label ?? value
+    );
+  }
+  if (field.type === "select") {
+    return field.options?.find((option) => option.value === value)?.label ?? value;
+  }
+  return value;
+}
+
+export function recordSummaryLabel(
   record: SectionRecord,
   orderedFields: ReadonlyArray<FieldDefinition>,
   readinessKeys: readonly string[],
-  sections: ReadonlyArray<RecordReferenceSourceSection>,
-  values: VaultValues,
+  sections: ReadonlyArray<RecordReferenceSourceSection> = [],
+  values: VaultValues = {},
 ): string {
   const readiness = new Set(readinessKeys);
   const candidates = [
@@ -96,15 +145,7 @@ export function recordReferenceAwareSummaryLabel(
   for (const field of candidates) {
     const value = record.values[field.systemKey]?.trim();
     if (!value) continue;
-    if (field.type === "recordRef") {
-      const resolved = resolveRecordReference(field, sections, values, value);
-      const label = resolved.options.find((option) => option.value === value)?.label;
-      if (label) return label;
-    } else if (field.type === "select") {
-      return field.options?.find((option) => option.value === value)?.label ?? value;
-    } else {
-      return value;
-    }
+    return displayFieldValue(field, value, sections, values);
   }
   return "Untitled";
 }
@@ -129,7 +170,7 @@ export function findRecordReferenceUsages(
           sectionKey: section.sectionKey,
           sectionTitle: section.title,
           recordId: record.id,
-          recordLabel: recordReferenceAwareSummaryLabel(
+          recordLabel: recordSummaryLabel(
             record,
             sourceSectionFields(section),
             section.readinessRule.requiredKeys,

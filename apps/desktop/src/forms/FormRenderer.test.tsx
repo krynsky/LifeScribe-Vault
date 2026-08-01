@@ -74,8 +74,15 @@ function Harness({
       }}
       onSave={onSave}
       externalIssues={externalIssues}
-      allSections={allSections}
-      referenceValues={referenceValues}
+      recordReferences={
+        allSections
+          ? {
+              sections: allSections,
+              savedValues: referenceValues ?? {},
+              effectiveValues: referenceValues ?? {},
+            }
+          : undefined
+      }
     />
   );
 }

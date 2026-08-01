@@ -15,6 +15,7 @@ import type {
   PackSection,
 } from "../domain/formModel";
 import { isCustomFieldKey } from "../domain/formModel";
+import { defaultRecordReference } from "../domain/recordReferences";
 
 // ---------------------------------------------------------------------------
 // Low-level immutable updaters
@@ -242,21 +243,7 @@ export function addOptionalField(
   };
   if (type === "recordRef") {
     const sourceSection = pack.sections.find((candidate) => candidate.sectionKey !== sectionKey);
-    const sourceFields =
-      sourceSection?.groups
-        .flatMap((candidate) => candidate.fields)
-        .filter((candidate) => candidate.type !== "recordRef") ?? [];
-    const displayKey =
-      sourceSection?.readinessRule.requiredKeys.find((key) =>
-        sourceFields.some((candidate) => candidate.systemKey === key),
-      ) ?? sourceFields[0]?.systemKey;
-    if (sourceSection && displayKey) {
-      newField.reference = {
-        sectionKey: sourceSection.sectionKey,
-        displayFields: [{ systemKey: displayKey }],
-        separator: " — ",
-      };
-    }
+    newField.reference = defaultRecordReference(sourceSection);
   }
   return updateGroup(pack, sectionKey, groupKey, (g) => ({
     ...g,

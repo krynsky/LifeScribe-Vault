@@ -9,7 +9,7 @@
  * move a badge until they are persisted.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   deleteAttachment,
   discardDraft,
@@ -37,6 +37,7 @@ import {
   updateField,
 } from "../creator/packEdits";
 import { duplicateField, reorderFields } from "../forms/structure/fieldOps";
+import type { RecordReferenceContext } from "../domain/recordReferences";
 import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
@@ -229,6 +230,17 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
   const [packEditError, setPackEditError] = useState<string | null>(null);
   const [vaultDir, setVaultDir] = useState("");
+  const recordReferences = useMemo<RecordReferenceContext | null>(
+    () =>
+      loaded
+        ? {
+            sections: loaded.sections,
+            savedValues: loaded.vault.savedValues,
+            effectiveValues: { ...loaded.vault.savedValues, ...workingValues },
+          }
+        : null,
+    [loaded, workingValues],
+  );
 
   // Where the vault's data files live, for the Settings "Vault location"
   // section. Re-read on reload so it reflects a move made this session.
@@ -1288,9 +1300,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             section={displaySection}
             status={statusFor(section)}
             validationIssues={validationIssues}
-            allSections={loaded.sections}
-            referenceValues={loaded.vault.savedValues}
-            referenceUsageValues={{ ...loaded.vault.savedValues, ...workingValues }}
+            recordReferences={recordReferences!}
             values={sectionWorkingValues(section.sectionKey)}
             onChange={(values) => handleSectionChange(section.sectionKey, values)}
             onDiscardConflict={() => void handleDiscardConflict(section.sectionKey)}

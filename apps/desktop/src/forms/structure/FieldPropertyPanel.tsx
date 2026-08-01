@@ -8,6 +8,10 @@ import type {
   RecordReferenceFormat,
 } from "../../domain/formModel";
 import { FIELD_TYPES, RECORD_REFERENCE_FORMATS } from "../../domain/formModel";
+import {
+  defaultRecordReference,
+  recordReferenceSourceFields,
+} from "../../domain/recordReferences";
 import { uniqueOptionValue } from "./optionValue";
 
 export interface FieldPropertyPanelProps {
@@ -61,30 +65,16 @@ export function FieldPropertyPanel({
   const referenceSource = referenceSourceSections.find(
     (section) => section.sectionKey === field.reference?.sectionKey,
   );
-  const referenceSourceFields =
-    referenceSource?.groups
-      .flatMap((group) => group.fields)
-      .filter((candidate) => candidate.type !== "recordRef") ?? [];
+  const referenceSourceFields = referenceSource
+    ? recordReferenceSourceFields(referenceSource)
+    : [];
 
   function changeType(type: FieldType) {
     const next: FieldDefinition = { ...field!, type };
     if (type === "recordRef") {
       delete next.options;
       const source = referenceSourceSections[0];
-      const sourceFields = source?.groups
-        .flatMap((group) => group.fields)
-        .filter((candidate) => candidate.type !== "recordRef");
-      const defaultDisplayKey =
-        source?.readinessRule.requiredKeys.find((key) =>
-          sourceFields?.some((candidate) => candidate.systemKey === key),
-        ) ?? sourceFields?.[0]?.systemKey;
-      next.reference = source
-        ? {
-            sectionKey: source.sectionKey,
-            displayFields: defaultDisplayKey ? [{ systemKey: defaultDisplayKey }] : [],
-            separator: " — ",
-          }
-        : undefined;
+      next.reference = defaultRecordReference(source);
     } else {
       delete next.reference;
       if (type === "select") {
@@ -234,21 +224,15 @@ export function FieldPropertyPanel({
                 const source = referenceSourceSections.find(
                   (candidate) => candidate.sectionKey === event.target.value,
                 );
-                const sourceFields =
-                  source?.groups
-                    .flatMap((group) => group.fields)
-                    .filter((candidate) => candidate.type !== "recordRef") ?? [];
-                const firstKey =
-                  source?.readinessRule.requiredKeys.find((key) =>
-                    sourceFields.some((candidate) => candidate.systemKey === key),
-                  ) ?? sourceFields[0]?.systemKey;
+                const nextReference = defaultRecordReference(source);
                 onChange({
                   ...field,
-                  reference: {
-                    sectionKey: event.target.value,
-                    displayFields: firstKey ? [{ systemKey: firstKey }] : [],
-                    separator: field.reference?.separator ?? " — ",
-                  },
+                  reference: nextReference
+                    ? {
+                        ...nextReference,
+                        separator: field.reference?.separator ?? nextReference.separator,
+                      }
+                    : undefined,
                 });
               }}
             >
