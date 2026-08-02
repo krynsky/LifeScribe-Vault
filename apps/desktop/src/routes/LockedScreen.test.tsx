@@ -8,6 +8,9 @@ describe("LockedScreen", () => {
     const onUnlock = vi.fn().mockRejectedValue(new Error("InvalidMasterPassword"));
     render(<LockedScreen onUnlock={onUnlock} />);
 
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--panel",
+    );
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Master password"), "wrong password!!");
     await user.click(screen.getByRole("button", { name: "Unlock" }));

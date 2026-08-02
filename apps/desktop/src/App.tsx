@@ -20,6 +20,7 @@ import {
   unlockVault,
   type VaultStatusResponse,
 } from "./api/vaultApi";
+import { BrandLogo } from "./components/BrandLogo";
 import { buildSnapshot, emptySnapshot } from "./domain/snapshot";
 import { Dashboard } from "./routes/Dashboard";
 import { LockedScreen } from "./routes/LockedScreen";
@@ -128,7 +129,7 @@ function App() {
   if (screen === "loading") {
     return (
       <main className="centered-screen app-loading" aria-busy="true">
-        <p className="app-loading__title">LifeScribe Vault</p>
+        <BrandLogo className="brand-logo--loading" />
         <p className="app-loading__hint">Preparing your vault…</p>
       </main>
     );
@@ -138,7 +139,7 @@ function App() {
     return (
       <main className="centered-screen">
         <section className="vault-panel" aria-labelledby="status-error-title">
-          <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+          <BrandLogo className="brand-logo--panel" />
           <h1 className="vault-panel__title" id="status-error-title">
             Vault status unavailable
           </h1>

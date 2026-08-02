@@ -25,6 +25,7 @@ import {
 } from "../api/vaultApi";
 import { collectAttachmentIds, droppedAttachmentIds } from "../domain/attachmentRefs";
 import { AppShell } from "../components/AppShell";
+import { BrandLogo } from "../components/BrandLogo";
 import { StatusBadge } from "../components/StatusBadge";
 import {
   addOptionalField,
@@ -887,6 +888,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   if (phase === "loading") {
     return (
       <main className="centered-screen" aria-busy="true">
+        <BrandLogo className="brand-logo--loading" />
         <p className="app-loading__hint">Opening your vault…</p>
       </main>
     );
@@ -896,7 +898,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     return (
       <main className="centered-screen">
         <section className="vault-panel" role="alert">
-          <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+          <BrandLogo className="brand-logo--panel" />
           <h1 className="vault-panel__title">This vault needs a newer app</h1>
           <p className="vault-panel__lede">{blockedMessage}</p>
         </section>
@@ -908,7 +910,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     return (
       <main className="centered-screen">
         <section className="vault-panel" role="alert">
-          <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+          <BrandLogo className="brand-logo--panel" />
           <h1 className="vault-panel__title">Something went wrong</h1>
           <p className="vault-panel__lede">
             Your vault could not be opened. Nothing has been changed — lock
@@ -951,7 +953,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const sidebar = (
     <div className="sidebar">
       <div className="sidebar__brand">
-        <span className="sidebar__brand-name">LifeScribe Vault</span>
+        <BrandLogo className="brand-logo--sidebar" />
         {loaded.vault.profile.ownerName ? (
           <span className="sidebar__owner">{loaded.vault.profile.ownerName}</span>
         ) : null}

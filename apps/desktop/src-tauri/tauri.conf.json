@@ -43,9 +43,17 @@
       "webviewInstallMode": {
         "type": "skip"
       },
+      "wix": {
+        "bannerPath": "../branding/wix-banner.bmp",
+        "dialogImagePath": "../branding/wix-dialog.bmp"
+      },
       "nsis": {
         "displayLanguageSelector": false,
-        "installMode": "perMachine"
+        "headerImage": "../branding/nsis-header.bmp",
+        "installMode": "perMachine",
+        "installerIcon": "icons/icon.ico",
+        "sidebarImage": "../branding/nsis-sidebar.bmp",
+        "uninstallerIcon": "icons/icon.ico"
       }
     }
   }

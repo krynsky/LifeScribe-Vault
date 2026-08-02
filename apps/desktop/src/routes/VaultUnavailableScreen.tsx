@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
 import { setVaultLocation } from "../api/vaultApi";
+import { BrandLogo } from "../components/BrandLogo";
 
 export interface VaultUnavailableScreenProps {
   vaultDir: string;
@@ -36,7 +37,7 @@ export function VaultUnavailableScreen({ vaultDir, onRetry, onRelocated }: Vault
   return (
     <main className="centered-screen">
       <section className="vault-panel" aria-labelledby="vault-unavailable-title">
-        <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+        <BrandLogo className="brand-logo--panel" />
         <h1 className="vault-panel__title" id="vault-unavailable-title">
           Your vault folder can't be reached
         </h1>

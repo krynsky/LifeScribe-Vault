@@ -36,6 +36,9 @@ describe("SetupScreen", () => {
     render(<SetupScreen onCreate={vi.fn()} onVaultFound={vi.fn()} />);
 
     expect(await screen.findByText(/where your vault is stored/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--panel",
+    );
     expect(screen.getByText(/C:\\Users\\test\\AppData/)).toBeInTheDocument();
     expect(screen.getByLabelText("Your name")).toBeInTheDocument();
     expect(screen.getByLabelText("Master password")).toBeInTheDocument();

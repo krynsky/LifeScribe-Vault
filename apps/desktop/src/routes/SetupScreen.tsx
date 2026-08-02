@@ -1,6 +1,7 @@
 import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { getVaultStatus, setVaultLocation } from "../api/vaultApi";
+import { BrandLogo } from "../components/BrandLogo";
 
 export interface SetupScreenProps {
   onCreate: (masterPassword: string, ownerName: string) => Promise<void>;
@@ -141,7 +142,7 @@ export function SetupScreen({ onCreate, onVaultFound }: SetupScreenProps) {
   return (
     <div className="centered-screen">
       <section className="vault-panel" aria-labelledby="setup-title">
-        <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+        <BrandLogo className="brand-logo--panel" />
         <h1 className="vault-panel__title" id="setup-title">Let's set up your vault</h1>
 
         <div className="vault-form">
