@@ -2,6 +2,7 @@ import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { getVaultStatus, setVaultLocation } from "../api/vaultApi";
 import { BrandLogo } from "../components/BrandLogo";
+import { masterPasswordLengthError } from "../domain/passwordPolicy";
 
 export interface SetupScreenProps {
   onCreate: (masterPassword: string, ownerName: string) => Promise<void>;
@@ -52,7 +53,6 @@ function RevealToggle({
   );
 }
 
-const MIN_MASTER_PASSWORD_LENGTH = 15;
 const GUIDANCE_ID = "setup-password-guidance";
 const ERROR_ID = "setup-error";
 
@@ -111,8 +111,9 @@ export function SetupScreen({ onCreate, onVaultFound }: SetupScreenProps) {
   }
 
   function validateIdentity(): boolean {
-    if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
-      setError(`Use a master password with at least ${MIN_MASTER_PASSWORD_LENGTH} characters — a few unrelated words work well.`);
+    const lengthError = masterPasswordLengthError(masterPassword);
+    if (lengthError) {
+      setError(lengthError);
       return false;
     }
     if (masterPassword !== confirmMasterPassword) {

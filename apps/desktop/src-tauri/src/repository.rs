@@ -210,6 +210,42 @@ impl VaultRepository {
             .map_err(map_load_error)
     }
 
+    /// Atomically replace only the password-derived key-wrap material.
+    /// The vault id and content-encryption key stay unchanged, so snapshots,
+    /// drafts, and attachments do not need to be rewritten.
+    pub fn update_key_wrap(
+        &self,
+        kdf: &KeyDerivationMetadata,
+        wrap_format_version: u32,
+        wrapped_data_key: &EncryptedBytes,
+    ) -> VaultResult<()> {
+        let kdf_metadata = serde_json::to_string(kdf).map_err(|_| VaultError::CorruptVault)?;
+        let updated = self
+            .connection
+            .execute(
+                r#"
+                UPDATE vault_header
+                SET kdf_metadata = ?1,
+                    wrap_format_version = ?2,
+                    wrapped_key_nonce = ?3,
+                    wrapped_key_ciphertext = ?4,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                "#,
+                params![
+                    kdf_metadata,
+                    wrap_format_version,
+                    wrapped_data_key.nonce,
+                    wrapped_data_key.ciphertext
+                ],
+            )
+            .map_err(|error| VaultError::Storage(error.to_string()))?;
+        if updated != 1 {
+            return Err(VaultError::VaultNotInitialized);
+        }
+        Ok(())
+    }
+
     fn vault_header_table_exists(&self) -> VaultResult<bool> {
         self.connection
             .query_row(

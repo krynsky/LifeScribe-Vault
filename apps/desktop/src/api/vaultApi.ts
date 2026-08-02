@@ -6,7 +6,7 @@
 // - Errors reject with a stable string error code from Rust's
 //   `command_error_code` ("InvalidMasterPassword", "VaultAlreadyExists",
 //   "VaultNotInitialized", "NotFound", "VaultLocked", "InvalidRecordId",
-//   "SnapshotConflict", "CorruptVault", "StorageError").
+//   "SnapshotConflict", "InvalidNewMasterPassword", "CorruptVault", "StorageError").
 // - The snapshot is opaque JSON to Rust: whatever object is saved is
 //   returned byte-identically by load. The richer snapshot type lives in
 //   the domain layer; this module deliberately stays untyped about it.
@@ -63,6 +63,16 @@ export function unlockVault(
 
 export function lockVault(): Promise<VaultStatusResponse> {
   return invoke("lock_vault");
+}
+
+/** Rewrap the vault's data key under a new master password. */
+export function changeVaultPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  return invoke("change_vault_password", {
+    request: { currentPassword, newPassword },
+  });
 }
 
 /**

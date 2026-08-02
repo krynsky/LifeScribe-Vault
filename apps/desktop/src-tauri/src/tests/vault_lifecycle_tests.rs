@@ -11,9 +11,9 @@ use serde_json::json;
 use tempfile::tempdir;
 
 use crate::commands::{
-    create_vault_at_path, get_status_for_session, load_vault_snapshot_for_session, lock_session,
-    save_vault_snapshot_for_session, stage_vault, staging_path, unlock_vault_at_path,
-    VaultSession,
+    change_vault_password_at_path, create_vault_at_path, get_status_for_session,
+    load_vault_snapshot_for_session, lock_session, save_vault_snapshot_for_session, stage_vault,
+    staging_path, unlock_vault_at_path, VaultSession,
 };
 use crate::error::{command_error_code, VaultError};
 
@@ -119,6 +119,82 @@ fn unlock_with_wrong_password_returns_invalid_master_password() {
         Some("InvalidMasterPassword".to_string())
     );
     assert!(!session.is_unlocked());
+}
+
+#[test]
+fn changing_password_rewraps_the_existing_data_key_without_changing_vault_content() {
+    let (_dir, path, mut session) = setup();
+    create(&path, &mut session);
+    let snapshot = json!({"secret": "preserved", "nested": {"value": 42}});
+    save_vault_snapshot_for_session(&mut session, &snapshot, 0).unwrap();
+
+    change_vault_password_at_path(&path, &mut session, PASSWORD, "replacement-master-password")
+        .unwrap();
+    assert!(session.is_unlocked());
+    assert_eq!(
+        load_vault_snapshot_for_session(&mut session)
+            .unwrap()
+            .snapshot,
+        snapshot
+    );
+
+    lock_session(&mut session).unwrap();
+    assert!(matches!(
+        unlock_vault_at_path(&path, &mut session, PASSWORD),
+        Err(VaultError::InvalidMasterPassword)
+    ));
+    unlock_vault_at_path(&path, &mut session, "replacement-master-password").unwrap();
+    assert_eq!(
+        load_vault_snapshot_for_session(&mut session)
+            .unwrap()
+            .snapshot,
+        snapshot
+    );
+}
+
+#[test]
+fn changing_password_with_the_wrong_current_password_leaves_the_old_password_intact() {
+    let (_dir, path, mut session) = setup();
+    create(&path, &mut session);
+    let snapshot = json!({"secret": "still-preserved"});
+    save_vault_snapshot_for_session(&mut session, &snapshot, 0).unwrap();
+
+    let result = change_vault_password_at_path(
+        &path,
+        &mut session,
+        "wrong-current-password",
+        "replacement-master-password",
+    );
+    assert!(matches!(result, Err(VaultError::InvalidMasterPassword)));
+
+    lock_session(&mut session).unwrap();
+    unlock_vault_at_path(&path, &mut session, PASSWORD).unwrap();
+    assert_eq!(
+        load_vault_snapshot_for_session(&mut session)
+            .unwrap()
+            .snapshot,
+        snapshot
+    );
+}
+
+#[test]
+fn changing_password_requires_an_unlocked_vault_and_a_strong_new_password() {
+    let (_dir, path, mut session) = setup();
+    create(&path, &mut session);
+
+    let weak_result =
+        change_vault_password_at_path(&path, &mut session, PASSWORD, "too-short");
+    assert!(matches!(&weak_result, Err(VaultError::InvalidNewMasterPassword)));
+    assert_eq!(
+        weak_result.err().map(command_error_code),
+        Some("InvalidNewMasterPassword".to_string())
+    );
+
+    lock_session(&mut session).unwrap();
+    assert!(matches!(
+        change_vault_password_at_path(&path, &mut session, PASSWORD, "replacement-master-password"),
+        Err(VaultError::Locked)
+    ));
 }
 
 #[test]

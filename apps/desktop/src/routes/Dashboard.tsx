@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  changeVaultPassword,
   deleteAttachment,
   discardDraft,
   getVaultStatus,
@@ -1339,7 +1340,11 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     content = <BackupPage />;
   } else if (route.kind === "settings") {
     content = (
-      <SettingsPage vaultDir={vaultDir} onRelocate={handleRelocate} />
+      <SettingsPage
+        vaultDir={vaultDir}
+        onRelocate={handleRelocate}
+        onChangePassword={changeVaultPassword}
+      />
     );
   }
 

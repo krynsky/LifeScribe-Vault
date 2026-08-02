@@ -9,6 +9,7 @@ vi.mock("./api/vaultApi", () => ({
   createVault: vi.fn(),
   unlockVault: vi.fn(),
   lockVault: vi.fn(),
+  changeVaultPassword: vi.fn(),
   saveVaultSnapshot: vi.fn(),
   loadVaultSnapshot: vi.fn(),
   stashDraft: vi.fn(),

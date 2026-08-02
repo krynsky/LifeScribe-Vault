@@ -171,6 +171,19 @@ yourself.
 If the move fails, nothing changes: your vault still lives where it did, and
 the app says so.
 
+### Changing the master password
+
+**Settings → Master password**
+
+Enter your current master password, then enter and confirm a new password of
+at least 15 characters. The vault stays unlocked after the change, but the old
+password will no longer open it the next time it is locked.
+
+Changing the password does not rewrite your saved records or attachments. It
+securely re-protects the vault's encryption key with a fresh password-derived
+key. Backup files are self-contained, so each existing backup still uses the
+password that was in effect when that backup was created.
+
 ### If the folder isn't available
 
 If your vault is on an external drive and you open the app without it
