@@ -96,7 +96,6 @@ export function RecordList({
     .sort((left, right) => left.order - right.order)
     .flatMap((group) => [...group.fields].sort((left, right) => left.order - right.order))
     .filter((field) => !field.hidden);
-  const readinessKeys = section.readinessRule.requiredKeys;
   const recordLabel = section.groups[0]?.title ?? section.title;
   const plainRecords = values.records.filter((record) => record.groupKey === undefined);
 
@@ -154,7 +153,7 @@ export function RecordList({
               const label = recordSummaryLabel(
                 record,
                 orderedFields,
-                readinessKeys,
+                section,
                 allSections,
                 referenceValues,
               );

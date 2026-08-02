@@ -452,7 +452,7 @@ export function FormRenderer({
               const label = recordSummaryLabel(
                 record,
                 visibleFields,
-                section.readinessRule.requiredKeys,
+                section,
                 allSections,
                 referenceValues,
               );

@@ -83,6 +83,12 @@ export interface ReadinessRule {
   requiredKeys: string[];
 }
 
+/** Fields composed into the collapsed label for a section record. */
+export interface RecordLabelDefinition {
+  fields: string[];
+  separator: string;
+}
+
 export interface KitMappingEntry {
   heading: string;
   fields: string[];
@@ -101,6 +107,7 @@ export interface PackSection {
   order: number;
   groups: FieldGroup[];
   readinessRule: ReadinessRule;
+  recordLabel?: RecordLabelDefinition;
   kitMapping: KitMapping;
 }
 

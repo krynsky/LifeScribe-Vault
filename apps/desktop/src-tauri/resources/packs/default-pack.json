@@ -595,6 +595,13 @@
           "accountInstitution"
         ]
       },
+      "recordLabel": {
+        "fields": [
+          "accountInstitution",
+          "accountName"
+        ],
+        "separator": " — "
+      },
       "kitMapping": {
         "entries": [
           {

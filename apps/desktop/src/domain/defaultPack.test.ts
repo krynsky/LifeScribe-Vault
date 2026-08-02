@@ -156,6 +156,13 @@ describe("shipped default pack", () => {
     });
   });
 
+  it("configures Financial Accounts record labels with institution and account name", () => {
+    expect(sectionByKey("financial-accounts").recordLabel).toEqual({
+      fields: ["accountInstitution", "accountName"],
+      separator: " — ",
+    });
+  });
+
   it("every visibleWhen conditional references an existing field in its own section", () => {
     for (const section of pack.sections) {
       const keys = fieldKeys(section);
@@ -301,9 +308,15 @@ describe("shipped default pack: the three permanent optional fields", () => {
 });
 
 /** Minimal stateful harness — RecordList is a controlled component. */
-function SectionHarness({ section }: { section: ResolvedSection }) {
+function SectionHarness({
+  section,
+  initialValues,
+}: {
+  section: ResolvedSection;
+  initialValues?: SectionValues;
+}) {
   const [values, setValues] = useState<SectionValues>(() =>
-    makeSectionValues(section.sectionKey),
+    initialValues ?? makeSectionValues(section.sectionKey),
   );
   return createElement(RecordList, {
     section,
@@ -340,5 +353,29 @@ describe("shipped default pack renders through RecordList", () => {
 
       view.unmount();
     }
+  });
+
+  it("labels Financial Accounts records with institution and account name", () => {
+    const { resolved } = mergePackWithOverlay(pack);
+    const section = resolved.sections.find(
+      (candidate) => candidate.sectionKey === "financial-accounts",
+    );
+    expect(section).toBeDefined();
+    const initialValues = makeSectionValues("financial-accounts", [
+      {
+        id: "account-1",
+        schemaVersion: pack.schemaVersion,
+        values: {
+          accountInstitution: "Chase",
+          accountName: "Sapphire Reserve",
+        },
+      },
+    ]);
+
+    render(createElement(SectionHarness, { section: section!, initialValues }));
+
+    expect(
+      screen.getByRole("button", { name: "Chase — Sapphire Reserve" }),
+    ).toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import {
   findRecordReferenceUsages,
   recordReferenceLabel,
   recordReferenceSourceFields,
+  recordSummaryLabel,
   resolveRecordReference,
 } from "./recordReferences";
 import type { VaultValues } from "./valuesStore";
@@ -242,6 +243,85 @@ describe("record reference labels and credential keys", () => {
       },
     });
     expect(label).not.toContain("0215");
+  });
+
+  it("omits empty optional parts from a configured record summary label", () => {
+    const fields: FieldDefinition[] = [
+      {
+        systemKey: "accountInstitution",
+        label: "Bank or Institution",
+        type: "text",
+        required: true,
+        protected: true,
+        order: 1,
+      },
+      {
+        systemKey: "accountName",
+        label: "Account Name",
+        type: "text",
+        required: false,
+        protected: false,
+        order: 2,
+      },
+    ];
+
+    expect(
+      recordSummaryLabel(
+        {
+          id: "account-1",
+          schemaVersion: 1,
+          values: { accountInstitution: "Chase", accountName: "" },
+        },
+        fields,
+        {
+          readinessRule: { requiredKeys: ["accountInstitution"] },
+          recordLabel: {
+            fields: ["accountInstitution", "accountName"],
+            separator: " — ",
+          },
+        },
+      ),
+    ).toBe("Chase");
+  });
+
+  it("never falls back to a credential for a record summary label", () => {
+    const fields: FieldDefinition[] = [
+      {
+        systemKey: "deviceName",
+        label: "Device name",
+        type: "text",
+        required: false,
+        protected: false,
+        order: 1,
+      },
+      {
+        systemKey: "devicePin",
+        label: "PIN or Password",
+        type: "text",
+        required: false,
+        protected: false,
+        order: 2,
+      },
+    ];
+
+    const label = recordSummaryLabel(
+      {
+        id: "device-1",
+        schemaVersion: 1,
+        values: { deviceName: "", devicePin: "480215" },
+      },
+      fields,
+      {
+        readinessRule: { requiredKeys: ["deviceName"] },
+        recordLabel: {
+          fields: ["deviceName", "devicePin"],
+          separator: " — ",
+        },
+      },
+    );
+
+    expect(label).toBe("Untitled");
+    expect(label).not.toContain("480215");
   });
 
   it("never offers a credential key as a selectable display field", () => {

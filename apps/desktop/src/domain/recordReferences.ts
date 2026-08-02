@@ -17,6 +17,7 @@ import {
   type FieldDefinition,
   type FieldOption,
   type PackSection,
+  type RecordLabelDefinition,
   type RecordReferenceDefinition,
   type RecordReferenceDisplayField,
   type ResolvedSection,
@@ -44,6 +45,7 @@ export interface RecordReferenceSourceSection {
   sectionKey: string;
   title: string;
   readinessRule: { requiredKeys: string[] };
+  recordLabel?: RecordLabelDefinition;
   groups: ReadonlyArray<{ fields: ReadonlyArray<FieldDefinition> }>;
 }
 
@@ -164,15 +166,29 @@ function displayFieldValue(
 export function recordSummaryLabel(
   record: SectionRecord,
   orderedFields: ReadonlyArray<FieldDefinition>,
-  readinessKeys: readonly string[],
+  section: Pick<RecordReferenceSourceSection, "readinessRule" | "recordLabel">,
   sections: ReadonlyArray<RecordReferenceSourceSection> = [],
   values: VaultValues = {},
 ): string {
-  const readiness = new Set(readinessKeys);
+  const recordLabel = section.recordLabel;
+  if (recordLabel) {
+    const fieldsByKey = new Map(orderedFields.map((field) => [field.systemKey, field]));
+    const parts = recordLabel.fields
+      .filter((systemKey) => !KIT_EXCLUDED_SET.has(systemKey))
+      .map((systemKey) => {
+        const field = fieldsByKey.get(systemKey);
+        const value = record.values[systemKey]?.trim();
+        return field && value ? displayFieldValue(field, value, sections, values) : "";
+      })
+      .filter(Boolean);
+    if (parts.length > 0) return parts.join(recordLabel.separator);
+  }
+
+  const readiness = new Set(section.readinessRule.requiredKeys);
   const candidates = [
     ...orderedFields.filter((field) => readiness.has(field.systemKey)),
     ...orderedFields.filter((field) => !readiness.has(field.systemKey)),
-  ];
+  ].filter((field) => !KIT_EXCLUDED_SET.has(field.systemKey));
   for (const field of candidates) {
     const value = record.values[field.systemKey]?.trim();
     if (!value) continue;
@@ -204,7 +220,7 @@ export function findRecordReferenceUsages(
           recordLabel: recordSummaryLabel(
             record,
             sourceSectionFields(section),
-            section.readinessRule.requiredKeys,
+            section,
             sections,
             values,
           ),

@@ -399,6 +399,30 @@ function validateSection(candidate: unknown, errors: string[]): void {
     }
   }
 
+  if (candidate.recordLabel !== undefined) {
+    if (
+      !isRecord(candidate.recordLabel) ||
+      !isStringArray(candidate.recordLabel.fields) ||
+      candidate.recordLabel.fields.length === 0 ||
+      typeof candidate.recordLabel.separator !== "string"
+    ) {
+      errors.push(
+        `Section ${sectionKey}: recordLabel must declare a non-empty fields string array and a separator string.`,
+      );
+    } else {
+      for (const key of candidate.recordLabel.fields) {
+        if (!fieldIndex.has(key)) {
+          errors.push(`Section ${sectionKey}: record label references unknown field ${key}.`);
+        }
+        if (KIT_EXCLUDED_SET.has(key)) {
+          errors.push(
+            `Section ${sectionKey}: record label may not include credential field ${key}.`,
+          );
+        }
+      }
+    }
+  }
+
   if (!isRecord(candidate.kitMapping) || !Array.isArray(candidate.kitMapping.entries)) {
     errors.push(`Section ${sectionKey} must declare kitMapping.entries as an array.`);
   } else {

@@ -18,6 +18,7 @@ function mutatePack(mutate: (pack: Record<string, unknown>) => void): unknown {
 
 type JsonSection = {
   readinessRule: { requiredKeys: string[] };
+  recordLabel?: { fields: string[]; separator: string };
   kitMapping: { entries: { heading: string; fields: string[] }[] };
   groups: { fields: Record<string, unknown>[] }[];
 };
@@ -280,6 +281,35 @@ describe("validatePack", () => {
     );
     expect(result.errors).toContain(
       "Section digital-executors: readiness rule may only reference protected fields, but executorRelationship is not protected.",
+    );
+  });
+
+  it("rejects record labels that reference unknown fields", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const section = (pack.sections as JsonSection[])[0];
+        section.recordLabel = { fields: ["ghostField"], separator: " — " };
+      }),
+    );
+    expect(result.errors).toContain(
+      "Section digital-executors: record label references unknown field ghostField.",
+    );
+  });
+
+  it("rejects record labels that expose credential fields", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const section = (pack.sections as Array<JsonSection & { sectionKey: string }>).find(
+          (candidate) => candidate.sectionKey === "devices",
+        )!;
+        section.recordLabel = {
+          fields: ["deviceName", "devicePin"],
+          separator: " — ",
+        };
+      }),
+    );
+    expect(result.errors).toContain(
+      "Section devices: record label may not include credential field devicePin.",
     );
   });
 

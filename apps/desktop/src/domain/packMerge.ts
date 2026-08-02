@@ -294,6 +294,14 @@ function mergeSection(
     order: section.order,
     groups,
     readinessRule: { requiredKeys: [...section.readinessRule.requiredKeys] },
+    ...(section.recordLabel
+      ? {
+          recordLabel: {
+            fields: [...section.recordLabel.fields],
+            separator: section.recordLabel.separator,
+          },
+        }
+      : {}),
     kitMapping: {
       entries: section.kitMapping.entries.map((entry) => ({
         heading: entry.heading,
