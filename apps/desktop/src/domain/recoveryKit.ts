@@ -22,7 +22,12 @@
  * - Empty values are skipped; empty sections and N/A sections are omitted
  *   entirely.
  * - Multi-record sections (and repeatable groups) emit one block per
- *   record, labeled by the record's summary value.
+ *   record. The block label is the section's `recordLabel` fields joined by
+ *   its separator when declared — so two cards at the same bank read
+ *   "Chase — Sapphire Reserve" and "Chase — Freedom Unlimited" rather than
+ *   "Chase" twice — falling back to the first kit-mapped readiness value,
+ *   then the block's first item. Label parts come from the block's already-
+ *   built items, so an unmapped field never reaches the page through a label.
  * - A `select` field's stored value is resolved to its option's label (a
  *   printed page reading "apple-legacy-contact" instead of "Apple Legacy
  *   Contact" is a defect); an orphaned value with no matching option falls
@@ -40,8 +45,10 @@ import {
   type FieldDefinition,
   type KitMapping,
   type ReadinessRule,
+  type RecordLabelDefinition,
 } from "./formModel";
 import { KIT_EXCLUDED_SYSTEM_KEYS } from "./packValidation";
+import { recordReferenceLabel } from "./recordReferences";
 import type { KitMeta, SectionMetaMap, VaultProfile } from "./snapshot";
 import type { SectionRecord, VaultValues } from "./valuesStore";
 
@@ -63,6 +70,7 @@ export interface KitSourceSection {
     fields: ReadonlyArray<FieldDefinition>;
   }>;
   readinessRule: ReadinessRule;
+  recordLabel?: RecordLabelDefinition;
   kitMapping: KitMapping;
 }
 
@@ -110,10 +118,30 @@ function indexSectionFields(section: KitSourceSection): Map<string, FieldDefinit
   return index;
 }
 
+function recoveryDisplayValue(
+  field: FieldDefinition,
+  record: SectionRecord,
+  value: string,
+  recordIndex: ReadonlyMap<string, ReadonlyMap<string, SectionRecord>>,
+): string {
+  if (field.type === "file") {
+    return record.attachments?.find((attachment) => attachment.id === value)?.fileName ?? value;
+  }
+  if (field.type === "select") {
+    return field.options?.find((option) => option.value === value)?.label ?? value;
+  }
+  if (field.type === "recordRef" && field.reference) {
+    const sourceRecord = recordIndex.get(field.reference.sectionKey)?.get(value);
+    return sourceRecord ? recordReferenceLabel(sourceRecord, field) : "Unavailable saved record";
+  }
+  return value;
+}
+
 function buildItems(
   record: SectionRecord,
   mappedKeys: readonly string[],
   fieldIndex: Map<string, FieldDefinition>,
+  recordIndex: ReadonlyMap<string, ReadonlyMap<string, SectionRecord>>,
 ): RecoveryKitItem[] {
   const items: RecoveryKitItem[] = [];
   for (const systemKey of mappedKeys) {
@@ -128,12 +156,7 @@ function buildItems(
     if (value.length === 0) {
       continue;
     }
-    const displayValue =
-      field.type === "file"
-        ? (record.attachments?.find((a) => a.id === value)?.fileName ?? value)
-        : field.type === "select"
-          ? (field.options?.find((o) => o.value === value)?.label ?? value)
-          : value;
+    const displayValue = recoveryDisplayValue(field, record, value, recordIndex);
     items.push({ systemKey, label: field.label, value: displayValue });
   }
   return items;
@@ -146,18 +169,33 @@ function buildItems(
  */
 function blockLabel(
   section: KitSourceSection,
-  record: SectionRecord,
   mappedKeys: readonly string[],
   items: RecoveryKitItem[],
 ): string {
+  const byKey = new Map(items.map((item) => [item.systemKey, item]));
+
+  // A section's `recordLabel` composes several fields into one identifying
+  // phrase — "Chase — Sapphire Reserve" rather than two blocks both reading
+  // "Chase". Composed from `items`, never from `record.values`: items are the
+  // already-mapped, already-credential-filtered, already-display-resolved
+  // values, which keeps the pointer-based law above intact. A label field that
+  // is not kit-mapped therefore contributes nothing rather than becoming a
+  // back door into unmapped values.
+  const composed = section.recordLabel?.fields
+    .map((key) => byKey.get(key)?.value)
+    .filter((value): value is string => Boolean(value));
+  if (composed && composed.length > 0) {
+    return composed.join(section.recordLabel!.separator);
+  }
+
   const mapped = new Set(mappedKeys);
   for (const key of section.readinessRule.requiredKeys) {
     if (!mapped.has(key)) {
       continue;
     }
-    const value = (record.values[key] ?? "").trim();
-    if (value.length > 0) {
-      return value;
+    const item = byKey.get(key);
+    if (item) {
+      return item.value;
     }
   }
   return items[0]?.value ?? "Untitled";
@@ -187,6 +225,12 @@ export function buildRecoveryKit(
 ): RecoveryKit {
   const entries: RecoveryKitEntry[] = [];
   const ordered = [...sections].sort((left, right) => left.order - right.order);
+  const recordIndex = new Map(
+    Object.entries(values).map(([sectionKey, sectionValues]) => [
+      sectionKey,
+      new Map(sectionValues.records.map((record) => [record.id, record])),
+    ]),
+  );
 
   for (const section of ordered) {
     if (sectionMeta[section.sectionKey]?.na) {
@@ -204,14 +248,14 @@ export function buildRecoveryKit(
       const mappedKeys = entry.fields.filter((key) => !KIT_EXCLUDED_SET.has(key));
       const blocks: RecoveryKitBlock[] = [];
       for (const record of sectionValues.records) {
-        const items = buildItems(record, mappedKeys, fieldIndex);
+        const items = buildItems(record, mappedKeys, fieldIndex, recordIndex);
         if (items.length === 0) {
           continue;
         }
         blocks.push({
           recordId: record.id,
           recordLabel: isLabeledRecord(section, record)
-            ? blockLabel(section, record, mappedKeys, items)
+            ? blockLabel(section, mappedKeys, items)
             : null,
           items,
         });

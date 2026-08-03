@@ -41,13 +41,23 @@ function resolveSection(
 
 interface HarnessProps {
   section: ResolvedSection;
+  allSections?: ResolvedSection[];
+  referenceValues?: VaultValues;
   initial?: SectionValues;
   onSave?: (values: SectionValues) => void;
   captureRef?: { current: SectionValues | null };
   externalIssues?: import("../domain/sectionValidation").SectionValidationIssue[];
 }
 
-function Harness({ section, initial, onSave, captureRef, externalIssues }: HarnessProps) {
+function Harness({
+  section,
+  allSections,
+  referenceValues,
+  initial,
+  onSave,
+  captureRef,
+  externalIssues,
+}: HarnessProps) {
   const [values, setValues] = useState<SectionValues>(
     initial ?? makeSectionValues(section.sectionKey),
   );
@@ -64,6 +74,15 @@ function Harness({ section, initial, onSave, captureRef, externalIssues }: Harne
       }}
       onSave={onSave}
       externalIssues={externalIssues}
+      recordReferences={
+        allSections
+          ? {
+              sections: allSections,
+              savedValues: referenceValues ?? {},
+              effectiveValues: referenceValues ?? {},
+            }
+          : undefined
+      }
     />
   );
 }
@@ -111,6 +130,126 @@ function makeSixTypesPack(): FormPack {
 }
 
 describe("FormRenderer", () => {
+  it("renders recordRef choices from saved records and stores the selected record id", async () => {
+    const user = userEvent.setup();
+    const pack = makePack({
+      sections: [
+        makeSection({
+          sectionKey: "devices",
+          title: "Devices",
+          multiRecord: true,
+          groups: [
+            makeGroup({
+              groupKey: "device",
+              fields: [
+                makeField({
+                  systemKey: "deviceName",
+                  label: "Device name",
+                  required: true,
+                  protected: true,
+                }),
+              ],
+            }),
+          ],
+          readinessRule: { requiredKeys: ["deviceName"] },
+        }),
+        makeSection({
+          sectionKey: "backups",
+          title: "Backups & Storage",
+          multiRecord: true,
+          groups: [
+            makeGroup({
+              groupKey: "backup",
+              fields: [
+                makeField({
+                  systemKey: "backupDevice",
+                  label: "Device",
+                  type: "recordRef",
+                  required: true,
+                  protected: true,
+                  reference: {
+                    sectionKey: "devices",
+                    displayFields: [{ systemKey: "deviceName" }],
+                    separator: " — ",
+                  },
+                }),
+              ],
+            }),
+          ],
+          readinessRule: { requiredKeys: ["backupDevice"] },
+        }),
+      ],
+    });
+    const merged = mergePackWithOverlay(pack);
+    const backupSection = merged.resolved.sections.find((s) => s.sectionKey === "backups")!;
+    const referenceValues = makeVaultValues([
+      makeSectionValues("devices", [
+        makeRecord({ id: "device-1", values: { deviceName: "Home NAS" } }),
+      ]),
+    ]);
+    const captureRef: { current: SectionValues | null } = { current: null };
+
+    render(
+      <Harness
+        section={backupSection}
+        allSections={merged.resolved.sections}
+        referenceValues={referenceValues}
+        initial={makeSectionValues("backups", [makeRecord({ id: "backup-1" })])}
+        captureRef={captureRef}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("Device"), "device-1");
+    expect(captureRef.current?.records[0]?.values.backupDevice).toBe("device-1");
+    expect(screen.getByRole("option", { name: "Home NAS" })).toHaveValue("device-1");
+  });
+
+  it("keeps an unavailable recordRef visible and explains an empty source", () => {
+    const section = resolveSection(
+      makePack({
+        sections: [
+          makeSection({
+            sectionKey: "backups",
+            multiRecord: true,
+            groups: [
+              makeGroup({
+                groupKey: "backup",
+                fields: [
+                  makeField({
+                    systemKey: "backupDevice",
+                    label: "Device",
+                    type: "recordRef",
+                    reference: {
+                      sectionKey: "devices",
+                      displayFields: [{ systemKey: "deviceName" }],
+                      separator: " — ",
+                    },
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+      "backups",
+    );
+    const initial = makeSectionValues("backups", [
+      makeRecord({ id: "backup-1", values: { backupDevice: "missing-device" } }),
+    ]);
+
+    render(
+      <Harness
+        section={section}
+        allSections={[section]}
+        referenceValues={{}}
+        initial={initial}
+      />,
+    );
+
+    expect(screen.getByLabelText("Device")).toHaveValue("missing-device");
+    expect(screen.getByText("Unavailable saved record")).toBeInTheDocument();
+  });
+
   it("renders two groups with all six field types and round-trips values through onChange", async () => {
     const user = userEvent.setup();
     const section = resolveSection(makeSixTypesPack(), "profile");

@@ -16,11 +16,16 @@
 
 import { useState } from "react";
 import type { ResolvedField, ResolvedSection } from "../domain/formModel";
+import {
+  findRecordReferenceUsages,
+  type RecordReferenceContext,
+} from "../domain/recordReferences";
 import type { SectionValidationIssue } from "../domain/sectionValidation";
 import type { SectionRecord, SectionValues } from "../domain/valuesStore";
 import { FormRenderer } from "../forms/FormRenderer";
 import { createRecordId, recordSummaryLabel } from "../forms/recordUtils";
 import { ArchivedAnswers } from "./ArchivedAnswers";
+import { RecordDeleteConfirmation } from "./RecordDeleteConfirmation";
 
 export interface RecordListProps {
   section: ResolvedSection;
@@ -32,6 +37,7 @@ export interface RecordListProps {
   onSave?: (values: SectionValues) => void;
   /** Page-level required-field issues, rendered inline under each field. */
   validationIssues?: SectionValidationIssue[];
+  recordReferences?: RecordReferenceContext;
 }
 
 export function RecordList({
@@ -41,7 +47,11 @@ export function RecordList({
   onChange,
   onSave,
   validationIssues,
+  recordReferences,
 }: RecordListProps) {
+  const allSections = recordReferences?.sections ?? [];
+  const referenceValues = recordReferences?.savedValues ?? {};
+  const referenceUsageValues = recordReferences?.effectiveValues ?? referenceValues;
   // `undefined` means the user has not yet touched the disclosure, so a record
   // carrying a validation issue may auto-expand; `null` is an explicit collapse.
   const [activeRecordId, setActiveRecordId] = useState<string | null | undefined>(undefined);
@@ -72,6 +82,7 @@ export function RecordList({
           onChange={onChange}
           onSave={onSave}
           externalIssues={validationIssues}
+          recordReferences={recordReferences}
         />
         {archived}
       </div>
@@ -85,7 +96,6 @@ export function RecordList({
     .sort((left, right) => left.order - right.order)
     .flatMap((group) => [...group.fields].sort((left, right) => left.order - right.order))
     .filter((field) => !field.hidden);
-  const readinessKeys = section.readinessRule.requiredKeys;
   const recordLabel = section.groups[0]?.title ?? section.title;
   const plainRecords = values.records.filter((record) => record.groupKey === undefined);
 
@@ -140,8 +150,23 @@ export function RecordList({
         <>
           <ul className="record-list__items">
             {plainRecords.map((record) => {
-              const label = recordSummaryLabel(record, orderedFields, readinessKeys);
+              const label = recordSummaryLabel(
+                record,
+                orderedFields,
+                section,
+                allSections,
+                referenceValues,
+              );
               const expanded = effectiveActiveId === record.id;
+              const usages =
+                pendingDeleteId === record.id
+                  ? findRecordReferenceUsages(
+                      section.sectionKey,
+                      record.id,
+                      allSections,
+                      referenceUsageValues,
+                    )
+                  : [];
               return (
                 <li className="record-list__item" key={record.id}>
                   <div className="record-list__row">
@@ -172,15 +197,12 @@ export function RecordList({
                     </button>
                   </div>
                   {pendingDeleteId === record.id ? (
-                    <div className="record-list__confirm">
-                      <p>Delete “{label}”? This cannot be undone.</p>
-                      <button type="button" onClick={() => deleteRecord(record)}>
-                        Confirm delete
-                      </button>
-                      <button type="button" onClick={() => setPendingDeleteId(null)}>
-                        Cancel
-                      </button>
-                    </div>
+                    <RecordDeleteConfirmation
+                      label={label}
+                      usages={usages}
+                      onConfirm={() => deleteRecord(record)}
+                      onCancel={() => setPendingDeleteId(null)}
+                    />
                   ) : null}
                   {expanded ? (
                     <div className="record-list__editor">
@@ -192,6 +214,7 @@ export function RecordList({
                         onChange={onChange}
                         onSave={onSave}
                         externalIssues={validationIssues}
+                        recordReferences={recordReferences}
                       />
                     </div>
                   ) : null}

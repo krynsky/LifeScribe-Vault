@@ -24,6 +24,9 @@ describe("VaultUnavailableScreen", () => {
   it("names the folder it cannot reach and never suggests the vault is gone", () => {
     render(<VaultUnavailableScreen vaultDir={VAULT_DIR} onRetry={vi.fn()} onRelocated={vi.fn()} />);
 
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--panel",
+    );
     expect(screen.getByText(VAULT_DIR)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /choose folder/i })).toBeInTheDocument();

@@ -16,14 +16,21 @@
  *   inline at their field with a marker; they are never silently cleared.
  */
 
-import { type ChangeEvent, type FormEvent, useState } from "react";
+import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
 import { Field } from "../components/Field";
+import { RecordDeleteConfirmation } from "../components/RecordDeleteConfirmation";
 import {
   isConditionSatisfied,
   type ResolvedField,
   type ResolvedGroup,
   type ResolvedSection,
 } from "../domain/formModel";
+import {
+  findRecordReferenceUsages,
+  resolveRecordReference,
+  type RecordReferenceContext,
+  type ResolvedRecordReference,
+} from "../domain/recordReferences";
 import type { SectionValidationIssue } from "../domain/sectionValidation";
 import {
   type AttachmentRef,
@@ -55,9 +62,16 @@ export interface FormRendererProps {
    * entered — no separate dismissal is needed.
    */
   externalIssues?: SectionValidationIssue[];
+  recordReferences?: RecordReferenceContext;
 }
 
 type FieldControlElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+const EMPTY_RECORD_REFERENCE_CONTEXT: RecordReferenceContext = {
+  sections: [],
+  savedValues: {},
+  effectiveValues: {},
+};
 
 interface FieldControlProps {
   field: ResolvedField;
@@ -65,9 +79,19 @@ interface FieldControlProps {
   value: string;
   describedBy?: string;
   onValueChange: (value: string) => void;
+  recordReference?: ResolvedRecordReference;
+  recordReferenceSourceTitle?: string;
 }
 
-function FieldControl({ field, fieldId, value, describedBy, onValueChange }: FieldControlProps) {
+function FieldControl({
+  field,
+  fieldId,
+  value,
+  describedBy,
+  onValueChange,
+  recordReference,
+  recordReferenceSourceTitle,
+}: FieldControlProps) {
   const handleChange = (event: ChangeEvent<FieldControlElement>) =>
     onValueChange(event.currentTarget.value);
 
@@ -105,6 +129,36 @@ function FieldControl({ field, fieldId, value, describedBy, onValueChange }: Fie
     );
   }
 
+  if (field.type === "recordRef") {
+    const options = recordReference?.options ?? [];
+    const unavailableValue = recordReference?.unavailableValue;
+    const hasChoices = options.length > 0 || unavailableValue !== null;
+    return (
+      <select
+        className="field__control"
+        id={fieldId}
+        value={value}
+        disabled={!hasChoices}
+        aria-describedby={describedBy}
+        onChange={handleChange}
+      >
+        <option value="">
+          {options.length > 0
+            ? "Select a saved record"
+            : `No saved ${recordReferenceSourceTitle ?? "source"} records available`}
+        </option>
+        {unavailableValue ? (
+          <option value={unavailableValue}>Unavailable saved record</option>
+        ) : null}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   const inputType =
     field.type === "phone" ? "tel" : field.type === "text" ? "text" : field.type;
   return (
@@ -131,10 +185,33 @@ export function FormRenderer({
   onChange,
   onSave,
   externalIssues,
+  recordReferences,
 }: FormRendererProps) {
+  const referenceContext = recordReferences ?? EMPTY_RECORD_REFERENCE_CONTEXT;
+  const allSections = referenceContext.sections;
+  const referenceValues = referenceContext.savedValues;
+  const referenceUsageValues = referenceContext.effectiveValues;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [expandedByGroup, setExpandedByGroup] = useState<Record<string, string | null>>({});
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const recordReferenceCatalog = useMemo(() => {
+    const catalog = new Map<
+      string,
+      { options: ResolvedRecordReference["options"]; optionValues: Set<string>; sourceTitle?: string }
+    >();
+    for (const field of section.groups.flatMap((group) => group.fields)) {
+      if (field.type !== "recordRef") continue;
+      const resolved = resolveRecordReference(field, allSections, referenceValues);
+      catalog.set(field.systemKey, {
+        options: resolved.options,
+        optionValues: new Set(resolved.options.map((option) => option.value)),
+        sourceTitle: allSections.find(
+          (candidate) => candidate.sectionKey === field.reference?.sectionKey,
+        )?.title,
+      });
+    }
+    return catalog;
+  }, [allSections, referenceValues, section.groups]);
 
   // Stable id for the auto-created record shape of a section that has no
   // plain record yet — the record itself enters the store on first change.
@@ -228,6 +305,14 @@ export function FormRenderer({
     setPendingDeleteId(null);
   };
 
+  const referenceUsages = (record: SectionRecord) =>
+    findRecordReferenceUsages(
+      section.sectionKey,
+      record.id,
+      allSections,
+      referenceUsageValues,
+    );
+
   const fieldDomId = (record: SectionRecord, systemKey: string): string =>
     `${section.sectionKey}--${record.id}--${systemKey}`;
 
@@ -262,6 +347,16 @@ export function FormRenderer({
     const previousAnswer = field.previousAnswers?.find(
       (answer) => answer.recordId === record.id && answer.value === storedValue,
     );
+    const recordReferenceEntry = recordReferenceCatalog.get(field.systemKey);
+    const recordReference = recordReferenceEntry
+      ? {
+          options: recordReferenceEntry.options,
+          unavailableValue:
+            storedValue && !recordReferenceEntry.optionValues.has(storedValue)
+              ? storedValue
+              : null,
+        }
+      : undefined;
 
     if (field.type === "file") {
       const attachmentRef: AttachmentRef | null =
@@ -317,6 +412,8 @@ export function FormRenderer({
           value={storedValue}
           describedBy={field.helperText ? `${fieldId}-hint` : undefined}
           onValueChange={(value) => updateRecordValue(record, field.systemKey, value)}
+          recordReference={recordReference}
+          recordReferenceSourceTitle={recordReferenceEntry?.sourceTitle}
         />
         {previousAnswer ? (
           <p className="field__previous-answer">
@@ -355,9 +452,12 @@ export function FormRenderer({
               const label = recordSummaryLabel(
                 record,
                 visibleFields,
-                section.readinessRule.requiredKeys,
+                section,
+                allSections,
+                referenceValues,
               );
               const expanded = autoExpandedId === record.id;
+              const usages = pendingDeleteId === record.id ? referenceUsages(record) : [];
               return (
                 <li className="record-list__item" key={record.id}>
                   <div className="record-list__row">
@@ -393,15 +493,12 @@ export function FormRenderer({
                     </button>
                   </div>
                   {pendingDeleteId === record.id ? (
-                    <div className="record-list__confirm">
-                      <p>Delete “{label}”? This cannot be undone.</p>
-                      <button type="button" onClick={() => deleteGroupRecord(record)}>
-                        Confirm delete
-                      </button>
-                      <button type="button" onClick={() => setPendingDeleteId(null)}>
-                        Cancel
-                      </button>
-                    </div>
+                    <RecordDeleteConfirmation
+                      label={label}
+                      usages={usages}
+                      onConfirm={() => deleteGroupRecord(record)}
+                      onCancel={() => setPendingDeleteId(null)}
+                    />
                   ) : null}
                   {expanded ? (
                     <div className="record-list__editor">{renderGroupFields(group, record)}</div>

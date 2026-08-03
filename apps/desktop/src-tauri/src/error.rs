@@ -13,6 +13,8 @@ pub enum VaultError {
     VaultNotInitialized,
     #[error("The master password could not unlock this vault. There is no reset.")]
     InvalidMasterPassword,
+    #[error("The new master password must contain at least 15 characters.")]
+    InvalidNewMasterPassword,
     #[error("The vault data could not be decrypted.")]
     DecryptionFailed,
     #[error("The vault data could not be encrypted.")]
@@ -48,6 +50,7 @@ pub type VaultResult<T> = Result<T, VaultError>;
 pub fn command_error_code(error: VaultError) -> String {
     match error {
         VaultError::InvalidMasterPassword => "InvalidMasterPassword",
+        VaultError::InvalidNewMasterPassword => "InvalidNewMasterPassword",
         VaultError::VaultAlreadyExists => "VaultAlreadyExists",
         VaultError::VaultNotInitialized => "VaultNotInitialized",
         VaultError::NotFound => "NotFound",

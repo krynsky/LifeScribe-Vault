@@ -30,6 +30,7 @@ pub fn run() {
             commands::create_vault,
             commands::unlock_vault,
             commands::lock_vault,
+            commands::change_vault_password,
             commands::set_vault_location,
             commands::check_vault_location,
             commands::relocate_vault,

@@ -9,6 +9,7 @@ vi.mock("./api/vaultApi", () => ({
   createVault: vi.fn(),
   unlockVault: vi.fn(),
   lockVault: vi.fn(),
+  changeVaultPassword: vi.fn(),
   saveVaultSnapshot: vi.fn(),
   loadVaultSnapshot: vi.fn(),
   stashDraft: vi.fn(),
@@ -68,7 +69,7 @@ describe("App", () => {
   it("renders the loading placeholder while the status loads", () => {
     mocked.getVaultStatus.mockReturnValue(new Promise(() => undefined));
     render(<App />);
-    expect(screen.getByText("LifeScribe Vault")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toBeInTheDocument();
     expect(screen.getByText("Preparing your vault…")).toBeInTheDocument();
   });
 
@@ -89,6 +90,9 @@ describe("App", () => {
     // Dashboard welcome state: warm orientation, 0% framed encouragingly,
     // a single primary CTA toward the first incomplete section.
     expect(await screen.findByText("Welcome, Dana")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--sidebar",
+    );
     expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: /Start with Digital Executors/ }),
@@ -276,6 +280,9 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Vault status unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--panel",
+    );
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Let's set up your vault")).toBeInTheDocument();

@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { BrandLogo } from "../components/BrandLogo";
 
 export interface LockedScreenProps {
   onUnlock: (masterPassword: string) => Promise<void>;
@@ -45,7 +46,7 @@ export function LockedScreen({ onUnlock, notice }: LockedScreenProps) {
   return (
     <div className="centered-screen">
       <section className="vault-panel" aria-labelledby="locked-title">
-        <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+        <BrandLogo className="brand-logo--panel" />
         <h1 className="vault-panel__title" id="locked-title">
           Vault locked
         </h1>

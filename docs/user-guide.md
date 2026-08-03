@@ -68,6 +68,28 @@ later if you change your mind.
 Whichever way you go, the master password and the device PIN are **never
 printed in the Recovery Kit** — see below.
 
+### Fields that link to another entry
+
+Some fields ask you to pick something you've already entered elsewhere rather
+than retype it. "Backups & Storage → Device" lists the devices from your Device
+list; "Subscriptions → Payment method" lists your financial accounts.
+
+- **Rename once, updated everywhere.** The link remembers *which* entry you
+  picked, not the words on screen. Rename a device and every backup pointing at
+  it follows automatically.
+- **Two entries can share a name.** Two cards both called "Chase" stay distinct
+  — the app tracks them separately even though they read alike.
+- **You can't delete something still in use.** If you try to remove a device
+  that a backup points at, the app tells you what's using it instead of deleting
+  it and leaving a broken link. Clear or repoint those entries first, then
+  delete.
+- **A link that can't be found still shows.** If an entry goes missing, the
+  field says so rather than quietly emptying itself, so you can fix it
+  deliberately.
+
+Where a linked field appears on the Recovery Kit, it prints the readable name of
+the entry it points at — never an internal id, and never a password or PIN.
+
 ### Attaching files
 
 Fields that accept a file (for example, a scanned document) encrypt the file into the vault when you attach it. From there you can:
@@ -87,6 +109,26 @@ When you copy a value from the vault, the app uses a protected copy path: the va
 - **Lock vault** (sidebar) locks immediately. The app also **locks itself after 15 minutes of inactivity**.
 - If you lock (or the auto-lock fires) with unsaved edits, they're stashed **encrypted** and restored the next time you unlock, with a banner telling you when they were set aside.
 - A wrong password on the unlock screen simply fails — there is no lockout, but attempts are throttled.
+
+---
+
+## Changing Your Master Password
+
+**Settings → Master password**
+
+Enter your current master password, then enter and confirm a new password of
+at least 15 characters. The vault stays unlocked after the change, but the old
+password will no longer open it the next time it is locked.
+
+Changing the password does not rewrite your saved records or attachments. It
+securely re-protects the vault's encryption key with a fresh password-derived
+key.
+
+> **Backups keep the password they were made with.** Each `.lsvbackup` file is
+> self-contained, so changing your vault password does not change any backup
+> you already created — restoring one still asks for the password that was in
+> effect when it was made. If you change your password, consider making a fresh
+> backup so you have one that matches.
 
 ---
 
@@ -184,7 +226,7 @@ A few fields are **protected** because the Recovery Kit and readiness tracking d
 
 - **Local-only.** No cloud sync, no telemetry, no remote services. The app never sends your data anywhere.
 - **Strong encryption.** Your master password is stretched with Argon2id; all vault content, attachments, drafts, and backups are encrypted with XChaCha20-Poly1305.
-- **No password reset.** By design. Your password is the only key.
+- **No password reset.** You can change the password from Settings while the vault is unlocked by entering the current password, but a forgotten password cannot be reset or recovered.
 - **Honest limits.** Text visible on your screen can be read by anyone at your screen, and manually selecting and copying rendered text bypasses the protected clipboard path. Lock the vault when you step away.
 
 ---
@@ -199,6 +241,9 @@ Yes. Choose that folder during setup, or move it later from Settings → Vault l
 
 **Can I move my vault to a new computer?**
 Yes — create a backup, install LifeScribe Vault on the new machine, and restore the `.lsvbackup` file. Moving the vault folder is for relocating it on the *same* computer (or onto a drive attached to it), not for migrating machines.
+
+**Can I change my master password?**
+Yes. Open Settings → Master password while the vault is unlocked, enter the current password, and choose a new one of at least 15 characters. The change applies the next time you unlock. Existing backup files still require the password used when each one was created.
 
 **What happens if the app crashes while saving?**
 Saves are atomic and the previous few saved versions are retained. If the newest save is ever unreadable, the app automatically recovers the most recent good one and tells you so.

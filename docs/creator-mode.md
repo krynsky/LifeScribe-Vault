@@ -158,8 +158,58 @@ hidden by field name or type.
 `validatePack` rejects the keys in `KIT_EXCLUDED_SYSTEM_KEYS`, but that is a
 literal list of two systemKeys. A *new* credential field is not covered by it
 and would print. Add the key to that list in `packValidation.ts` — the
-consumption-side filter in `recoveryKit.ts` reads the same constant, so both
-gates pick it up together.
+consumption-side filters in `recoveryKit.ts` and `recordReferences.ts` both read
+the same constant, so every gate picks it up together.
+
+Remember there are **two** ways a value reaches the Kit: the section's own
+`kitMapping`, and a `recordRef` in some *other* section using it as a display
+field. Both are gated, but only for keys on that list — which is why the list is
+the thing to update, not any individual call site.
+
+## Linking one section's records to another (`recordRef`)
+
+A `recordRef` field lets a record point at a record in another section — a
+backup naming which device it protects, a subscription naming which account pays
+for it. Choose the target section and the fields that compose each option's
+label; the field stores the target record's id, so renaming the target updates
+every reference to it automatically.
+
+Authoring notes:
+
+- **Pick display fields that identify the record to a human.** They appear in
+  the picker *and*, if the reference is kit-mapped, on the printed Recovery Kit.
+- **Credential fields are not offered** as display fields, and `validatePack`
+  rejects a pack that names one anyway.
+- **`last4` is cosmetic.** It renders `•••• 1234` for readability. It is not
+  masking — the full value is still in the vault and still prints wherever it is
+  mapped into the Kit directly.
+- **A record cannot be deleted while something references it.** The app blocks
+  the delete and lists what points at it; clear those references first. Plan for
+  this when choosing which section is the "source" — the referenced section
+  becomes harder to prune.
+- A reference cannot point at its own section, and cannot display another
+  `recordRef`.
+
+## Giving a section's records a readable label
+
+A multi-record section shows each record collapsed to one line. Without help
+that line is the first readiness value, which reads badly when records share it
+— two cards at the same bank both showing "Chase". Add a section-level
+`recordLabel` to compose several fields:
+
+```jsonc
+"recordLabel": { "fields": ["accountInstitution", "accountName"], "separator": " — " }
+```
+
+Two rules worth knowing when choosing the fields:
+
+- **Kit-map every field you name.** The printed Recovery Kit composes its block
+  label from the fields it already prints, so a `recordLabel` field missing from
+  that section's `kitMapping` is silently skipped *on the Kit only* — the app
+  still shows it. That asymmetry is deliberate (a label must never become a
+  route to an unmapped value), but it means an unmapped label field gives you a
+  worse Kit than you designed.
+- **Credential keys are rejected**, in the label as everywhere else.
 
 ## The `write_default_pack` command
 

@@ -1,6 +1,11 @@
 import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { getVaultStatus, setVaultLocation } from "../api/vaultApi";
+import { BrandLogo } from "../components/BrandLogo";
+import {
+  MASTER_PASSWORD_LENGTH_MESSAGE,
+  masterPasswordLengthError,
+} from "../domain/passwordPolicy";
 
 export interface SetupScreenProps {
   onCreate: (masterPassword: string, ownerName: string) => Promise<void>;
@@ -51,7 +56,6 @@ function RevealToggle({
   );
 }
 
-const MIN_MASTER_PASSWORD_LENGTH = 15;
 const GUIDANCE_ID = "setup-password-guidance";
 const ERROR_ID = "setup-error";
 
@@ -59,6 +63,12 @@ function createErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message === "VaultAlreadyExists") {
     return "A vault already exists on this computer. Unlock it with your master password instead.";
+  }
+  // Normally unreachable — validateIdentity checks the same rule first. Mapped
+  // so the backend's own guard still produces a usable message rather than the
+  // generic fallback if the two ever disagree.
+  if (message === "InvalidNewMasterPassword") {
+    return MASTER_PASSWORD_LENGTH_MESSAGE;
   }
   return "The vault could not be created. Check the details and try again.";
 }
@@ -110,8 +120,9 @@ export function SetupScreen({ onCreate, onVaultFound }: SetupScreenProps) {
   }
 
   function validateIdentity(): boolean {
-    if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
-      setError(`Use a master password with at least ${MIN_MASTER_PASSWORD_LENGTH} characters — a few unrelated words work well.`);
+    const lengthError = masterPasswordLengthError(masterPassword);
+    if (lengthError) {
+      setError(lengthError);
       return false;
     }
     if (masterPassword !== confirmMasterPassword) {
@@ -141,7 +152,7 @@ export function SetupScreen({ onCreate, onVaultFound }: SetupScreenProps) {
   return (
     <div className="centered-screen">
       <section className="vault-panel" aria-labelledby="setup-title">
-        <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+        <BrandLogo className="brand-logo--panel" />
         <h1 className="vault-panel__title" id="setup-title">Let's set up your vault</h1>
 
         <div className="vault-form">

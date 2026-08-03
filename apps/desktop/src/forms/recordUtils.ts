@@ -5,8 +5,7 @@
  * circular import.
  */
 
-import type { ResolvedField } from "../domain/formModel";
-import type { SectionRecord } from "../domain/valuesStore";
+export { recordSummaryLabel } from "../domain/recordReferences";
 
 /** A fresh unique id for a new section record. */
 export function createRecordId(): string {
@@ -15,29 +14,4 @@ export function createRecordId(): string {
     return cryptoApi.randomUUID();
   }
   return `record-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/**
- * Summary label for a collapsed record row: the record's first
- * readiness-rule protected-field value, falling back to its first non-empty
- * value in field order, then "Untitled".
- */
-export function recordSummaryLabel(
-  record: SectionRecord,
-  orderedFields: ReadonlyArray<Pick<ResolvedField, "systemKey">>,
-  readinessKeys: readonly string[],
-): string {
-  for (const key of readinessKeys) {
-    const value = record.values[key]?.trim();
-    if (value) {
-      return value;
-    }
-  }
-  for (const field of orderedFields) {
-    const value = record.values[field.systemKey]?.trim();
-    if (value) {
-      return value;
-    }
-  }
-  return "Untitled";
 }

@@ -95,6 +95,10 @@ These invariants are load-bearing; changes that touch them need matching test ch
    and a record identity (e.g. `generation:7`). Blobs cannot be replayed across
    domains, vaults, or records. Keys live only in `Zeroizing` buffers, never cross
    IPC, and never appear in errors or logs. Key-holding types have no `Debug`.
+   Changing the master password verifies the current password, creates fresh KDF
+   metadata, and atomically replaces only the wrapped data key. The random data key
+   and encrypted content stay unchanged; existing backups keep their original
+   password-derived wrapping.
 
 2. **The snapshot is opaque to Rust.** `serde_json::Value` passthrough — never mirror
    it in a Rust struct (v1's mirrored struct silently stripped fields). The frontend
@@ -228,6 +232,76 @@ The user simply leaves them blank if they don't want them.
 > That system is gone: no `composePack`, no `modules` array, no `moduleSelections`
 > or `formMode` in the profile. Documents describing it are historical.
 
+### Record references (`recordRef`)
+
+A `recordRef` field stores **another section record's id** and renders as a
+picker of that section's records. `domain/recordReferences.ts` owns the model.
+
+```jsonc
+{
+  "systemKey": "backupDevice",
+  "type": "recordRef",
+  "reference": {
+    "sectionKey": "devices",              // which section supplies the records
+    "displayFields": [                    // how to label each one
+      { "systemKey": "deviceName" },
+      { "systemKey": "accountNumber", "format": "last4" }
+    ],
+    "separator": " — "
+  }
+}
+```
+
+Design rules, all enforced by `validatePack`:
+
+- **The stored value is the record id, never the label.** Labels are recomputed
+  on every render, so renaming a device updates every reference to it. Two
+  records may share a display label without colliding.
+- **No self-reference**, and **no `recordRef` as a display field** — labels
+  compose from plain values only, so label resolution is depth-1 and cannot
+  cycle.
+- **Display fields must exist** in the target section.
+- **No credential display fields** — see [Recovery Kit](#recovery-kit).
+- `recordRef` and `options` are mutually exclusive, in both directions.
+
+**Referential integrity.** `findRecordReferenceUsages` scans every section for
+inbound references before a record is deleted; `RecordDeleteConfirmation`
+**blocks** the delete and lists what points at the record, rather than
+cascading or orphaning. A reference whose target disappears anyway (e.g. from an
+older snapshot) is not destroyed: `resolveRecordReference` surfaces it as
+`unavailableValue`, and `valueConformsToField` treats any non-empty string as
+conforming so reconcile never archives it out from under the user.
+
+**`format: "last4"` is cosmetic, not a security control.** It shortens a
+displayed value to `•••• 1234` for readability in a picker. The full value
+remains in the vault and still prints in full wherever it is mapped into the
+Kit directly. Do not use it as masking.
+
+### Record labels (`section.recordLabel`)
+
+A multi-record section collapses each record to a one-line label. By default
+that is the record's first readiness value — which reads badly when several
+records share it (two cards at the same bank both showing "Chase"). An optional
+section-level `recordLabel` composes several fields instead:
+
+```jsonc
+"recordLabel": { "fields": ["accountInstitution", "accountName"], "separator": " — " }
+```
+
+It is honored in **two** places, and they resolve values differently on purpose:
+
+- `recordSummaryLabel` (dashboard rows, reference pickers) reads
+  `record.values` directly, filtering credential keys.
+- `blockLabel` (printed Recovery Kit) composes from the block's **already-built
+  items** — the mapped, credential-filtered, display-resolved values. A
+  `recordLabel` field that is not kit-mapped contributes nothing, so a label can
+  never become a back door into unmapped values. That keeps the pointer-based
+  law at the top of `recoveryKit.ts` true.
+
+Both fall back to the readiness value, then to the first available value.
+`validatePack` rejects a `recordLabel` naming an unknown field or a credential
+key.
+
 ### Editing surfaces
 
 - **In-app Form Editor** (runtime sidebar toggle): edits the *user's* pack,
@@ -271,22 +345,43 @@ family. It is pointer-based: it emits only the systemKeys each section's
 hidden by field name or type. What it emits is *display*, not the stored value
 verbatim: a `select` field resolves to its option's **label** (an orphaned
 value with no matching option falls back to printing itself, rather than
-disappearing), and a `file` field contributes its **filename**, not its
-contents or its stored attachment id.
+disappearing), a `file` field contributes its **filename**, not its contents or
+its stored attachment id, and a `recordRef` contributes the **composed label**
+of the record it points at, never the internal record id (an unresolvable
+reference prints "Unavailable saved record").
+
+### Credential exclusion, and the two routes it has to cover
 
 Credential keys (`passwordManagerMasterPassword`, `devicePin`) may never appear
-on it. That is enforced twice, deliberately:
+on the Kit. There are **two distinct ways a record's values reach the printed
+page**, and missing either one defeats the guarantee:
 
-- **Authoring gate** — `validatePack` rejects any pack whose `kitMapping` names
-  one, so an author gets an error message.
-- **Consumption gate** — `buildRecoveryKit` filters them out of every mapping
-  entry, covering both items and block labels, whatever pack arrives.
+1. **The section's own `kitMapping`** — `entry.fields` naming keys in the
+   section being rendered.
+2. **A `recordRef`'s `reference.displayFields`** — reaching *sideways* into the
+   source section a reference points at, to compose that record's label. The
+   `kitMapping` filter cannot see this route: the mapped key is the innocuous
+   reference field, and the credential is read during label composition.
 
-The consumption gate is the load-bearing one, because validation never runs on
-the pack the Kit actually renders from (see above). Keep both: the first gives a
-diagnosable error, the second guarantees the printed page.
-`computeKitFingerprint` delegates to `buildRecoveryKit`, so it inherits the
-filter.
+Each route is gated at both ends:
+
+| | Authoring gate (`validatePack`) | Consumption gate |
+|---|---|---|
+| `kitMapping` | rejects a mapping naming a credential | `buildRecoveryKit` filters `entry.fields` |
+| `displayFields` | rejects a reference displaying one | `recordReferenceLabel` filters display parts |
+
+The consumption gates are the load-bearing half, because validation never runs
+on the pack the Kit actually renders from (see above). Keep both halves: the
+authoring gate gives a diagnosable error message, the consumption gate
+guarantees the printed page. `computeKitFingerprint` delegates to
+`buildRecoveryKit`, so it inherits the filter;
+`recordReferenceSourceFields` applies the same exclusion so the authoring UI
+never *offers* a credential as a display field in the first place.
+
+**If you add a third way to compose display text from another record's values,
+it needs its own gate.** That is the lesson the `recordRef` work taught: the
+original exclusion was written when `kitMapping` was the only route, and the
+new field type quietly opened a second one.
 
 The exclusion matches literal systemKeys. If credential fields ever multiply, or
 if the editor gains the ability to rename or duplicate a field into a kit
@@ -301,6 +396,14 @@ mapping, replace it with a flag on the field definition.
 - **Vault creation is atomic**: staged at a sibling temp path, WAL-checkpointed,
   renamed into place. Failed unlocks sleep 750 ms in the wrapper (throttle);
   wrong password and tampered KDF metadata are indistinguishable by design.
+- **Password changes**: `change_vault_password` is available only to an unlocked
+  session. Its core re-verifies the current password against the persisted header,
+  rejects a new password shorter than 15 Unicode characters, creates fresh Argon2id
+  metadata, and calls `VaultRepository::update_key_wrap` to update the header in one
+  SQLite transaction. It keeps the verified data key in the session, so the app
+  remains unlocked. A wrong current password leaves the header, session, and vault
+  content unchanged. Backup envelopes are independent and continue to require the
+  password used at backup creation time.
 - **Attachments**: ciphertext written atomically (temp + fsync + rename) *before*
   the snapshot references it; a crash leaves a sweepable orphan, never a dangling
   reference. Sweep skips files younger than 120 s, no-ops while a restore marker

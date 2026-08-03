@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import basePackJson from "../../src-tauri/resources/packs/default-pack.json";
 import * as vaultApi from "../api/vaultApi";
 import { Dashboard } from "./Dashboard";
 import { INACTIVITY_LOCK_MS } from "./lockPolicy";
@@ -10,6 +11,7 @@ vi.mock("../api/vaultApi", () => ({
   createVault: vi.fn(),
   unlockVault: vi.fn(),
   lockVault: vi.fn(),
+  changeVaultPassword: vi.fn(),
   saveVaultSnapshot: vi.fn(),
   loadVaultSnapshot: vi.fn(),
   stashDraft: vi.fn(),
@@ -92,6 +94,57 @@ function renderDashboard() {
 function sidebarSectionButton() {
   return screen.getByRole("button", { name: /^Digital Executors/ });
 }
+
+describe("Dashboard branded phase states", () => {
+  it("shows the loading logo while the snapshot is pending", () => {
+    mocked.loadVaultSnapshot.mockReturnValue(new Promise(() => undefined));
+    renderDashboard();
+
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--loading",
+    );
+  });
+
+  it("shows the panel logo when the snapshot cannot be loaded", async () => {
+    mocked.loadVaultSnapshot.mockRejectedValue("Unreadable");
+    renderDashboard();
+
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--panel",
+    );
+  });
+
+  it("shows the panel logo when a newer app wrote the vault", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        customPack: basePackJson,
+        values: {
+          [SECTION_KEY]: {
+            sectionKey: SECTION_KEY,
+            records: [
+              {
+                id: "newer-record",
+                groupKey: "executor",
+                schemaVersion: 999,
+                values: {},
+              },
+            ],
+            archivedAnswers: [],
+          },
+        },
+      },
+      generation: 1,
+      recovered: false,
+    });
+    renderDashboard();
+
+    expect(await screen.findByText("This vault needs a newer app")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
+      "brand-logo--panel",
+    );
+  });
+});
 
 async function openSectionAndTypeName(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(sidebarSectionButton());

@@ -15,6 +15,7 @@ import type {
   PackSection,
 } from "../domain/formModel";
 import { isCustomFieldKey } from "../domain/formModel";
+import { defaultRecordReference } from "../domain/recordReferences";
 
 // ---------------------------------------------------------------------------
 // Low-level immutable updaters
@@ -240,6 +241,10 @@ export function addOptionalField(
     protected: false,
     order,
   };
+  if (type === "recordRef") {
+    const sourceSection = pack.sections.find((candidate) => candidate.sectionKey !== sectionKey);
+    newField.reference = defaultRecordReference(sourceSection);
+  }
   return updateGroup(pack, sectionKey, groupKey, (g) => ({
     ...g,
     fields: [...g.fields, newField],

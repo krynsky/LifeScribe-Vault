@@ -7,6 +7,7 @@ import type { SectionStatus } from "../domain/readiness";
 import type { SectionMeta } from "../domain/snapshot";
 import type { SectionValidationIssue } from "../domain/sectionValidation";
 import type { SectionValues } from "../domain/valuesStore";
+import type { RecordReferenceContext } from "../domain/recordReferences";
 
 export interface DraftBannerState {
   stashedAt: string | null;
@@ -27,6 +28,7 @@ export interface SectionPageProps {
   conflict: boolean;
   draftBanner: DraftBannerState | null;
   validationIssues: SectionValidationIssue[];
+  recordReferences: RecordReferenceContext;
   onChange: (values: SectionValues) => void;
   onSave: () => void;
   onSaveAgain: () => void;
@@ -38,6 +40,7 @@ export interface SectionPageProps {
   editing?: boolean;
   /** Raw PackSection edited by the structure editor when `editing`. */
   packSection?: PackSection;
+  packSections?: PackSection[];
   /** Called when a field's definition is changed. */
   onEditField?: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
   /** Called when a field is removed. */
@@ -76,6 +79,7 @@ export function SectionPage({
   conflict,
   draftBanner,
   validationIssues,
+  recordReferences,
   onChange,
   onSave,
   onSaveAgain,
@@ -85,6 +89,7 @@ export function SectionPage({
   onSetNa,
   editing,
   packSection,
+  packSections,
   onEditField,
   onRemoveField,
   onDuplicateField,
@@ -165,6 +170,7 @@ export function SectionPage({
         {editing && packSection ? (
           <SectionStructureEditor
             section={packSection}
+            sections={packSections ?? [packSection]}
             onEditField={(sk, gk, field) => onEditField?.(sk, gk, field)}
             onRemoveField={(sk, gk, key) => onRemoveField?.(sk, gk, key)}
             onDuplicateField={(sk, gk, key) => onDuplicateField?.(sk, gk, key)}
@@ -178,6 +184,7 @@ export function SectionPage({
             schemaVersion={schemaVersion}
             onChange={onChange}
             validationIssues={validationIssues}
+            recordReferences={recordReferences}
           />
         )}
       </div>

@@ -34,6 +34,7 @@ Every field is optional — fill in what's relevant and skip the rest. A **Recov
 - **Argon2id** key derivation from your master password
 - **XChaCha20-Poly1305** AEAD encryption for all vault records, attachments, and backup files
 - **Envelope encryption** — Argon2id derives a KEK; a random data key is wrapped by the KEK; every AEAD operation binds context via AAD domain tags (`snapshot` / `attachment` / `draft` / `backup`)
+- **Safe password changes** — Settings verifies the current password, derives a fresh Argon2id key, and rewraps the existing data key without rewriting vault content; existing backups retain the password used when they were created
 - **React never sees raw keys** — all crypto stays in the Rust layer
 - **Encrypted backup files** — full vault + attachments bundled into a single encrypted envelope you control
 - **Attachment handling** — source files are encrypted into app storage; orphan sweep removes unreferenced ciphertext
@@ -59,6 +60,8 @@ The vault is stored as an encrypted opaque JSON blob (`VaultSnapshot`). Rust nev
 ### Form Pack System
 Forms are driven by a versioned **FormPack** — a data-only definition of sections, groups, fields, readiness rules, and Recovery Kit mappings. The app ships one bundled pack and uses it as authored; every field is either protected (structural) or optional, and nothing is gated behind a setup question. On top of that, users can apply a **UserOverlay** (relabel fields, reorder, add custom fields, hide optional ones); the overlay is constrained — it cannot delete or retype protected fields.
 
+Fields can also **link to records in another section** (`recordRef`) — a backup naming the device it protects, a subscription naming the account that pays for it. The link stores the target record's id, so renaming the target updates every reference to it, and a record cannot be deleted while something still points at it.
+
 Pack migrations run on read, in memory, and are pure and idempotent. Changes only persist via the normal save path.
 
 ### Recovery Kit
@@ -66,6 +69,9 @@ An auto-generated, printable summary derived only from each section's Kit mappin
 
 ### Vault Location
 The vault directory is chosen during setup and changeable from Settings. A pointer file in the app config dir names the folder; if that folder can't be reached (an external drive that isn't connected), the app says so rather than silently starting a fresh vault elsewhere.
+
+### Master Password Changes
+An unlocked user can change the vault's master password from Settings by entering the current password and a new password of at least 15 characters. The app verifies the current password, generates fresh Argon2id metadata, and atomically replaces only the wrapped data key. Saved records, attachments, drafts, and retained snapshot generations remain encrypted under the same random data key, and the session stays unlocked. Existing `.lsvbackup` files remain protected by the password used when each backup was created.
 
 ### Draft Stash
 A separate encrypted draft stash holds in-progress edits so a locked session never loses unsaved work.

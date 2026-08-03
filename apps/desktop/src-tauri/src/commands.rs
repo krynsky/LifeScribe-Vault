@@ -36,6 +36,7 @@ use crate::repository::{VaultHeader, VaultRepository};
 
 /// Fixed delay applied after a FAILED unlock attempt (wrapper layer only).
 const FAILED_UNLOCK_DELAY: std::time::Duration = std::time::Duration::from_millis(750);
+const MIN_MASTER_PASSWORD_LENGTH: usize = 15;
 
 /// Per-app vault session. No `Debug` derive — the session holds the raw
 /// data key while unlocked.
@@ -125,6 +126,14 @@ pub struct UnlockVaultRequest {
     pub master_password: String,
 }
 
+/// No `Debug` derive — carries both the current and replacement passwords.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeVaultPasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveSnapshotResponse {
@@ -187,6 +196,18 @@ pub fn stage_vault(
     Ok((data_key, vault_id))
 }
 
+/// Minimum length for any password that will protect a vault, counted in
+/// Unicode scalar values to match the frontend's `masterPasswordLengthError`
+/// (a UTF-16 `.length` would disagree on astral characters). Applied to both
+/// vault creation and password changes so the two cannot drift: a vault must
+/// never be creatable with a password it could not later be changed to.
+fn ensure_master_password_length(password: &str) -> VaultResult<()> {
+    if password.chars().count() < MIN_MASTER_PASSWORD_LENGTH {
+        return Err(VaultError::InvalidNewMasterPassword);
+    }
+    Ok(())
+}
+
 pub fn create_vault_at_path(
     vault_path: &Path,
     session: &mut VaultSession,
@@ -195,6 +216,11 @@ pub fn create_vault_at_path(
 ) -> VaultResult<VaultStatusResponse> {
     // Accepted but intentionally not persisted here (see CreateVaultRequest).
     let _ = owner_name;
+
+    // Before any filesystem side effect: `ensure_parent_dir` creates
+    // directories, and a request that cannot succeed should not leave any
+    // behind.
+    ensure_master_password_length(master_password)?;
 
     ensure_parent_dir(vault_path)?;
 
@@ -228,6 +254,27 @@ pub fn create_vault_at_path(
     }
 }
 
+fn load_header_and_data_key(
+    repository: &VaultRepository,
+    master_password: &str,
+) -> VaultResult<(VaultHeader, Zeroizing<[u8; KEY_LEN]>)> {
+    let header = repository.load_vault_header().map_err(|error| match error {
+        VaultError::NotFound => VaultError::VaultNotInitialized,
+        error => error,
+    })?;
+    let data_key = unwrap_data_key(
+        master_password,
+        &header.kdf,
+        header.wrap_format_version,
+        &header.wrapped_data_key,
+    )
+    .map_err(|error| match error {
+        VaultError::DecryptionFailed => VaultError::InvalidMasterPassword,
+        error => error,
+    })?;
+    Ok((header, data_key))
+}
+
 pub fn unlock_vault_at_path(
     vault_path: &Path,
     session: &mut VaultSession,
@@ -236,24 +283,9 @@ pub fn unlock_vault_at_path(
     lock_session_state(session);
 
     let repository = VaultRepository::open_existing(vault_path)?;
-    let header = repository.load_vault_header().map_err(|error| match error {
-        VaultError::NotFound => VaultError::VaultNotInitialized,
-        error => error,
-    })?;
-
-    let data_key = unwrap_data_key(
-        master_password,
-        &header.kdf,
-        header.wrap_format_version,
-        &header.wrapped_data_key,
-    )
-    .map_err(|error| match error {
-        // Wrong password and tampered KDF metadata / wrap version are
-        // indistinguishable by design (AEAD failure): surface the
-        // "wrong password — there is no reset" contract.
-        VaultError::DecryptionFailed => VaultError::InvalidMasterPassword,
-        error => error,
-    })?;
+    // Wrong passwords and tampered wrap metadata are indistinguishable by
+    // design: both become InvalidMasterPassword inside this shared path.
+    let (header, data_key) = load_header_and_data_key(&repository, master_password)?;
 
     session.vault_path = vault_path.to_path_buf();
     session.key = Some(data_key);
@@ -273,6 +305,32 @@ pub fn unlock_vault_at_path(
 pub fn lock_session(session: &mut VaultSession) -> VaultResult<VaultStatusResponse> {
     lock_session_state(session);
     Ok(get_status_for_session(session))
+}
+
+/// Verify the current password and atomically replace the header's key wrap.
+/// Content remains encrypted under the same random data key, and the session
+/// stays unlocked with that verified key after the change succeeds.
+pub fn change_vault_password_at_path(
+    vault_path: &Path,
+    session: &mut VaultSession,
+    current_password: &str,
+    new_password: &str,
+) -> VaultResult<()> {
+    if !session.is_unlocked() {
+        return Err(VaultError::Locked);
+    }
+    ensure_master_password_length(new_password)?;
+
+    let repository = VaultRepository::open_existing(vault_path)?;
+    let (_header, verified_data_key) =
+        load_header_and_data_key(&repository, current_password)?;
+
+    let kdf = KeyDerivationMetadata::new();
+    let wrapped_data_key =
+        wrap_data_key(new_password, &kdf, WRAP_FORMAT_VERSION, &verified_data_key)?;
+    repository.update_key_wrap(&kdf, WRAP_FORMAT_VERSION, &wrapped_data_key)?;
+    session.key = Some(verified_data_key);
+    Ok(())
 }
 
 /// Opaque snapshot save: compare-and-swap against `base_generation`.
@@ -385,6 +443,24 @@ pub fn unlock_vault(
 pub fn lock_vault(session: State<'_, SharedVaultSession>) -> Result<VaultStatusResponse, String> {
     let mut session = lock_state(&session)?;
     lock_session(&mut session).map_err(command_error_code)
+}
+
+#[tauri::command]
+pub fn change_vault_password(
+    request: ChangeVaultPasswordRequest,
+    session: State<'_, SharedVaultSession>,
+) -> Result<(), String> {
+    let current_password = Zeroizing::new(request.current_password);
+    let new_password = Zeroizing::new(request.new_password);
+    let mut session = lock_state(&session)?;
+    let vault_path = session.vault_path.clone();
+    let result =
+        change_vault_password_at_path(&vault_path, &mut session, &current_password, &new_password);
+    drop(session);
+    if matches!(&result, Err(VaultError::InvalidMasterPassword)) {
+        std::thread::sleep(FAILED_UNLOCK_DELAY);
+    }
+    result.map_err(command_error_code)
 }
 
 /// Point the session at a different vault directory WITHOUT moving any data.

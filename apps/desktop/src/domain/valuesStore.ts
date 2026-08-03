@@ -176,6 +176,8 @@ export function valueConformsToField(
   switch (field.type) {
     case "select":
       return (field.options ?? []).some((option) => option.value === value);
+    case "recordRef":
+      return value.length > 0;
     case "date":
       return /^\d{4}-\d{2}-\d{2}$/.test(value);
     case "email":

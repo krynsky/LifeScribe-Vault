@@ -6,3 +6,6 @@ target/
 .claude/worktrees/
 .superpowers/
 apps/desktop/scripts/pack-backups/
+apps/desktop/src-tauri/icons/64x64.png
+apps/desktop/src-tauri/icons/android/
+apps/desktop/src-tauri/icons/ios/

@@ -18,6 +18,7 @@ function mutatePack(mutate: (pack: Record<string, unknown>) => void): unknown {
 
 type JsonSection = {
   readinessRule: { requiredKeys: string[] };
+  recordLabel?: { fields: string[]; separator: string };
   kitMapping: { entries: { heading: string; fields: string[] }[] };
   groups: { fields: Record<string, unknown>[] }[];
 };
@@ -99,6 +100,133 @@ describe("validatePack", () => {
     expect(result.errors.join(" ")).toMatch(/select field executorRole must include at least one option/);
   });
 
+  it("accepts a recordRef whose display fields exist in another section", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const sections = pack.sections as Array<JsonSection & { sectionKey: string }>;
+        sections[0].groups[0].fields.push({
+          systemKey: "executorDevice",
+          label: "Device",
+          type: "recordRef",
+          required: false,
+          protected: false,
+          reference: {
+            sectionKey: "devices",
+            displayFields: [{ systemKey: "deviceName" }],
+            separator: " — ",
+          },
+          order: 99,
+        });
+      }),
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a recordRef that displays a credential field", () => {
+    // A reference label reaches the printed Kit through recoveryKit's
+    // recordRef branch, bypassing the kitMapping-based exclusion.
+    const result = validatePack(
+      mutatePack((pack) => {
+        const sections = pack.sections as Array<JsonSection & { sectionKey: string }>;
+        sections[0].groups[0].fields.push({
+          systemKey: "executorDevice",
+          label: "Device",
+          type: "recordRef",
+          required: false,
+          protected: false,
+          reference: {
+            sectionKey: "devices",
+            displayFields: [{ systemKey: "deviceName" }, { systemKey: "devicePin" }],
+            separator: " — ",
+          },
+          order: 99,
+        });
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/may not display credential field devicePin/i),
+      ]),
+    );
+  });
+
+  it("rejects malformed and dangling recordRef definitions", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const sections = pack.sections as Array<JsonSection & { sectionKey: string }>;
+        sections[0].groups[0].fields.push({
+          systemKey: "executorDevice",
+          label: "Device",
+          type: "recordRef",
+          required: false,
+          protected: false,
+          options: [{ value: "static", label: "Static" }],
+          reference: {
+            sectionKey: "devices",
+            displayFields: [
+              { systemKey: "missingField" },
+              { systemKey: "deviceName", format: "reveal-secret" },
+            ],
+            separator: " — ",
+          },
+          order: 99,
+        });
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/recordRef field executorDevice must not declare options/i),
+        expect.stringMatching(/unsupported display format/i),
+        expect.stringMatching(/references unknown display field devices\.missingField/i),
+      ]),
+    );
+  });
+
+  it("rejects recordRef definitions that target an unknown or same section", () => {
+    const unknown = validatePack(
+      mutatePack((pack) => {
+        const sections = pack.sections as Array<JsonSection & { sectionKey: string }>;
+        sections[0].groups[0].fields.push({
+          systemKey: "executorDevice",
+          label: "Device",
+          type: "recordRef",
+          required: false,
+          protected: false,
+          reference: {
+            sectionKey: "ghosts",
+            displayFields: [{ systemKey: "name" }],
+            separator: " — ",
+          },
+          order: 99,
+        });
+      }),
+    );
+    expect(unknown.errors.join(" ")).toMatch(/references unknown section ghosts/i);
+
+    const sameSection = validatePack(
+      mutatePack((pack) => {
+        const sections = pack.sections as Array<JsonSection & { sectionKey: string }>;
+        sections[0].groups[0].fields.push({
+          systemKey: "executorDevice",
+          label: "Device",
+          type: "recordRef",
+          required: false,
+          protected: false,
+          reference: {
+            sectionKey: "digital-executors",
+            displayFields: [{ systemKey: "executorName" }],
+            separator: " — ",
+          },
+          order: 99,
+        });
+      }),
+    );
+    expect(sameSection.errors.join(" ")).toMatch(/may not reference its own section/i);
+  });
+
   it("rejects duplicate systemKeys within a section", () => {
     const result = validatePack(
       mutatePack((pack) => {
@@ -153,6 +281,35 @@ describe("validatePack", () => {
     );
     expect(result.errors).toContain(
       "Section digital-executors: readiness rule may only reference protected fields, but executorRelationship is not protected.",
+    );
+  });
+
+  it("rejects record labels that reference unknown fields", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const section = (pack.sections as JsonSection[])[0];
+        section.recordLabel = { fields: ["ghostField"], separator: " — " };
+      }),
+    );
+    expect(result.errors).toContain(
+      "Section digital-executors: record label references unknown field ghostField.",
+    );
+  });
+
+  it("rejects record labels that expose credential fields", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        const section = (pack.sections as Array<JsonSection & { sectionKey: string }>).find(
+          (candidate) => candidate.sectionKey === "devices",
+        )!;
+        section.recordLabel = {
+          fields: ["deviceName", "devicePin"],
+          separator: " — ",
+        };
+      }),
+    );
+    expect(result.errors).toContain(
+      "Section devices: record label may not include credential field devicePin.",
     );
   });
 

@@ -9,8 +9,9 @@
  * move a badge until they are persisted.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  changeVaultPassword,
   deleteAttachment,
   discardDraft,
   getVaultStatus,
@@ -25,6 +26,7 @@ import {
 } from "../api/vaultApi";
 import { collectAttachmentIds, droppedAttachmentIds } from "../domain/attachmentRefs";
 import { AppShell } from "../components/AppShell";
+import { BrandLogo } from "../components/BrandLogo";
 import { StatusBadge } from "../components/StatusBadge";
 import {
   addOptionalField,
@@ -37,6 +39,7 @@ import {
   updateField,
 } from "../creator/packEdits";
 import { duplicateField, reorderFields } from "../forms/structure/fieldOps";
+import type { RecordReferenceContext } from "../domain/recordReferences";
 import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
@@ -229,6 +232,17 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const [workingPack, setWorkingPack] = useState<FormPack | null>(null);
   const [packEditError, setPackEditError] = useState<string | null>(null);
   const [vaultDir, setVaultDir] = useState("");
+  const recordReferences = useMemo<RecordReferenceContext | null>(
+    () =>
+      loaded
+        ? {
+            sections: loaded.sections,
+            savedValues: loaded.vault.savedValues,
+            effectiveValues: { ...loaded.vault.savedValues, ...workingValues },
+          }
+        : null,
+    [loaded, workingValues],
+  );
 
   // Where the vault's data files live, for the Settings "Vault location"
   // section. Re-read on reload so it reflects a move made this session.
@@ -875,6 +889,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   if (phase === "loading") {
     return (
       <main className="centered-screen" aria-busy="true">
+        <BrandLogo className="brand-logo--loading" />
         <p className="app-loading__hint">Opening your vault…</p>
       </main>
     );
@@ -884,7 +899,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     return (
       <main className="centered-screen">
         <section className="vault-panel" role="alert">
-          <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+          <BrandLogo className="brand-logo--panel" />
           <h1 className="vault-panel__title">This vault needs a newer app</h1>
           <p className="vault-panel__lede">{blockedMessage}</p>
         </section>
@@ -896,7 +911,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     return (
       <main className="centered-screen">
         <section className="vault-panel" role="alert">
-          <p className="vault-panel__eyebrow">LifeScribe Vault</p>
+          <BrandLogo className="brand-logo--panel" />
           <h1 className="vault-panel__title">Something went wrong</h1>
           <p className="vault-panel__lede">
             Your vault could not be opened. Nothing has been changed — lock
@@ -939,7 +954,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const sidebar = (
     <div className="sidebar">
       <div className="sidebar__brand">
-        <span className="sidebar__brand-name">LifeScribe Vault</span>
+        <BrandLogo className="brand-logo--sidebar" />
         {loaded.vault.profile.ownerName ? (
           <span className="sidebar__owner">{loaded.vault.profile.ownerName}</span>
         ) : null}
@@ -1288,6 +1303,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             section={displaySection}
             status={statusFor(section)}
             validationIssues={validationIssues}
+            recordReferences={recordReferences!}
             values={sectionWorkingValues(section.sectionKey)}
             onChange={(values) => handleSectionChange(section.sectionKey, values)}
             onDiscardConflict={() => void handleDiscardConflict(section.sectionKey)}
@@ -1298,6 +1314,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             onSetNa={(na) => void handleSetNa(section.sectionKey, na)}
             editing={isSectionEditing}
             packSection={packSectionForEdit}
+            packSections={workingPack?.sections}
             onEditField={(sk, gk, field) => handleEditField(sk, gk, field)}
             onRemoveField={(sk, gk, key) => handleRemoveField(sk, gk, key)}
             onDuplicateField={(sk, gk, key) => handleDuplicateField(sk, gk, key)}
@@ -1323,7 +1340,11 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     content = <BackupPage />;
   } else if (route.kind === "settings") {
     content = (
-      <SettingsPage vaultDir={vaultDir} onRelocate={handleRelocate} />
+      <SettingsPage
+        vaultDir={vaultDir}
+        onRelocate={handleRelocate}
+        onChangePassword={changeVaultPassword}
+      />
     );
   }
 

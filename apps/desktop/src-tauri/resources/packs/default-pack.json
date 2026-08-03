@@ -1,6 +1,6 @@
 {
   "packId": "lifescribe-default",
-  "packVersion": "2.1.0",
+  "packVersion": "2.2.0",
   "schemaVersion": 1,
   "minAppVersion": "0.2.0",
   "sections": [
@@ -595,6 +595,13 @@
           "accountInstitution"
         ]
       },
+      "recordLabel": {
+        "fields": [
+          "accountInstitution",
+          "accountName"
+        ],
+        "separator": " — "
+      },
       "kitMapping": {
         "entries": [
           {
@@ -666,23 +673,29 @@
               "helperText": "Monthly or annual cost with any additional details."
             },
             {
-              "systemKey": "field_1785516156258_pdqak",
+              "systemKey": "subscriptionPaymentAccount",
               "label": "Payment method",
-              "type": "select",
+              "type": "recordRef",
               "required": false,
               "protected": false,
               "order": 4,
-              "helperText": "How is this subscription being paid?",
-              "options": [
-                {
-                  "value": "checking-account",
-                  "label": "Checking Account"
-                },
-                {
-                  "value": "credit-card",
-                  "label": "Credit Card"
-                }
-              ]
+              "helperText": "Which saved financial account pays for this subscription?",
+              "reference": {
+                "sectionKey": "financial-accounts",
+                "displayFields": [
+                  {
+                    "systemKey": "accountInstitution"
+                  },
+                  {
+                    "systemKey": "accountName"
+                  },
+                  {
+                    "systemKey": "accountNumber",
+                    "format": "last4"
+                  }
+                ],
+                "separator": " — "
+              }
             },
             {
               "systemKey": "subscriptionNotes",
@@ -973,11 +986,20 @@
             {
               "systemKey": "backupDevice",
               "label": "Device",
-              "type": "text",
+              "type": "recordRef",
               "required": true,
               "protected": true,
               "order": 1,
-              "helperText": "The item you created in device inventory that is being backed up. Computer, phone or other device."
+              "helperText": "Select the saved device that is being backed up.",
+              "reference": {
+                "sectionKey": "devices",
+                "displayFields": [
+                  {
+                    "systemKey": "deviceName"
+                  }
+                ],
+                "separator": " — "
+              }
             },
             {
               "systemKey": "backupSoftware",
