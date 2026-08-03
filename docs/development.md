@@ -277,6 +277,31 @@ displayed value to `•••• 1234` for readability in a picker. The full val
 remains in the vault and still prints in full wherever it is mapped into the
 Kit directly. Do not use it as masking.
 
+### Record labels (`section.recordLabel`)
+
+A multi-record section collapses each record to a one-line label. By default
+that is the record's first readiness value — which reads badly when several
+records share it (two cards at the same bank both showing "Chase"). An optional
+section-level `recordLabel` composes several fields instead:
+
+```jsonc
+"recordLabel": { "fields": ["accountInstitution", "accountName"], "separator": " — " }
+```
+
+It is honored in **two** places, and they resolve values differently on purpose:
+
+- `recordSummaryLabel` (dashboard rows, reference pickers) reads
+  `record.values` directly, filtering credential keys.
+- `blockLabel` (printed Recovery Kit) composes from the block's **already-built
+  items** — the mapped, credential-filtered, display-resolved values. A
+  `recordLabel` field that is not kit-mapped contributes nothing, so a label can
+  never become a back door into unmapped values. That keeps the pointer-based
+  law at the top of `recoveryKit.ts` true.
+
+Both fall back to the readiness value, then to the first available value.
+`validatePack` rejects a `recordLabel` naming an unknown field or a credential
+key.
+
 ### Editing surfaces
 
 - **In-app Form Editor** (runtime sidebar toggle): edits the *user's* pack,

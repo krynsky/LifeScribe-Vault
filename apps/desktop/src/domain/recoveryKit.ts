@@ -22,7 +22,12 @@
  * - Empty values are skipped; empty sections and N/A sections are omitted
  *   entirely.
  * - Multi-record sections (and repeatable groups) emit one block per
- *   record, labeled by the record's summary value.
+ *   record. The block label is the section's `recordLabel` fields joined by
+ *   its separator when declared — so two cards at the same bank read
+ *   "Chase — Sapphire Reserve" and "Chase — Freedom Unlimited" rather than
+ *   "Chase" twice — falling back to the first kit-mapped readiness value,
+ *   then the block's first item. Label parts come from the block's already-
+ *   built items, so an unmapped field never reaches the page through a label.
  * - A `select` field's stored value is resolved to its option's label (a
  *   printed page reading "apple-legacy-contact" instead of "Apple Legacy
  *   Contact" is a defect); an orphaned value with no matching option falls
@@ -40,6 +45,7 @@ import {
   type FieldDefinition,
   type KitMapping,
   type ReadinessRule,
+  type RecordLabelDefinition,
 } from "./formModel";
 import { KIT_EXCLUDED_SYSTEM_KEYS } from "./packValidation";
 import { recordReferenceLabel } from "./recordReferences";
@@ -64,6 +70,7 @@ export interface KitSourceSection {
     fields: ReadonlyArray<FieldDefinition>;
   }>;
   readinessRule: ReadinessRule;
+  recordLabel?: RecordLabelDefinition;
   kitMapping: KitMapping;
 }
 
@@ -165,12 +172,28 @@ function blockLabel(
   mappedKeys: readonly string[],
   items: RecoveryKitItem[],
 ): string {
+  const byKey = new Map(items.map((item) => [item.systemKey, item]));
+
+  // A section's `recordLabel` composes several fields into one identifying
+  // phrase — "Chase — Sapphire Reserve" rather than two blocks both reading
+  // "Chase". Composed from `items`, never from `record.values`: items are the
+  // already-mapped, already-credential-filtered, already-display-resolved
+  // values, which keeps the pointer-based law above intact. A label field that
+  // is not kit-mapped therefore contributes nothing rather than becoming a
+  // back door into unmapped values.
+  const composed = section.recordLabel?.fields
+    .map((key) => byKey.get(key)?.value)
+    .filter((value): value is string => Boolean(value));
+  if (composed && composed.length > 0) {
+    return composed.join(section.recordLabel!.separator);
+  }
+
   const mapped = new Set(mappedKeys);
   for (const key of section.readinessRule.requiredKeys) {
     if (!mapped.has(key)) {
       continue;
     }
-    const item = items.find((candidate) => candidate.systemKey === key);
+    const item = byKey.get(key);
     if (item) {
       return item.value;
     }

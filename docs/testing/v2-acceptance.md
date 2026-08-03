@@ -96,6 +96,7 @@ For each section, open it and verify:
 - [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.
 - [ ] A dropdown field mapped into the Kit (e.g. Devices' device type, or Platform Legacy Tools' platform) shows its **readable option text** — "External drive," "Apple Legacy Contact" — never the underlying stored value like "external-drive" or "apple-legacy-contact".
 - [ ] A linked field mapped into the Kit (Backups & Storage → Device) prints the **name of the entry it points at**, never an internal record id.
+- [ ] **Records that share a name stay distinguishable.** Add two Financial Accounts at the same bank with different Account Names, then generate the Kit: the two entries are headed **"Chase — Sapphire Reserve"** and **"Chase — Freedom Unlimited"**, not "Chase" twice. Check the printed/print-preview output, not just the on-screen list — these are computed separately.
 
 ## 9. Backup and restore
 

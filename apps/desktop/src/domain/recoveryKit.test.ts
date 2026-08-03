@@ -623,6 +623,130 @@ describe("Recovery Kit from the shipped default pack", () => {
     expect(strings).not.toContain("device-1");
   });
 
+  it("composes a block label from the section's recordLabel so same-bank records differ", () => {
+    const accounts = makeSection({
+      sectionKey: "financial-accounts",
+      title: "Financial Accounts",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "account",
+          fields: [
+            makeField({
+              systemKey: "accountInstitution",
+              label: "Bank or Institution",
+              required: true,
+              protected: true,
+            }),
+            makeField({ systemKey: "accountName", label: "Account Name", order: 2 }),
+          ],
+        }),
+      ],
+      readinessRule: { requiredKeys: ["accountInstitution"] },
+      recordLabel: { fields: ["accountInstitution", "accountName"], separator: " — " },
+      kitMapping: {
+        entries: [{ heading: "Accounts", fields: ["accountInstitution", "accountName"] }],
+      },
+    });
+    const values = makeVaultValues([
+      makeSectionValues("financial-accounts", [
+        makeRecord({
+          id: "acct-1",
+          values: { accountInstitution: "Chase", accountName: "Sapphire Reserve" },
+        }),
+        makeRecord({
+          id: "acct-2",
+          values: { accountInstitution: "Chase", accountName: "Freedom Unlimited" },
+        }),
+      ]),
+    ]);
+
+    const labels = buildRecoveryKit([accounts], values).entries.flatMap((entry) =>
+      entry.blocks.map((block) => block.recordLabel),
+    );
+    expect(labels).toEqual(["Chase — Sapphire Reserve", "Chase — Freedom Unlimited"]);
+  });
+
+  it("falls back to the readiness value when a recordLabel field has no value", () => {
+    const accounts = makeSection({
+      sectionKey: "financial-accounts",
+      title: "Financial Accounts",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "account",
+          fields: [
+            makeField({
+              systemKey: "accountInstitution",
+              label: "Bank or Institution",
+              required: true,
+              protected: true,
+            }),
+            makeField({ systemKey: "accountName", label: "Account Name", order: 2 }),
+          ],
+        }),
+      ],
+      readinessRule: { requiredKeys: ["accountInstitution"] },
+      recordLabel: { fields: ["accountInstitution", "accountName"], separator: " — " },
+      kitMapping: {
+        entries: [{ heading: "Accounts", fields: ["accountInstitution", "accountName"] }],
+      },
+    });
+    const values = makeVaultValues([
+      makeSectionValues("financial-accounts", [
+        makeRecord({ id: "acct-1", values: { accountInstitution: "Chase" } }),
+      ]),
+    ]);
+
+    const labels = buildRecoveryKit([accounts], values).entries.flatMap((entry) =>
+      entry.blocks.map((block) => block.recordLabel),
+    );
+    expect(labels).toEqual(["Chase"]);
+  });
+
+  it("never lets a recordLabel field that is not kit-mapped reach the page", () => {
+    // The pointer-based law: a label is composed from mapped items only, so
+    // naming an unmapped field in recordLabel must not surface its value.
+    const accounts = makeSection({
+      sectionKey: "financial-accounts",
+      title: "Financial Accounts",
+      multiRecord: true,
+      groups: [
+        makeGroup({
+          groupKey: "account",
+          fields: [
+            makeField({
+              systemKey: "accountInstitution",
+              label: "Bank or Institution",
+              required: true,
+              protected: true,
+            }),
+            makeField({ systemKey: "accountSecretMemo", label: "Private memo", order: 2 }),
+          ],
+        }),
+      ],
+      readinessRule: { requiredKeys: ["accountInstitution"] },
+      recordLabel: {
+        fields: ["accountInstitution", "accountSecretMemo"],
+        separator: " — ",
+      },
+      // Deliberately maps only the institution.
+      kitMapping: { entries: [{ heading: "Accounts", fields: ["accountInstitution"] }] },
+    });
+    const values = makeVaultValues([
+      makeSectionValues("financial-accounts", [
+        makeRecord({
+          id: "acct-1",
+          values: { accountInstitution: "Chase", accountSecretMemo: "do-not-print-me" },
+        }),
+      ]),
+    ]);
+
+    const strings = allKitStrings(buildRecoveryKit([accounts], values));
+    expect(strings.join(" ")).not.toContain("do-not-print-me");
+    expect(strings).toContain("Chase");
+  });
+
   it("drops a credential key used as a recordRef display field", () => {
     // A reference label is a second route into a source record's values, so
     // the kitMapping-based exclusion does not cover it. `validatePack` rejects

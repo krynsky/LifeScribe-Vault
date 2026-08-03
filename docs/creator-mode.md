@@ -190,6 +190,27 @@ Authoring notes:
 - A reference cannot point at its own section, and cannot display another
   `recordRef`.
 
+## Giving a section's records a readable label
+
+A multi-record section shows each record collapsed to one line. Without help
+that line is the first readiness value, which reads badly when records share it
+— two cards at the same bank both showing "Chase". Add a section-level
+`recordLabel` to compose several fields:
+
+```jsonc
+"recordLabel": { "fields": ["accountInstitution", "accountName"], "separator": " — " }
+```
+
+Two rules worth knowing when choosing the fields:
+
+- **Kit-map every field you name.** The printed Recovery Kit composes its block
+  label from the fields it already prints, so a `recordLabel` field missing from
+  that section's `kitMapping` is silently skipped *on the Kit only* — the app
+  still shows it. That asymmetry is deliberate (a label must never become a
+  route to an unmapped value), but it means an unmapped label field gives you a
+  worse Kit than you designed.
+- **Credential keys are rejected**, in the label as everywhere else.
+
 ## The `write_default_pack` command
 
 The Rust `write_default_pack` command overwrites the source pack file. It is
