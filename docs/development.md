@@ -95,6 +95,10 @@ These invariants are load-bearing; changes that touch them need matching test ch
    and a record identity (e.g. `generation:7`). Blobs cannot be replayed across
    domains, vaults, or records. Keys live only in `Zeroizing` buffers, never cross
    IPC, and never appear in errors or logs. Key-holding types have no `Debug`.
+   Changing the master password verifies the current password, creates fresh KDF
+   metadata, and atomically replaces only the wrapped data key. The random data key
+   and encrypted content stay unchanged; existing backups keep their original
+   password-derived wrapping.
 
 2. **The snapshot is opaque to Rust.** `serde_json::Value` passthrough — never mirror
    it in a Rust struct (v1's mirrored struct silently stripped fields). The frontend
@@ -367,6 +371,14 @@ mapping, replace it with a flag on the field definition.
 - **Vault creation is atomic**: staged at a sibling temp path, WAL-checkpointed,
   renamed into place. Failed unlocks sleep 750 ms in the wrapper (throttle);
   wrong password and tampered KDF metadata are indistinguishable by design.
+- **Password changes**: `change_vault_password` is available only to an unlocked
+  session. Its core re-verifies the current password against the persisted header,
+  rejects a new password shorter than 15 Unicode characters, creates fresh Argon2id
+  metadata, and calls `VaultRepository::update_key_wrap` to update the header in one
+  SQLite transaction. It keeps the verified data key in the session, so the app
+  remains unlocked. A wrong current password leaves the header, session, and vault
+  content unchanged. Backup envelopes are independent and continue to require the
+  password used at backup creation time.
 - **Attachments**: ciphertext written atomically (temp + fsync + rename) *before*
   the snapshot references it; a crash leaves a sweepable orphan, never a dangling
   reference. Sweep skips files younger than 120 s, no-ops while a restore marker

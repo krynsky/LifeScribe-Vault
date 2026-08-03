@@ -20,7 +20,7 @@ npm run build    # Windows installers
 
 ## Architecture Laws
 
-- Envelope encryption: Argon2id-derived KEK wraps a random data key; every AEAD operation binds context via AAD (domain tags: `snapshot` / `attachment` / `draft` / `backup`). React never sees raw keys; keys never cross IPC or appear in errors/logs.
+- Envelope encryption: Argon2id-derived KEK wraps a random data key; every AEAD operation binds context via AAD (domain tags: `snapshot` / `attachment` / `draft` / `backup`). React never sees raw keys; keys never cross IPC or appear in errors/logs. A master-password change must verify the current password, generate fresh KDF metadata, and atomically replace only the key wrap; it must not rotate the data key or rewrite content. Existing backups remain bound to the password used when they were created.
 - The vault snapshot is opaque JSON in Rust (`serde_json::Value` passthrough) — never mirror it in a Rust struct (v1's mirrored struct silently stripped fields).
 - Snapshot saves are generation-counted compare-and-swap; previous generations are retained; no save path may blind-overwrite.
 - Form definitions are data, not executable scripts. No custom JS, remote scripts, webhooks, or expression strings — declarative conditional objects only.

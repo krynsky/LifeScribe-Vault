@@ -219,7 +219,7 @@ A few fields are **protected** because the Recovery Kit and readiness tracking d
 
 - **Local-only.** No cloud sync, no telemetry, no remote services. The app never sends your data anywhere.
 - **Strong encryption.** Your master password is stretched with Argon2id; all vault content, attachments, drafts, and backups are encrypted with XChaCha20-Poly1305.
-- **No password reset.** By design. Your password is the only key.
+- **No password reset.** You can change the password from Settings while the vault is unlocked by entering the current password, but a forgotten password cannot be reset or recovered.
 - **Honest limits.** Text visible on your screen can be read by anyone at your screen, and manually selecting and copying rendered text bypasses the protected clipboard path. Lock the vault when you step away.
 
 ---
@@ -234,6 +234,9 @@ Yes. Choose that folder during setup, or move it later from Settings → Vault l
 
 **Can I move my vault to a new computer?**
 Yes — create a backup, install LifeScribe Vault on the new machine, and restore the `.lsvbackup` file. Moving the vault folder is for relocating it on the *same* computer (or onto a drive attached to it), not for migrating machines.
+
+**Can I change my master password?**
+Yes. Open Settings → Master password while the vault is unlocked, enter the current password, and choose a new one of at least 15 characters. The change applies the next time you unlock. Existing backup files still require the password used when each one was created.
 
 **What happens if the app crashes while saving?**
 Saves are atomic and the previous few saved versions are retained. If the newest save is ever unreadable, the app automatically recovers the most recent good one and tells you so.
