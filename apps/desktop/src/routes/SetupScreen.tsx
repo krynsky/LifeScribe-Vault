@@ -2,7 +2,10 @@ import { open as openFolderPicker } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { getVaultStatus, setVaultLocation } from "../api/vaultApi";
 import { BrandLogo } from "../components/BrandLogo";
-import { masterPasswordLengthError } from "../domain/passwordPolicy";
+import {
+  MASTER_PASSWORD_LENGTH_MESSAGE,
+  masterPasswordLengthError,
+} from "../domain/passwordPolicy";
 
 export interface SetupScreenProps {
   onCreate: (masterPassword: string, ownerName: string) => Promise<void>;
@@ -60,6 +63,12 @@ function createErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message === "VaultAlreadyExists") {
     return "A vault already exists on this computer. Unlock it with your master password instead.";
+  }
+  // Normally unreachable — validateIdentity checks the same rule first. Mapped
+  // so the backend's own guard still produces a usable message rather than the
+  // generic fallback if the two ever disagree.
+  if (message === "InvalidNewMasterPassword") {
+    return MASTER_PASSWORD_LENGTH_MESSAGE;
   }
   return "The vault could not be created. Check the details and try again.";
 }

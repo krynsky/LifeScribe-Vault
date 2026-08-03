@@ -196,6 +196,18 @@ pub fn stage_vault(
     Ok((data_key, vault_id))
 }
 
+/// Minimum length for any password that will protect a vault, counted in
+/// Unicode scalar values to match the frontend's `masterPasswordLengthError`
+/// (a UTF-16 `.length` would disagree on astral characters). Applied to both
+/// vault creation and password changes so the two cannot drift: a vault must
+/// never be creatable with a password it could not later be changed to.
+fn ensure_master_password_length(password: &str) -> VaultResult<()> {
+    if password.chars().count() < MIN_MASTER_PASSWORD_LENGTH {
+        return Err(VaultError::InvalidNewMasterPassword);
+    }
+    Ok(())
+}
+
 pub fn create_vault_at_path(
     vault_path: &Path,
     session: &mut VaultSession,
@@ -204,6 +216,11 @@ pub fn create_vault_at_path(
 ) -> VaultResult<VaultStatusResponse> {
     // Accepted but intentionally not persisted here (see CreateVaultRequest).
     let _ = owner_name;
+
+    // Before any filesystem side effect: `ensure_parent_dir` creates
+    // directories, and a request that cannot succeed should not leave any
+    // behind.
+    ensure_master_password_length(master_password)?;
 
     ensure_parent_dir(vault_path)?;
 
@@ -302,9 +319,7 @@ pub fn change_vault_password_at_path(
     if !session.is_unlocked() {
         return Err(VaultError::Locked);
     }
-    if new_password.chars().count() < MIN_MASTER_PASSWORD_LENGTH {
-        return Err(VaultError::InvalidNewMasterPassword);
-    }
+    ensure_master_password_length(new_password)?;
 
     let repository = VaultRepository::open_existing(vault_path)?;
     let (_header, verified_data_key) =

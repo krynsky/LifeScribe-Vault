@@ -112,6 +112,26 @@ When you copy a value from the vault, the app uses a protected copy path: the va
 
 ---
 
+## Changing Your Master Password
+
+**Settings → Master password**
+
+Enter your current master password, then enter and confirm a new password of
+at least 15 characters. The vault stays unlocked after the change, but the old
+password will no longer open it the next time it is locked.
+
+Changing the password does not rewrite your saved records or attachments. It
+securely re-protects the vault's encryption key with a fresh password-derived
+key.
+
+> **Backups keep the password they were made with.** Each `.lsvbackup` file is
+> self-contained, so changing your vault password does not change any backup
+> you already created — restoring one still asks for the password that was in
+> effect when it was made. If you change your password, consider making a fresh
+> backup so you have one that matches.
+
+---
+
 ## Recovery Kit
 
 The Recovery Kit is a printable summary generated from what you've saved: contacts, instructions, and *locations*. It's the document your family starts from.
@@ -170,19 +190,6 @@ yourself.
 
 If the move fails, nothing changes: your vault still lives where it did, and
 the app says so.
-
-### Changing the master password
-
-**Settings → Master password**
-
-Enter your current master password, then enter and confirm a new password of
-at least 15 characters. The vault stays unlocked after the change, but the old
-password will no longer open it the next time it is locked.
-
-Changing the password does not rewrite your saved records or attachments. It
-securely re-protects the vault's encryption key with a fresh password-derived
-key. Backup files are self-contained, so each existing backup still uses the
-password that was in effect when that backup was created.
 
 ### If the folder isn't available
 

@@ -198,6 +198,26 @@ fn changing_password_requires_an_unlocked_vault_and_a_strong_new_password() {
 }
 
 #[test]
+fn create_rejects_a_weak_password_without_touching_the_filesystem() {
+    let (_dir, path, mut session) = setup();
+
+    let result = create_vault_at_path(&path, &mut session, "too-short", "Owner");
+    assert!(matches!(&result, Err(VaultError::InvalidNewMasterPassword)));
+    assert_eq!(
+        result.err().map(command_error_code),
+        Some("InvalidNewMasterPassword".to_string())
+    );
+    // The rejection happens before any staging or parent-directory creation.
+    assert!(!path.exists());
+    assert!(!staging_path(&path).exists());
+    assert!(!session.is_unlocked());
+
+    // The same vault path still accepts a compliant password afterwards.
+    create_vault_at_path(&path, &mut session, PASSWORD, "Owner").unwrap();
+    assert!(session.is_unlocked());
+}
+
+#[test]
 fn create_when_vault_exists_returns_vault_already_exists() {
     let (_dir, path, mut session) = setup();
     create(&path, &mut session);
