@@ -201,7 +201,7 @@ describe("buildRecoveryKit", () => {
     expect(item.value).toBe("some-retired-provider-slug");
   });
 
-  it("carries the owner name as the generated-at header concept", () => {
+  it("carries the owner name for the Kit identity", () => {
     const kit = buildRecoveryKit(makeKitPack().sections, kitPackValues(), {}, {
       ownerName: "Dana",
     });

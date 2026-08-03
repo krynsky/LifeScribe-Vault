@@ -17,7 +17,6 @@ vi.mock("../api/vaultApi", () => ({
   stashDraft: vi.fn(),
   takeDraft: vi.fn(),
   discardDraft: vi.fn(),
-  copyVaultValue: vi.fn(),
   // loadDefaultPack falls back to the static bundled pack when this mock
   // yields no JSON string — tests always run against the shipped pack.
   readDefaultPack: vi.fn(),

@@ -16,7 +16,7 @@ Technical reference for contributors. User-facing behavior is described in
 ## Stack
 
 Tauri 2 · React 19 · TypeScript · Vite · Rust · SQLite (WAL) · Argon2id · XChaCha20-Poly1305.
-Windows-first; the Rust crate compiles elsewhere but Windows-only features (clipboard hygiene) no-op.
+Windows-first; the Rust crate compiles elsewhere, with Windows-specific behavior isolated at the platform boundary.
 
 ## Commands
 
@@ -75,7 +75,6 @@ apps/desktop/
     vault_location.rs      # pointer file, resolve_vault_dir, relocation
     draft_stash.rs         # encrypted draft stash (lock flow)
     backup.rs              # .lsvbackup create/restore, safety backup, marker
-    clipboard.rs           # Win32 clipboard hygiene (exclusion formats + auto-clear)
     pack_resources.rs      # bundled base pack read + dev write-back
     error.rs               # VaultError -> stable string error codes (IPC contract)
     tests/                 # integration tests against real SQLite (tempfile)
@@ -350,6 +349,11 @@ its stored attachment id, and a `recordRef` contributes the **composed label**
 of the record it points at, never the internal record id (an unresolvable
 reference prints "Unavailable saved record").
 
+`RecoveryKitPage.tsx` derives the view from saved values on each render. The
+Print action calls the browser print flow, with print CSS hiding app navigation
+and controls. The Export PDF action uses `recoveryKitPdf.ts` to write the same
+credential-filtered Kit data to a user-controlled PDF download.
+
 ### Credential exclusion, and the two routes it has to cover
 
 Credential keys (`passwordManagerMasterPassword`, `devicePin`) may never appear
@@ -418,10 +422,6 @@ mapping, replace it with a flag on the field definition.
   swap; marker + safety backup auto-clear on the next successful unlock.
   Attachment names from a payload must be single plain path components
   (`is_safe_file_component`) — fail closed on anything else.
-- **Clipboard hygiene**: `copy_vault_value` sets Windows exclusion formats
-  (no Win+V history, no cloud clipboard, no monitor processing) and auto-clears
-  after 45 s (clamped 1–600) only if the clipboard still holds our value.
-  `navigator.clipboard.writeText` is banned for vault values.
 
 ## Pack editor (dev tool)
 

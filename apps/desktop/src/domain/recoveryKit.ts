@@ -95,8 +95,7 @@ export interface RecoveryKitEntry {
 }
 
 /**
- * The structured Kit: a generated-at header concept (whose vault this is —
- * the view renders the date it was generated alongside) plus the entries.
+ * The structured Kit: the optional owner identity plus the derived entries.
  */
 export interface RecoveryKit {
   ownerName: string | null;

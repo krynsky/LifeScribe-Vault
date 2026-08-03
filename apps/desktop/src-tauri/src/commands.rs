@@ -633,24 +633,6 @@ pub fn discard_draft(session: State<'_, SharedVaultSession>) -> Result<(), Strin
 }
 
 /// No `Debug` derive — carries a plaintext vault value in transit.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CopyVaultValueRequest {
-    pub value: String,
-    pub clear_after_seconds: Option<u32>,
-}
-
-/// Clipboard-hygiene copy: Windows exclusion formats + auto-clear. The only
-/// sanctioned path for putting vault values on the clipboard (see
-/// `clipboard.rs` module docs).
-#[tauri::command]
-pub fn copy_vault_value(request: CopyVaultValueRequest) -> Result<(), String> {
-    crate::clipboard::copy_vault_value_with_auto_clear(
-        request.value,
-        request.clear_after_seconds,
-    )
-}
-
 // ---------------------------------------------------------------------------
 // Backup / restore commands (U9)
 // ---------------------------------------------------------------------------

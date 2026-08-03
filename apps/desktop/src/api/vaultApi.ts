@@ -128,25 +128,11 @@ export function discardDraft(): Promise<void> {
 }
 
 /**
- * Clipboard-hygiene copy for vault values: Windows exclusion formats
- * (no Win+V history, no cloud clipboard, no monitor processing) plus
- * auto-clear after `clearAfterSeconds` (default 45) if the clipboard still
- * holds the value. `navigator.clipboard.writeText` is banned for vault
- * values — it cannot set the exclusion formats.
- */
-/**
  * Read the bundled base form-definition pack as a raw JSON string (the
  * frontend has no fs scope). UNTRUSTED INPUT — run through validatePack first.
  */
 export function readDefaultPack(): Promise<string> {
   return invoke("read_default_pack");
-}
-
-export function copyVaultValue(
-  value: string,
-  clearAfterSeconds?: number,
-): Promise<void> {
-  return invoke("copy_vault_value", { request: { value, clearAfterSeconds } });
 }
 
 // ---------------------------------------------------------------------------

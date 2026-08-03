@@ -1,6 +1,5 @@
 pub mod attachments;
 pub mod backup;
-pub mod clipboard;
 pub mod commands;
 pub mod crypto;
 pub mod draft_stash;
@@ -39,7 +38,6 @@ pub fn run() {
             commands::stash_draft,
             commands::take_draft,
             commands::discard_draft,
-            commands::copy_vault_value,
             commands::add_attachment,
             commands::delete_attachment,
             commands::read_attachment,
@@ -62,8 +60,6 @@ mod tests {
     mod attachment_tests;
     #[path = "backup_tests.rs"]
     mod backup_tests;
-    #[path = "clipboard_tests.rs"]
-    mod clipboard_tests;
     #[path = "crypto_tests.rs"]
     mod crypto_tests;
     #[path = "draft_stash_tests.rs"]

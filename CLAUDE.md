@@ -36,7 +36,6 @@ npm run build    # Windows installers
 - Never request plaintext sensitive vault content unless the user explicitly decides to share it.
 - Do not introduce plaintext export paths except behind explicit user confirmation.
 - Exported form-definition packs contain structure only — never personal field values, never `custom.*` overlay keys.
-- Clipboard writes of vault values go through the Rust clipboard-hygiene command (history/cloud exclusion + auto-clear), never `navigator.clipboard.writeText`.
 - No cloud sync, telemetry, death detection, or remote release services without a new product decision.
 
 ## Testing Conventions

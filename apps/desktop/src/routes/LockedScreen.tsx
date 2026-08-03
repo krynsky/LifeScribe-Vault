@@ -22,7 +22,7 @@ function unlockErrorMessage(error: unknown): string {
 
 /**
  * Lock screen. Deliberately renders no vault plaintext anywhere — nothing
- * here is copyable vault content (clipboard-hygiene law).
+ * here is exposed vault content.
  */
 export function LockedScreen({ onUnlock, notice }: LockedScreenProps) {
   const [masterPassword, setMasterPassword] = useState("");

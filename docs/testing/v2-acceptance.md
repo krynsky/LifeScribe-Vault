@@ -30,7 +30,7 @@ Record the environment at the top of your run:
 - [ ] Create a vault with a strong test password (do not use a real master password).
 - [ ] Dashboard shows all nine sections in the sidebar, in pack order: Digital Executors, Password Manager, Devices, Financial Accounts, Subscriptions, Online Accounts, Documents, Backups & Storage, Platform Legacy Tools.
 - [ ] Readiness indicators are visible on the dashboard checklist.
-- [ ] Recovery Kit section is present and shows "not yet generated" state.
+- [ ] Recovery Kit section is present and shows its empty state until a guided section has saved data.
 
 ## 3. Section entry forms
 
@@ -92,15 +92,15 @@ For each section, open it and verify:
 
 ## 8. Recovery Kit
 
-- [ ] Navigate to Recovery Kit; generate the kit.
+- [ ] Navigate to Recovery Kit; verify the snapshot of saved data renders.
 - [ ] Kit renders with all sections' key information (no blank/error panels for sections with saved data).
-- [ ] After generating, the dashboard readiness indicator for Recovery Kit shows "up to date".
+- [ ] Click **Save Kit**; the dashboard readiness indicator for Recovery Kit shows "up to date".
 - [ ] Edit a section field; verify Recovery Kit shows a staleness indicator.
-- [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Devices, save, then regenerate the Kit. **Neither value appears anywhere on it**, on screen or in print preview. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
+- [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Devices, save, then review, print, and export the Kit. **Neither value appears anywhere on it**, on screen, in print preview, or in the PDF. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
 - [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.
 - [ ] A dropdown field mapped into the Kit (e.g. Devices' device type, or Platform Legacy Tools' platform) shows its **readable option text** — "External drive," "Apple Legacy Contact" — never the underlying stored value like "external-drive" or "apple-legacy-contact".
 - [ ] A linked field mapped into the Kit (Backups & Storage → Device) prints the **name of the entry it points at**, never an internal record id.
-- [ ] **Records that share a name stay distinguishable.** Add two Financial Accounts at the same bank with different Account Names, then generate the Kit: the two entries are headed **"Chase — Sapphire Reserve"** and **"Chase — Freedom Unlimited"**, not "Chase" twice. Check the printed/print-preview output, not just the on-screen list — these are computed separately.
+- [ ] **Records that share a name stay distinguishable.** Add two Financial Accounts at the same bank with different Account Names, then review the Kit: the two entries are headed **"Chase — Sapphire Reserve"** and **"Chase — Freedom Unlimited"**, not "Chase" twice. Check the printed, print-preview, and PDF output, not just the on-screen list — these are computed separately.
 
 ## 9. Backup and restore
 
@@ -121,27 +121,19 @@ For each section, open it and verify:
 - [ ] Reconnect the drive; the vault opens normally.
 - [ ] Choosing a folder that already holds a LifeScribe vault opens that vault rather than replacing it.
 
-## 11. Clipboard hygiene
-
-- [ ] Open a section that has a "copy to clipboard" button for a sensitive value (e.g. Password Manager).
-- [ ] Click the copy button.
-- [ ] Open Windows Clipboard History (Win + V).
-- [ ] **The copied value must not appear in Clipboard History.** (The Rust clipboard-hygiene command sets the clipboard exclusion format before writing.)
-- [ ] Wait 45 seconds (default auto-clear delay); verify the value is no longer on the clipboard.
-
-## 12. Pack integrity check
+## 11. Pack integrity check
 
 - [ ] Close the app. Locate the bundled pack file in the installation directory (e.g. `C:\Program Files\LifeScribe Vault 2\resources\packs\default-pack.json`).
 - [ ] Edit the file to introduce a structural error (e.g. delete a required field key).
 - [ ] Relaunch the app; the app should fail gracefully (show an error or fallback message) rather than silently accept the corrupted pack.
 - [ ] Restore the original pack file; app relaunches normally.
 
-## 13. Pack-authoring surface is inert in the end-user build
+## 12. Pack-authoring surface is inert in the end-user build
 
 - [ ] The bundled `default-pack.json` cannot be mutated by the app: invoking `write_default_pack` (via devtools/console if available) returns a `FileOperation` error, not success — the command ships but targets a compile-time source path that is absent on an install.
 - [ ] The **Form Editor** toggle (bottom of the sidebar, off by default) edits only the user's own forms (their `customPack`); it never rewrites the bundled pack.
 
-## 14. Uninstall / residue check
+## 13. Uninstall / residue check
 
 - [ ] Uninstall via Add or Remove Programs (or the NSIS uninstaller).
 - [ ] After uninstall, verify the vault folder is **not** removed — vault data must be preserved on uninstall (Tauri default behaviour; user retains their data). Check both the default `%APPDATA%\com.lifescribe.vault.v2\` and any custom folder the vault was moved to.
@@ -165,10 +157,9 @@ For each section, open it and verify:
 | 8. Recovery Kit | Pass / Fail | |
 | 9. Backup/restore | Pass / Fail | |
 | 10. Vault location | Pass / Fail | |
-| 11. Clipboard hygiene | Pass / Fail | |
-| 12. Pack integrity | Pass / Fail | |
-| 13. Pack-authoring inert | Pass / Fail | |
-| 14. Uninstall residue | Pass / Fail | |
+| 11. Pack integrity | Pass / Fail | |
+| 12. Pack-authoring inert | Pass / Fail | |
+| 13. Uninstall residue | Pass / Fail | |
 
 **Overall: Pass / Fail**
 

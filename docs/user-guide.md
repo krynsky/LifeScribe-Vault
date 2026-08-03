@@ -98,12 +98,6 @@ Fields that accept a file (for example, a scanned document) encrypt the file int
 - **Open externally** — decrypts to a temporary file and opens your default app. The app asks for confirmation first, because this briefly places an unencrypted copy on disk, and cleans it up afterward.
 - **Replace / Remove** — takes effect when you save the section. If you change your mind before saving, nothing is lost.
 
-### Copying sensitive values
-
-When you copy a value from the vault, the app uses a protected copy path: the value is excluded from Windows clipboard history (Win+V) and cloud clipboard sync, and the clipboard clears itself automatically after 45 seconds — unless you've already copied something else, which is left alone.
-
----
-
 ## Locking, Unlocking, and Drafts
 
 - **Lock vault** (sidebar) locks immediately. The app also **locks itself after 15 minutes of inactivity**.
@@ -134,7 +128,7 @@ key.
 
 ## Recovery Kit
 
-The Recovery Kit is a printable summary generated from what you've saved: contacts, instructions, and *locations*. It's the document your family starts from.
+The Recovery Kit is a snapshot of the data you've saved: contacts, instructions, and *locations*. You can print it for storage and review, or export it as a PDF. It's the document your family starts from.
 
 Because the Kit is meant to be printed and left somewhere findable, it will
 never print the **master password** you may have saved for your password
@@ -227,7 +221,7 @@ A few fields are **protected** because the Recovery Kit and readiness tracking d
 - **Local-only.** No cloud sync, no telemetry, no remote services. The app never sends your data anywhere.
 - **Strong encryption.** Your master password is stretched with Argon2id; all vault content, attachments, drafts, and backups are encrypted with XChaCha20-Poly1305.
 - **No password reset.** You can change the password from Settings while the vault is unlocked by entering the current password, but a forgotten password cannot be reset or recovered.
-- **Honest limits.** Text visible on your screen can be read by anyone at your screen, and manually selecting and copying rendered text bypasses the protected clipboard path. Lock the vault when you step away.
+- **Honest limits.** Text visible on your screen can be read by anyone at your screen. Lock the vault when you step away.
 
 ---
 
