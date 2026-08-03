@@ -36,6 +36,10 @@ Record the environment at the top of your run:
 
 For each section, open it and verify:
 
+- [ ] In every record-based section, the primary **Add [item]** button appears above the records panel.
+- [ ] Every saved record row has an explicit **Expand** button; selecting it reveals the fields and changes the control to **Collapse**.
+- [ ] When every record is collapsed, no **Save** button is visible. Expanding a record shows **Save** at the bottom of that record's fields.
+
 - [ ] **Digital Executors** — form renders; primary and backup executor records can be added with multi-record support.
 - [ ] **Password Manager** — single-record form renders; all fields visible, including an optional master-password field.
 - [ ] **Documents** — multi-record; at least one document record can be added with a physical location field and an optional file attachment.

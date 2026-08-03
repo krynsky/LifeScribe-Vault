@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -58,6 +58,7 @@ interface HarnessProps {
   section: ResolvedSection;
   initial?: SectionValues;
   onSave?: (values: SectionValues) => void;
+  saving?: boolean;
   captureRef?: { current: SectionValues | null };
   validationIssues?: import("../domain/sectionValidation").SectionValidationIssue[];
   allSections?: ResolvedSection[];
@@ -69,6 +70,7 @@ function Harness({
   section,
   initial,
   onSave,
+  saving,
   captureRef,
   validationIssues,
   allSections,
@@ -90,6 +92,7 @@ function Harness({
         }
       }}
       onSave={onSave}
+      saving={saving}
       validationIssues={validationIssues}
       recordReferences={
         allSections
@@ -365,6 +368,46 @@ describe("RecordList", () => {
 });
 
 describe("RecordList save forwarding", () => {
+  it("disables and relabels an expanded record save while persistence is active", async () => {
+    const user = userEvent.setup();
+    const section = resolveSection(makeDevicesPack(), "devices");
+    const initial = makeSectionValues("devices", [
+      { id: "device-1", schemaVersion: 1, values: { deviceName: "Work laptop" } },
+    ]);
+    render(<Harness section={section} initial={initial} onSave={vi.fn()} saving />);
+
+    await user.click(screen.getByRole("button", { name: "Expand Work laptop" }));
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  });
+
+  it("keeps save inside the expanded record and exposes an explicit disclosure control", async () => {
+    const user = userEvent.setup();
+    const section = resolveSection(makeDevicesPack(), "devices");
+    const initial = makeSectionValues("devices", [
+      { id: "device-1", schemaVersion: 1, values: { deviceName: "Work laptop" } },
+    ]);
+    render(<Harness section={section} initial={initial} onSave={vi.fn()} />);
+
+    const add = screen.getByRole("button", { name: "Add Device" });
+    const panel = document.querySelector<HTMLElement>(".record-list__panel");
+    expect(add).toHaveClass("button", "button--primary");
+    expect(panel).not.toBeNull();
+    expect(add.compareDocumentPosition(panel!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expand Work laptop" }));
+    const editor = screen.getByLabelText("Device name").closest(".record-list__editor");
+    expect(screen.getByRole("button", { name: "Collapse Work laptop" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(editor).not.toBeNull();
+    expect(within(editor as HTMLElement).getByRole("button", { name: "Save" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Collapse Work laptop" }));
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
   it("forwards onSave through the expanded record form with validation intact", async () => {
     const user = userEvent.setup();
     const section = resolveSection(makeDevicesPack(), "devices");

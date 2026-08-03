@@ -692,6 +692,14 @@ button {
   padding: var(--space-5);
 }
 
+.section-page__form--records {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
 .section-page__actions {
   display: flex;
   align-items: center;
@@ -956,6 +964,19 @@ button {
 
 /* --- Record list ------------------------------------------------------------------------ */
 
+.record-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-list__panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: var(--space-5);
+}
+
 .record-list__items {
   list-style: none;
   margin: 0;
@@ -971,6 +992,7 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .record-list__row-error {
@@ -983,6 +1005,7 @@ button {
 
 .record-list__summary {
   flex: 1;
+  min-width: 12rem;
   text-align: left;
   padding: var(--space-2) var(--space-2);
   border: none;
@@ -1017,6 +1040,10 @@ button {
   color: var(--color-danger);
 }
 
+.record-list__toggle {
+  flex: none;
+}
+
 .record-list__confirm {
   display: flex;
   align-items: center;
@@ -1042,7 +1069,7 @@ button {
 }
 
 .record-list__empty {
-  padding: var(--space-3) 0;
+  padding: var(--space-1) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -1056,20 +1083,8 @@ button {
 }
 
 .record-list__add {
-  padding: var(--space-2) var(--space-3);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-accent);
-  font-weight: var(--weight-medium);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
-}
-
-.record-list__add:hover {
-  border-color: var(--color-accent);
-  background: var(--color-accent-tint);
+  align-self: flex-start;
+  margin-bottom: var(--space-3);
 }
 
 /* --- Form structure editor (master-detail: FieldList + FieldPropertyPanel) ------------------ */

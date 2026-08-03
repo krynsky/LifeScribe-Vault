@@ -4,10 +4,11 @@
  * - Multi-record sections render one collapsed summary row per record
  *   (labeled by the record's first readiness-rule protected-field value,
  *   then first non-empty value, then "Untitled"), an inline expanded edit
- *   form for the active record, a single "Add [record label]" button below
- *   the list, Duplicate per record, and Delete behind a confirm that names
- *   the record's summary label. The empty state shows the section lede plus
- *   the add affordance. Record ordering is stable.
+ *   form for the active record, a primary "Add [record label]" button above
+ *   the record panel, explicit Expand/Collapse controls, Duplicate per record,
+ *   and Delete behind a confirm that names the record's summary label. The Save
+ *   control appears inside the expanded record. The empty state shows the section lede.
+ *   Record ordering is stable.
  * - Singleton sections render one FormRenderer directly (the single record
  *   shape is auto-created on first input).
  * - Archived answers render as a collapsed disclosure below the active
@@ -26,6 +27,7 @@ import { FormRenderer } from "../forms/FormRenderer";
 import { createRecordId, recordSummaryLabel } from "../forms/recordUtils";
 import { ArchivedAnswers } from "./ArchivedAnswers";
 import { RecordDeleteConfirmation } from "./RecordDeleteConfirmation";
+import { RecordDisclosureButton } from "./RecordDisclosureButton";
 
 export interface RecordListProps {
   section: ResolvedSection;
@@ -35,6 +37,7 @@ export interface RecordListProps {
   onChange: (values: SectionValues) => void;
   /** Forwarded to FormRenderer; called only when validation passes. */
   onSave?: (values: SectionValues) => void;
+  saving?: boolean;
   /** Page-level required-field issues, rendered inline under each field. */
   validationIssues?: SectionValidationIssue[];
   recordReferences?: RecordReferenceContext;
@@ -46,6 +49,7 @@ export function RecordList({
   schemaVersion,
   onChange,
   onSave,
+  saving = false,
   validationIssues,
   recordReferences,
 }: RecordListProps) {
@@ -81,6 +85,7 @@ export function RecordList({
           schemaVersion={schemaVersion}
           onChange={onChange}
           onSave={onSave}
+          saving={saving}
           externalIssues={validationIssues}
           recordReferences={recordReferences}
         />
@@ -139,15 +144,19 @@ export function RecordList({
 
   return (
     <div className="record-list">
-      {plainRecords.length === 0 ? (
-        <div className="record-list__empty">
-          <p className="record-list__lede">{section.lede}</p>
-          <button type="button" className="record-list__add" onClick={addRecord}>
-            Add {recordLabel}
-          </button>
-        </div>
-      ) : (
-        <>
+      <button
+        type="button"
+        className="button button--primary record-list__add"
+        onClick={addRecord}
+      >
+        Add {recordLabel}
+      </button>
+      <div className="record-list__panel">
+        {plainRecords.length === 0 ? (
+          <div className="record-list__empty">
+            <p className="record-list__lede">{section.lede}</p>
+          </div>
+        ) : (
           <ul className="record-list__items">
             {plainRecords.map((record) => {
               const label = recordSummaryLabel(
@@ -181,6 +190,11 @@ export function RecordList({
                     {!expanded && hasIssue(record) ? (
                       <span className="record-list__row-error">Required info missing</span>
                     ) : null}
+                    <RecordDisclosureButton
+                      expanded={expanded}
+                      label={label}
+                      onToggle={() => setActiveRecordId(expanded ? null : record.id)}
+                    />
                     <button
                       type="button"
                       className="record-list__action"
@@ -213,6 +227,7 @@ export function RecordList({
                         recordId={record.id}
                         onChange={onChange}
                         onSave={onSave}
+                        saving={saving}
                         externalIssues={validationIssues}
                         recordReferences={recordReferences}
                       />
@@ -222,11 +237,8 @@ export function RecordList({
               );
             })}
           </ul>
-          <button type="button" className="record-list__add" onClick={addRecord}>
-            Add {recordLabel}
-          </button>
-        </>
-      )}
+        )}
+      </div>
       {archived}
     </div>
   );
