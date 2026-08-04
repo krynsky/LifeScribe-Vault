@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FormPack } from "./formModel";
 import {
   SNAPSHOT_SCHEMA_TOO_NEW,
+  MIGRATION_CHAIN_INCOMPLETE,
   checkSnapshotReadable,
   migrateSectionRecord,
   migrateVaultValues,
@@ -81,15 +82,28 @@ describe("migrateVaultValues — stepwise composition", () => {
     expect(record.values.manager).toBe("stale");
   });
 
-  it("stamps records up to the target even when no step touches them", () => {
+  it("refuses to force-stamp records across a missing migration step", () => {
     const pack = makePlanPack({ schemaVersion: 3, migrations: [] });
     const result = migrateVaultValues(v1Values(), pack);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe(MIGRATION_CHAIN_INCOMPLETE);
+    expect(result.error.message).toMatch(/v1 to v2/);
+    expect(v1Values().plan.records[0].schemaVersion).toBe(1);
+  });
+
+  it("allows explicit no-op steps for additive schema changes", () => {
+    const pack = makePlanPack({
+      schemaVersion: 3,
+      migrations: [
+        { fromVersion: 1, operations: [] },
+        { fromVersion: 2, operations: [] },
+      ],
+    });
+    const result = migrateVaultValues(v1Values(), pack);
     expect(result.ok).toBe(true);
-    if (!result.ok) {
-      return;
-    }
+    if (!result.ok) return;
     expect(result.values.plan.records[0].schemaVersion).toBe(3);
-    expect(result.values.plan.records[0].values).toEqual({ manager: "agilebits", notes: "Ask Dana" });
   });
 
   it("renameField never overwrites an existing target value", () => {

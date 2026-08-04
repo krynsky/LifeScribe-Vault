@@ -16,9 +16,10 @@ import type { FormPack, MigrationOperation, MigrationStep } from "./formModel";
 import type { SectionRecord, SectionValues, VaultValues } from "./valuesStore";
 
 export const SNAPSHOT_SCHEMA_TOO_NEW = "SnapshotSchemaTooNew" as const;
+export const MIGRATION_CHAIN_INCOMPLETE = "MigrationChainIncomplete" as const;
 
 export interface MigrationError {
-  code: typeof SNAPSHOT_SCHEMA_TOO_NEW;
+  code: typeof SNAPSHOT_SCHEMA_TOO_NEW | typeof MIGRATION_CHAIN_INCOMPLETE;
   message: string;
 }
 
@@ -220,6 +221,23 @@ export function migrateVaultValues(values: VaultValues, pack: FormPack): Migrati
   const readabilityError = checkSnapshotReadable(values, pack.schemaVersion);
   if (readabilityError) {
     return { ok: false, error: readabilityError };
+  }
+
+  const authoredSteps = new Set(pack.migrations.map((step) => step.fromVersion));
+  for (const sectionValues of Object.values(values)) {
+    for (const record of sectionValues.records) {
+      for (let version = record.schemaVersion; version < pack.schemaVersion; version += 1) {
+        if (!authoredSteps.has(version)) {
+          return {
+            ok: false,
+            error: {
+              code: MIGRATION_CHAIN_INCOMPLETE,
+              message: `The form pack is missing its schema v${version} to v${version + 1} migration. Nothing has been changed. Restore the previous pack or install a corrected update.`,
+            },
+          };
+        }
+      }
+    }
   }
 
   const migrated: VaultValues = {};
