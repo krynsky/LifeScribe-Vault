@@ -6,8 +6,10 @@ use crate::backup::{
     clear_restore_marker, create_backup, restore_backup, restore_in_progress,
     RESTORE_MARKER_NAME,
 };
-use crate::commands::{create_vault_at_path, load_vault_snapshot_for_session,
-    save_vault_snapshot_for_session, unlock_vault_at_path, VaultSession};
+use crate::commands::{
+    create_vault_at_path, load_vault_snapshot_for_session, save_vault_snapshot_for_session,
+    unlock_vault_at_path, VaultSession,
+};
 use crate::attachments::{attachment_dir, encrypt_attachment};
 
 const MASTER_PASSWORD: &str = "vault-password-for-backup-tests";
@@ -37,7 +39,10 @@ fn create_test_vault(dir: &std::path::Path) -> (VaultSession, std::path::PathBuf
 fn backup_and_restore_round_trip_snapshot() {
     let dir = tempdir().unwrap();
     let app_data_dir = dir.path();
-    let (session, vault_path) = create_test_vault(app_data_dir);
+    // The original session is discarded on purpose: after backup + restore,
+    // the test unlocks a FRESH session below, simulating a real close-and-
+    // reopen rather than reusing in-memory state that a restart wouldn't have.
+    let (_session, vault_path) = create_test_vault(app_data_dir);
     let att_dir = attachment_dir(&vault_path);
 
     // Create backup.
@@ -65,7 +70,7 @@ fn backup_and_restore_round_trip_snapshot() {
     assert!(!restore_result.safety_backup_db.exists());
 
     // Load and verify snapshot survived.
-    let load = crate::commands::load_vault_snapshot_for_session(&mut fresh_session).unwrap();
+    let load = load_vault_snapshot_for_session(&mut fresh_session).unwrap();
     assert_eq!(load.snapshot["profile"]["ownerName"], "Test User");
 }
 
@@ -188,12 +193,16 @@ fn truncated_backup_file_returns_error() {
     let dest = dir.path().join("backups");
     let backup_result = create_backup(&vault_path, &att_dir, MASTER_PASSWORD, &dest).unwrap();
 
-    // Truncate the backup file.
-    let truncated_path = dest.join("truncated.lsvbackup");
-    fs::write(&truncated_path, b"not a valid backup").unwrap();
+    // Truncate the REAL backup: cut a valid file short, simulating a copy or
+    // disk-full failure mid-write. Distinct from restoring an unrelated
+    // garbage file — a truncated file carries a genuine (partial) header and
+    // must still be rejected, not just any malformed bytes.
+    let original_bytes = fs::read(&backup_result.output_path).unwrap();
+    assert!(original_bytes.len() > 16, "backup file is too small to truncate meaningfully");
+    fs::write(&backup_result.output_path, &original_bytes[..original_bytes.len() / 2]).unwrap();
 
     let result = restore_backup(
-        &truncated_path,
+        &backup_result.output_path,
         MASTER_PASSWORD,
         &vault_path,
         &att_dir,

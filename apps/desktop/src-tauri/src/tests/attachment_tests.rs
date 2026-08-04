@@ -8,10 +8,6 @@ use crate::attachments::{
 };
 use crate::crypto::generate_data_key;
 
-fn fake_vault_path(base: &std::path::Path) -> std::path::PathBuf {
-    base.join("vault.sqlite3")
-}
-
 #[test]
 fn encrypt_and_decrypt_round_trip() {
     let dir = tempdir().unwrap();
