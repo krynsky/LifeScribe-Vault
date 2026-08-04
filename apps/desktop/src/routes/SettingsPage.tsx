@@ -1,3 +1,5 @@
+import { getVersion } from "@tauri-apps/api/app";
+import { useEffect, useState } from "react";
 import { VaultLocation } from "./settings/VaultLocation";
 import { ChangePassword } from "./settings/ChangePassword";
 
@@ -15,6 +17,24 @@ export interface SettingsPageProps {
  * navigation is via the sidebar). Settings sections stack below as siblings.
  */
 export function SettingsPage({ vaultDir, onRelocate, onChangePassword }: SettingsPageProps) {
+  // Read from Tauri at runtime rather than hardcoding a copy here: the real
+  // version already has three sources of truth to keep in sync (package.json,
+  // Cargo.toml, tauri.conf.json) — a fourth, hand-maintained string in the UI
+  // is exactly how "Settings says 1.0, the installer says 1.0.3" happens.
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getVersion()
+      .then((version) => {
+        if (!cancelled) setAppVersion(version);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="settings-page">
       <header className="settings-page__header">
@@ -22,6 +42,12 @@ export function SettingsPage({ vaultDir, onRelocate, onChangePassword }: Setting
       </header>
       <VaultLocation vaultDir={vaultDir} onRelocate={onRelocate} />
       <ChangePassword onChangePassword={onChangePassword} />
+      <section className="settings-section" aria-label="App version">
+        <h2 className="settings-section__title">App version</h2>
+        <p className="settings-section__lede">
+          {appVersion ? `Version ${appVersion}` : "Version —"}
+        </p>
+      </section>
     </div>
   );
 }

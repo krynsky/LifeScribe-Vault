@@ -23,7 +23,6 @@ function renderList(overrides = {}) {
     selectedKey: null as string | null,
     lockedKeys: new Set(["hintOne"]),
     onSelect: vi.fn(),
-    onDuplicate: vi.fn(),
     onDelete: vi.fn(),
     onAdd: vi.fn(),
     onReorder: vi.fn(),
@@ -40,11 +39,9 @@ describe("FieldList", () => {
     expect(props.onSelect).toHaveBeenCalledWith("hintOne");
   });
 
-  it("duplicates a field", async () => {
-    const props = renderList();
-    const row = screen.getByRole("button", { name: /edit field Added/i }).closest(".field-row")!;
-    await userEvent.click(within(row as HTMLElement).getByRole("button", { name: /duplicate/i }));
-    expect(props.onDuplicate).toHaveBeenCalledWith("g1", "field_added");
+  it("does not offer a duplicate control", () => {
+    renderList();
+    expect(screen.queryByRole("button", { name: /duplicate/i })).toBeNull();
   });
 
   it("offers delete only for added (non-hint) fields", () => {

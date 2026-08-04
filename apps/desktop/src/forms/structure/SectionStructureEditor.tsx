@@ -1,7 +1,7 @@
 /**
  * SectionStructureEditor — in-app form-structure editor with the same
  * master-detail interaction model as the pack editor's Design view: a
- * sortable FieldList (drag-to-reorder, duplicate/delete adorners,
+ * sortable FieldList (drag-to-reorder and delete adorners,
  * type-picker add) alongside a FieldPropertyPanel that edits the selected
  * field.
  *
@@ -26,7 +26,6 @@ export interface SectionStructureEditorProps {
   sections: PackSection[];
   onEditField: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
   onRemoveField: (sectionKey: string, groupKey: string, systemKey: string) => void;
-  onDuplicateField: (sectionKey: string, groupKey: string, systemKey: string) => void;
   onReorderField: (
     sectionKey: string,
     groupKey: string,
@@ -41,7 +40,6 @@ export function SectionStructureEditor({
   sections,
   onEditField,
   onRemoveField,
-  onDuplicateField,
   onReorderField,
   onAddField,
 }: SectionStructureEditorProps) {
@@ -61,9 +59,6 @@ export function SectionStructureEditor({
         selectedKey={selectedKey}
         lockedKeys={NO_LOCKED_KEYS}
         onSelect={setSelectedKey}
-        onDuplicate={(groupKey, systemKey) =>
-          onDuplicateField(section.sectionKey, groupKey, systemKey)
-        }
         onDelete={(groupKey, systemKey) => {
           onRemoveField(section.sectionKey, groupKey, systemKey);
           setSelectedKey((current) => (current === systemKey ? null : current));

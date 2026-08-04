@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { duplicateField, reorderFields } from "../src/forms/structure/fieldOps";
+import { reorderFields } from "../src/forms/structure/fieldOps";
 import { FieldPropertyPanel } from "../src/forms/structure/FieldPropertyPanel";
 import {
   addOptionalField,
@@ -68,11 +68,10 @@ interface RowProps {
   groupKey: string;
   selected: boolean;
   onSelect: (key: string) => void;
-  onDuplicate: (groupKey: string, key: string) => void;
   onRemove: (groupKey: string, key: string) => void;
 }
 
-function FieldRow({ field, groupKey, selected, onSelect, onDuplicate, onRemove }: RowProps) {
+function FieldRow({ field, groupKey, selected, onSelect, onRemove }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.systemKey,
   });
@@ -107,14 +106,6 @@ function FieldRow({ field, groupKey, selected, onSelect, onDuplicate, onRemove }
         {field.label}
       </button>
       <span className="field-row__type">{field.type}</span>
-      <button
-        type="button"
-        className="button button--ghost button--small"
-        aria-label={`Duplicate ${field.label}`}
-        onClick={() => onDuplicate(groupKey, field.systemKey)}
-      >
-        ⧉
-      </button>
       {/* Protected fields are structural: removeField throws for them, so they
           get no Remove control at all. */}
       {!field.protected ? (
@@ -174,10 +165,6 @@ export function OverlayDesign({
     onChangeBase(setFieldReadinessRequired(base, section.sectionKey, groupKey, systemKey, next));
   }
 
-  function handleDuplicate(groupKey: string, systemKey: string) {
-    onChangeBase(duplicateField(base, section.sectionKey, groupKey, systemKey));
-  }
-
   function handleDragEnd(groupKey: string, event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -211,7 +198,6 @@ export function OverlayDesign({
                         groupKey={group.groupKey}
                         selected={field.systemKey === selectedKey}
                         onSelect={onSelectKey}
-                        onDuplicate={handleDuplicate}
                         onRemove={handleRemove}
                       />
                     ))}

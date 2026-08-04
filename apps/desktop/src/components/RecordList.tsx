@@ -123,14 +123,6 @@ export function RecordList({
     setActiveRecordId(record.id);
   };
 
-  const duplicateRecord = (record: SectionRecord) => {
-    const copy: SectionRecord = { ...record, id: createRecordId(), values: { ...record.values } };
-    const index = values.records.findIndex((candidate) => candidate.id === record.id);
-    const records = [...values.records];
-    records.splice(index + 1, 0, copy);
-    onChange({ ...values, records });
-  };
-
   const deleteRecord = (record: SectionRecord) => {
     onChange({
       ...values,
@@ -195,13 +187,6 @@ export function RecordList({
                       label={label}
                       onToggle={() => setActiveRecordId(expanded ? null : record.id)}
                     />
-                    <button
-                      type="button"
-                      className="record-list__action"
-                      onClick={() => duplicateRecord(record)}
-                    >
-                      Duplicate
-                    </button>
                     <button
                       type="button"
                       className="record-list__action record-list__action--danger"

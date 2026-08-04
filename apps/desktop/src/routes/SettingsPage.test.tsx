@@ -5,15 +5,37 @@ import { SettingsPage } from "./SettingsPage";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 
+const mockedGetVersion = vi.fn();
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: () => mockedGetVersion() }));
+
 const VAULT_DIR = "D:\\Vaults\\Mine";
 
 describe("SettingsPage", () => {
-  it("renders the Settings heading and the Vault location section with the current directory", () => {
+  it("renders the Settings heading and the Vault location section with the current directory", async () => {
+    mockedGetVersion.mockResolvedValue("1.0.0");
     render(<SettingsPage vaultDir={VAULT_DIR} onRelocate={vi.fn()} onChangePassword={vi.fn()} />);
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByText("Vault location")).toBeInTheDocument();
     expect(screen.getByText(VAULT_DIR)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /move vault/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "App version" })).toBeInTheDocument();
+    // The real version read from Tauri at runtime, not a hardcoded UI string
+    // that would silently drift from package.json/Cargo.toml/tauri.conf.json.
+    expect(await screen.findByText("Version 1.0.0")).toBeInTheDocument();
+  });
+
+  it("shows a placeholder while the version is loading, and on failure", async () => {
+    mockedGetVersion.mockReturnValue(new Promise(() => undefined));
+    const { unmount } = render(
+      <SettingsPage vaultDir={VAULT_DIR} onRelocate={vi.fn()} onChangePassword={vi.fn()} />,
+    );
+    expect(screen.getByText("Version —")).toBeInTheDocument();
+    unmount();
+
+    mockedGetVersion.mockRejectedValue(new Error("no runtime"));
+    render(<SettingsPage vaultDir={VAULT_DIR} onRelocate={vi.fn()} onChangePassword={vi.fn()} />);
+    // Rejects silently rather than crashing the Settings page over a label.
+    expect(screen.getByText("Version —")).toBeInTheDocument();
   });
 
   it("presents no form options (R14)", () => {

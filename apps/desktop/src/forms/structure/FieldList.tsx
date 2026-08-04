@@ -26,7 +26,6 @@ export interface FieldListProps {
    */
   lockedKeys: Set<string>;
   onSelect: (systemKey: string) => void;
-  onDuplicate: (groupKey: string, systemKey: string) => void;
   onDelete: (groupKey: string, systemKey: string) => void;
   onAdd: (groupKey: string, type: FieldType) => void;
   onReorder: (groupKey: string, fromIndex: number, toIndex: number) => void;
@@ -38,11 +37,10 @@ interface RowProps {
   selected: boolean;
   deletable: boolean;
   onSelect: (systemKey: string) => void;
-  onDuplicate: (groupKey: string, systemKey: string) => void;
   onDelete: (groupKey: string, systemKey: string) => void;
 }
 
-function FieldRow({ field, groupKey, selected, deletable, onSelect, onDuplicate, onDelete }: RowProps) {
+function FieldRow({ field, groupKey, selected, deletable, onSelect, onDelete }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.systemKey,
   });
@@ -75,14 +73,6 @@ function FieldRow({ field, groupKey, selected, deletable, onSelect, onDuplicate,
         {field.label}
       </button>
       <span className="field-row__type">{field.type}</span>
-      <button
-        type="button"
-        className="button button--ghost button--small"
-        aria-label={`Duplicate ${field.label}`}
-        onClick={() => onDuplicate(groupKey, field.systemKey)}
-      >
-        ⧉
-      </button>
       {deletable ? (
         <button
           type="button"
@@ -102,7 +92,6 @@ export function FieldList({
   selectedKey,
   lockedKeys,
   onSelect,
-  onDuplicate,
   onDelete,
   onAdd,
   onReorder,
@@ -138,7 +127,6 @@ export function FieldList({
                       selected={field.systemKey === selectedKey}
                       deletable={!lockedKeys.has(field.systemKey) && !field.protected}
                       onSelect={onSelect}
-                      onDuplicate={onDuplicate}
                       onDelete={onDelete}
                     />
                   ))}

@@ -295,18 +295,6 @@ export function FormRenderer({
     setExpandedByGroup((previous) => ({ ...previous, [group.groupKey]: record.id }));
   };
 
-  const duplicateGroupRecord = (record: SectionRecord) => {
-    const copy: SectionRecord = {
-      ...record,
-      id: createRecordId(),
-      values: { ...record.values },
-    };
-    const index = values.records.findIndex((candidate) => candidate.id === record.id);
-    const records = [...values.records];
-    records.splice(index + 1, 0, copy);
-    onChange({ ...values, records });
-  };
-
   const deleteGroupRecord = (record: SectionRecord) => {
     onChange({
       ...values,
@@ -509,13 +497,6 @@ export function FormRenderer({
                         label={label}
                         onToggle={toggle}
                       />
-                      <button
-                        type="button"
-                        className="record-list__action"
-                        onClick={() => duplicateGroupRecord(record)}
-                      >
-                        Duplicate
-                      </button>
                       <button
                         type="button"
                         className="record-list__action record-list__action--danger"

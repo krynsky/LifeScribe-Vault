@@ -47,8 +47,6 @@ export interface SectionPageProps {
   onEditField?: (sectionKey: string, groupKey: string, updated: FieldDefinition) => void;
   /** Called when a field is removed. */
   onRemoveField?: (sectionKey: string, groupKey: string, systemKey: string) => void;
-  /** Called when a field is duplicated. */
-  onDuplicateField?: (sectionKey: string, groupKey: string, systemKey: string) => void;
   /** Called when a field is reordered within its group by drag-and-drop. */
   onReorderField?: (sectionKey: string, groupKey: string, fromIndex: number, toIndex: number) => void;
   /** Called when a new field of the chosen type should be added to a group. */
@@ -95,7 +93,6 @@ export function SectionPage({
   packSections,
   onEditField,
   onRemoveField,
-  onDuplicateField,
   onReorderField,
   onAddField,
 }: SectionPageProps) {
@@ -259,7 +256,6 @@ export function SectionPage({
             sections={packSections ?? [packSection]}
             onEditField={(sk, gk, field) => onEditField?.(sk, gk, field)}
             onRemoveField={(sk, gk, key) => onRemoveField?.(sk, gk, key)}
-            onDuplicateField={(sk, gk, key) => onDuplicateField?.(sk, gk, key)}
             onReorderField={(sk, gk, from, to) => onReorderField?.(sk, gk, from, to)}
             onAddField={(sk, gk, type) => onAddField?.(sk, gk, type)}
           />

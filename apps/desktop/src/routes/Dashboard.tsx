@@ -38,7 +38,7 @@ import {
   updateSection,
   updateField,
 } from "../creator/packEdits";
-import { duplicateField, reorderFields } from "../forms/structure/fieldOps";
+import { reorderFields } from "../forms/structure/fieldOps";
 import type { RecordReferenceContext } from "../domain/recordReferences";
 import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
@@ -841,13 +841,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     }
   }
 
-  function handleDuplicateField(sectionKey: string, groupKey: string, systemKey: string) {
-    setWorkingPack((prev) => {
-      if (!prev) return prev;
-      return duplicateField(prev, sectionKey, groupKey, systemKey);
-    });
-  }
-
   function handleReorderField(
     sectionKey: string,
     groupKey: string,
@@ -1345,7 +1338,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             packSections={workingPack?.sections}
             onEditField={(sk, gk, field) => handleEditField(sk, gk, field)}
             onRemoveField={(sk, gk, key) => handleRemoveField(sk, gk, key)}
-            onDuplicateField={(sk, gk, key) => handleDuplicateField(sk, gk, key)}
             onReorderField={(sk, gk, from, to) => handleReorderField(sk, gk, from, to)}
             onAddField={(sk, gk, type) => handleAddField(sk, gk, type)}
           />

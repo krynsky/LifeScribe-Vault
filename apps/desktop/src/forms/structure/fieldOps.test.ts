@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import hintPack from "../../../src-tauri/resources/packs/default-pack.json";
 import type { FormPack } from "../../domain/formModel";
-import { duplicateField, reorderFields } from "./fieldOps";
+import { reorderFields } from "./fieldOps";
 
 const hint = hintPack as unknown as FormPack;
 
@@ -28,18 +28,5 @@ describe("reorderFields", () => {
     ]);
     expect(group(next, "devices", "device").fields.map((f) => f.order).sort((a, b) => a - b))
       .toEqual([1, 2, 3, 4, 5]);
-  });
-});
-
-describe("duplicateField", () => {
-  it("inserts a distinct added clone right after the original", () => {
-    const next = duplicateField(hint, "devices", "device", "deviceUnlockHintLocation");
-    const fields = [...group(next, "devices", "device").fields].sort((a, b) => a.order - b.order);
-    const idx = fields.findIndex((f) => f.systemKey === "deviceUnlockHintLocation");
-    const clone = fields[idx + 1]!;
-    expect(clone.systemKey).not.toBe("deviceUnlockHintLocation");
-    expect(clone.label).toBe(fields[idx]!.label);
-    expect(clone.protected).toBe(false);
-    expect(clone.systemKey.startsWith("field_")).toBe(true);
   });
 });

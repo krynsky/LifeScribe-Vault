@@ -597,7 +597,7 @@ describe("FormRenderer", () => {
     );
   });
 
-  it("supports add/duplicate/delete for repeatable groups inside a section form", async () => {
+  it("supports add/delete for repeatable groups inside a section form", async () => {
     const user = userEvent.setup();
     const section = resolveSection(makePlanPack(), "plan");
     const captureRef: { current: SectionValues | null } = { current: null };
@@ -609,15 +609,11 @@ describe("FormRenderer", () => {
     await user.type(screen.getByLabelText("Contact name"), "June Park");
     expect(screen.getByRole("button", { name: "June Park" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Duplicate" }));
-    expect(screen.getAllByRole("button", { name: "June Park" })).toHaveLength(2);
-    expect(
-      captureRef.current?.records.filter((record) => record.groupKey === "contact"),
-    ).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Duplicate" })).not.toBeInTheDocument();
 
-    await user.click(screen.getAllByRole("button", { name: "Delete" })[1]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.getByText(/Delete “June Park”\?/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm delete" }));
-    expect(screen.getAllByRole("button", { name: "June Park" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "June Park" })).not.toBeInTheDocument();
   });
 });

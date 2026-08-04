@@ -245,11 +245,10 @@ describe("PackEditorApp", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("duplicates a field via the Duplicate control", async () => {
+  it("does not offer duplicate controls", async () => {
     render(<PackEditorApp />);
-    await userEvent.click(await screen.findByRole("button", { name: /duplicate nickname/i }));
-
-    expect(screen.getAllByRole("button", { name: /edit field Nickname/i })).toHaveLength(2);
+    await screen.findByRole("button", { name: /edit field Full name/i });
+    expect(screen.queryByRole("button", { name: /duplicate/i })).not.toBeInTheDocument();
   });
 
   it("blocks save with an alert when a label is emptied", async () => {

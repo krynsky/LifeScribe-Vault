@@ -118,7 +118,7 @@ describe("RecordList", () => {
     expect(screen.getByRole("button", { name: "Add Device" })).toBeInTheDocument();
   });
 
-  it("adds, duplicates, and deletes records; delete confirm names the record label; deleting the last record restores the empty state", async () => {
+  it("adds and deletes records; delete confirm names the record label; deleting the last record restores the empty state", async () => {
     const user = userEvent.setup();
     const section = resolveSection(makeDevicesPack(), "devices");
     const captureRef: { current: SectionValues | null } = { current: null };
@@ -129,22 +129,14 @@ describe("RecordList", () => {
     await user.type(screen.getByLabelText("Device name"), "Work laptop");
     expect(screen.getByRole("button", { name: "Work laptop" })).toBeInTheDocument();
 
-    // Duplicate: a second row with the same summary label appears.
-    await user.click(screen.getByRole("button", { name: "Duplicate" }));
-    expect(screen.getAllByRole("button", { name: "Work laptop" })).toHaveLength(2);
-    expect(captureRef.current?.records).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Duplicate" })).not.toBeInTheDocument();
 
     // Delete requires confirm and the confirm names the record's label.
-    await user.click(screen.getAllByRole("button", { name: "Delete" })[1]);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.getByText(/Delete “Work laptop”\? This cannot be undone\./)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(captureRef.current?.records).toHaveLength(2);
+    expect(captureRef.current?.records).toHaveLength(1);
 
-    await user.click(screen.getAllByRole("button", { name: "Delete" })[1]);
-    await user.click(screen.getByRole("button", { name: "Confirm delete" }));
-    expect(screen.getAllByRole("button", { name: "Work laptop" })).toHaveLength(1);
-
-    // Deleting the last record shows the empty state again.
     await user.click(screen.getByRole("button", { name: "Delete" }));
     await user.click(screen.getByRole("button", { name: "Confirm delete" }));
     expect(

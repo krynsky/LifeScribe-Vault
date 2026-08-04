@@ -221,7 +221,7 @@ new machine.
 Turn on **Form Editor** at the bottom of the sidebar to reshape the forms to your life:
 
 - Rename fields, change their type, edit helper text, mark them required
-- Add new fields, duplicate or reorder existing ones, remove ones you don't need
+- Add new fields, reorder existing ones, remove ones you don't need
 - Rename sections and add new ones
 
 A few fields are **protected** because the Recovery Kit depends on them to label each record — they can be renamed but not removed. If removing or retyping a field would orphan something you've already entered, the value is archived rather than lost.
