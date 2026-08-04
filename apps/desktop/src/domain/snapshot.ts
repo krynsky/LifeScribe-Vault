@@ -152,6 +152,9 @@ function normalizeSectionMeta(raw: unknown): SectionMetaMap {
     if (entryRaw.na === true) {
       entry.na = true;
     }
+    if (entryRaw.completed === true) {
+      entry.completed = true;
+    }
     const lastReviewedAt = asOptionalIso(entryRaw.lastReviewedAt);
     if (lastReviewedAt) {
       entry.lastReviewedAt = lastReviewedAt;

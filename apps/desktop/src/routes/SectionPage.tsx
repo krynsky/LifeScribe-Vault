@@ -231,7 +231,7 @@ export function SectionPage({
               Mark as complete
             </button>
           ) : null}
-          {status === "complete" || status === "stale-complete" ? (
+          {status === "stale-complete" ? (
             <button
               className="button button--ghost button--small"
               type="button"

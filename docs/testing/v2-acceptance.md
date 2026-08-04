@@ -40,7 +40,7 @@ Record the environment at the top of your run:
 - [ ] Click **Mark as complete**. The badge changes to **"Complete"** and the readiness percentage increases. A banner explains the decision and offers "It's not complete yet" to undo it.
 - [ ] Click "It's not complete yet". The section returns to **"Started"** (it still has data) and drops back out of the readiness percentage.
 - [ ] Mark the section complete again, then delete every record in it and save. The badge reverts to **"Not started"** on its own — a section with nothing in it cannot stay marked complete. Add one record back: it comes back as **"Started"**, not silently "Complete" again.
-- [ ] **"Mark as reviewed"** only appears once a section is Complete or stale; it is not offered on a merely Started section.
+- [ ] **"Mark as reviewed"** only appears once a completed section goes stale (**"Review due"**). It is not offered on a merely Started section, and not on a freshly-completed one either — marking complete already counts as a review, so there is nothing to re-confirm yet.
 
 For each section, open it and verify:
 

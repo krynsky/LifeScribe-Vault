@@ -78,7 +78,9 @@ describe("payload round-trip", () => {
     parsed.values = {
       identity: { sectionKey: "identity", records: [], archivedAnswers: [] },
     };
-    parsed.sectionMeta = { identity: { na: true, lastSavedAt: "2026-01-01T00:00:00.000Z" } };
+    parsed.sectionMeta = {
+      identity: { na: true, completed: true, lastSavedAt: "2026-01-01T00:00:00.000Z" },
+    };
     parsed.overlay = { sectionOrder: ["identity"] } as never;
     parsed.kitMeta = { lastGeneratedAt: "2026-01-02T00:00:00.000Z", fingerprint: "abc" };
     const result = normalizeSnapshot(buildSnapshot(parsed), "");

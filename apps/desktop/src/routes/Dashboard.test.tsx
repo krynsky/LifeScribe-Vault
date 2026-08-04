@@ -236,6 +236,58 @@ describe("Dashboard checklist and saving", () => {
     expect(await within(sidebarSectionButton()).findByText("Complete")).toBeInTheDocument();
     // 1 of the pack's 9 sections ready -> 11% overall readiness.
     expect(screen.getAllByText("11%").length).toBeGreaterThan(0);
+
+    // Marking complete already counts as a review, so a freshly-completed
+    // section has nothing left to confirm — the button would be a no-op.
+    // Still on the section page from the click above; no navigation needed.
+    expect(screen.queryByRole("button", { name: "Mark as reviewed" })).not.toBeInTheDocument();
+  });
+
+  it("offers Mark as reviewed only once a completed section goes stale, and refreshes it back to Complete", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        values: {
+          [SECTION_KEY]: {
+            sectionKey: SECTION_KEY,
+            records: [
+              {
+                id: "executor-1",
+                groupKey: "executor",
+                schemaVersion: 1,
+                values: { executorName: "Dana Estate", executorRole: "primary" },
+              },
+            ],
+            archivedAnswers: [],
+          },
+        },
+        sectionMeta: {
+          [SECTION_KEY]: { completed: true, lastReviewedAt: "2015-01-01T00:00:00Z" },
+        },
+      },
+      generation: 1,
+      recovered: false,
+    });
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+
+    // Long overdue: shows as stale, and the reviewed control is offered.
+    expect(within(sidebarSectionButton()).getByText("Review due")).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(sidebarSectionButton());
+    expect(screen.queryByRole("button", { name: "Mark as complete" })).not.toBeInTheDocument();
+    const reviewButton = screen.getByRole("button", { name: "Mark as reviewed" });
+
+    mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
+    await user.click(reviewButton);
+
+    expect(mocked.saveVaultSnapshot).toHaveBeenCalledTimes(1);
+    const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
+    const meta = (snapshot.sectionMeta as Record<string, { lastReviewedAt?: string }>)[SECTION_KEY];
+    expect(new Date(meta.lastReviewedAt!).getFullYear()).toBeGreaterThan(2020);
+
+    // Fresh again: the badge flips back and the button disappears.
+    expect(await within(sidebarSectionButton()).findByText("Complete")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark as reviewed" })).not.toBeInTheDocument();
   });
 
   it("blocks a save with missing required fields and shows errors inline, not as a top list", async () => {

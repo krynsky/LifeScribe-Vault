@@ -357,6 +357,10 @@ not guess.
   complete**, persisted as `SectionMeta.completed`. Stale-complete is the same
   underlying decision, just overdue for a look (past `reviewCadenceMonths`
   since the last save or "Mark as reviewed" — unchanged from before).
+  **Mark as complete already sets `lastReviewedAt`** (see `handleSetCompleted`),
+  so a freshly-completed section is by definition not yet due — the "Mark as
+  reviewed" control only renders on `stale-complete`, not on plain `complete`,
+  or it would be a visible no-op the instant you complete a section.
 - **`na`** — "Doesn't apply to me". Unchanged from before; still the escape
   hatch that keeps 100% reachable for sections that genuinely don't apply.
 
