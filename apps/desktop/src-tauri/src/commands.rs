@@ -258,10 +258,12 @@ fn load_header_and_data_key(
     repository: &VaultRepository,
     master_password: &str,
 ) -> VaultResult<(VaultHeader, Zeroizing<[u8; KEY_LEN]>)> {
-    let header = repository.load_vault_header().map_err(|error| match error {
-        VaultError::NotFound => VaultError::VaultNotInitialized,
-        error => error,
-    })?;
+    let header = repository
+        .load_vault_header()
+        .map_err(|error| match error {
+            VaultError::NotFound => VaultError::VaultNotInitialized,
+            error => error,
+        })?;
     let data_key = unwrap_data_key(
         master_password,
         &header.kdf,
@@ -322,8 +324,7 @@ pub fn change_vault_password_at_path(
     ensure_master_password_length(new_password)?;
 
     let repository = VaultRepository::open_existing(vault_path)?;
-    let (_header, verified_data_key) =
-        load_header_and_data_key(&repository, current_password)?;
+    let (_header, verified_data_key) = load_header_and_data_key(&repository, current_password)?;
 
     let kdf = KeyDerivationMetadata::new();
     let wrapped_data_key =
@@ -529,8 +530,7 @@ pub fn check_vault_location(
                 "vault path has no parent".to_string(),
             ))
         })?;
-    crate::vault_location::check_destination(&from_dir, Path::new(&dir))
-        .map_err(command_error_code)
+    crate::vault_location::check_destination(&from_dir, Path::new(&dir)).map_err(command_error_code)
 }
 
 #[derive(Debug, Serialize)]
@@ -607,10 +607,7 @@ pub fn load_vault_snapshot(
 /// Encrypt-and-stash a dirty draft (U5 lock flow). The frontend calls this
 /// BEFORE `lock_vault`, while the session data key still exists.
 #[tauri::command]
-pub fn stash_draft(
-    draft: Value,
-    session: State<'_, SharedVaultSession>,
-) -> Result<(), String> {
+pub fn stash_draft(draft: Value, session: State<'_, SharedVaultSession>) -> Result<(), String> {
     let session = lock_state(&session)?;
     crate::draft_stash::stash_draft_for_session(&session, &draft).map_err(command_error_code)
 }
@@ -668,6 +665,30 @@ pub struct RestoreBackupRequest {
     pub backup_password: String,
 }
 
+pub fn restore_backup_for_session(
+    session: &mut VaultSession,
+    backup_path: &Path,
+    backup_password: &str,
+) -> VaultResult<crate::backup::RestoreResult> {
+    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
+    let app_data_dir = session
+        .vault_path
+        .parent()
+        .ok_or_else(|| VaultError::FileOperation("vault path has no parent".to_string()))?
+        .to_path_buf();
+    let result = crate::backup::restore_backup(
+        backup_path,
+        backup_password,
+        &session.vault_path,
+        &att_dir,
+        &app_data_dir,
+    )?;
+    // The in-memory key belongs to the replaced database and must never remain
+    // usable after restore. The user authenticates against the restored vault.
+    lock_session_state(session);
+    Ok(result)
+}
+
 /// Create an encrypted backup of the current vault + attachments.
 /// Must be called while unlocked.
 #[tauri::command]
@@ -702,22 +723,11 @@ pub fn restore_backup(
     session: State<'_, SharedVaultSession>,
 ) -> Result<RestoreBackupResponse, String> {
     let backup_password = zeroize::Zeroizing::new(request.backup_password);
-    let session = lock_state(&session)?;
-    let att_dir = crate::attachments::attachment_dir(&session.vault_path);
-    let app_data_dir = session
-        .vault_path
-        .parent()
-        .ok_or_else(|| command_error_code(VaultError::FileOperation(
-            "vault path has no parent".to_string(),
-        )))?
-        .to_path_buf();
-
-    let result = crate::backup::restore_backup(
+    let mut session = lock_state(&session)?;
+    let result = restore_backup_for_session(
+        &mut session,
         std::path::Path::new(&request.backup_path),
         &backup_password,
-        &session.vault_path,
-        &att_dir,
-        &app_data_dir,
     )
     .map_err(command_error_code)?;
 
@@ -755,7 +765,10 @@ pub fn add_attachment(
     session: State<'_, SharedVaultSession>,
 ) -> Result<AttachmentRefResponse, String> {
     let session = lock_state(&session)?;
-    let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let key = session
+        .key
+        .as_ref()
+        .ok_or_else(|| command_error_code(VaultError::Locked))?;
     let vault_id = session
         .vault_id
         .as_deref()
@@ -763,9 +776,8 @@ pub fn add_attachment(
 
     let att_dir = crate::attachments::attachment_dir(&session.vault_path);
     let source = std::path::Path::new(&request.source_path);
-    let meta =
-        crate::attachments::encrypt_attachment(source, &att_dir, key, vault_id)
-            .map_err(command_error_code)?;
+    let meta = crate::attachments::encrypt_attachment(source, &att_dir, key, vault_id)
+        .map_err(command_error_code)?;
 
     Ok(AttachmentRefResponse {
         id: meta.id,
@@ -786,8 +798,7 @@ pub fn delete_attachment(
         return Err(command_error_code(VaultError::Locked));
     }
     let att_dir = crate::attachments::attachment_dir(&session.vault_path);
-    crate::attachments::delete_attachment_file(&att_dir, &attachment_id)
-        .map_err(command_error_code)
+    crate::attachments::delete_attachment_file(&att_dir, &attachment_id).map_err(command_error_code)
 }
 
 /// Decrypt an attachment INTO MEMORY and return its plaintext bytes for the
@@ -798,7 +809,10 @@ pub fn read_attachment(
     session: State<'_, SharedVaultSession>,
 ) -> Result<Vec<u8>, String> {
     let session = lock_state(&session)?;
-    let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let key = session
+        .key
+        .as_ref()
+        .ok_or_else(|| command_error_code(VaultError::Locked))?;
     let vault_id = session
         .vault_id
         .as_deref()
@@ -823,7 +837,10 @@ pub fn open_attachment_external(
     session: State<'_, SharedVaultSession>,
 ) -> Result<(), String> {
     let mut session = lock_state(&session)?;
-    let key = session.key.as_ref().ok_or_else(|| command_error_code(VaultError::Locked))?;
+    let key = session
+        .key
+        .as_ref()
+        .ok_or_else(|| command_error_code(VaultError::Locked))?;
     let vault_id = session
         .vault_id
         .as_deref()

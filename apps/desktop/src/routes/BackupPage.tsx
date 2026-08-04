@@ -26,7 +26,7 @@ function errorMessage(error: unknown): string {
   return "Something went wrong. The vault has not been changed.";
 }
 
-export function BackupPage() {
+export function BackupPage({ onRestored }: { onRestored?: () => void }) {
   // -- create state --
   const [createPassword, setCreatePassword] = useState("");
   const [createPhase, setCreatePhase] = useState<CreatePhase>("idle");
@@ -102,6 +102,7 @@ export function BackupPage() {
       await restoreBackup(restoreFilePath, restorePassword);
       setRestorePhase("done");
       setRestorePassword("");
+      onRestored?.();
     } catch (error) {
       setRestoreError(errorMessage(error));
       setRestorePhase("error");

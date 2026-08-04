@@ -19,6 +19,8 @@ pub fn run() {
             std::fs::create_dir_all(&config_dir)?;
             let vault_dir = vault_location::resolve_vault_dir(&config_dir);
             let vault_path = vault_location::vault_file_in(&vault_dir);
+            let attachment_dir = attachments::attachment_dir(&vault_path);
+            backup::rollback_if_marker_present(&vault_path, &attachment_dir, &vault_dir)?;
             app.manage(commands::SharedVaultSession::new(
                 commands::VaultSession::with_config_dir(vault_path, config_dir),
             ));

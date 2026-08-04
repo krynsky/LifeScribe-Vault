@@ -1361,7 +1361,13 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       />
     );
   } else if (route.kind === "backup") {
-    content = <BackupPage />;
+    content = (
+      <BackupPage
+        onRestored={() =>
+          onLocked("Restore complete. Unlock the restored vault to verify its contents.")
+        }
+      />
+    );
   } else if (route.kind === "settings") {
     content = (
       <SettingsPage
