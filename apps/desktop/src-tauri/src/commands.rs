@@ -898,6 +898,30 @@ pub struct WritePdfExportRequest {
     pub bytes: Vec<u8>,
 }
 
+/// Staging path for an atomic PDF export: the destination's own name with
+/// `.tmp` appended, i.e. a SIBLING of the destination.
+///
+/// The sibling placement is load-bearing, which is why it is its own function:
+/// `rename` is atomic only within a single filesystem, and the user can save
+/// anywhere — a USB stick, a network share. Staging in `std::env::temp_dir()`
+/// would look equivalent and silently break the guarantee whenever the
+/// destination is on a different volume. `None` for a path with no file name.
+pub fn pdf_export_tmp_path(output_path: &Path) -> Option<PathBuf> {
+    let mut tmp_name = output_path.file_name()?.to_os_string();
+    tmp_name.push(".tmp");
+    Some(output_path.with_file_name(tmp_name))
+}
+
+/// Write a generated Recovery Kit PDF to a destination the user picked in the
+/// OS save dialog.
+///
+/// Atomic on purpose: the destination is a path the user chose, which may
+/// already hold a file they care about. A truncating write that fails partway
+/// would destroy the original without producing a complete replacement, so the
+/// bytes land in a sibling temp file that is renamed into place only once
+/// fully written and fsynced. A sibling (not the system temp dir) because
+/// rename is only atomic within one filesystem, and the destination may be on
+/// any volume the user can reach.
 pub fn write_pdf_export_at_path(output_path: &Path, bytes: &[u8]) -> VaultResult<()> {
     let is_pdf_path = output_path
         .extension()
@@ -907,12 +931,26 @@ pub fn write_pdf_export_at_path(output_path: &Path, bytes: &[u8]) -> VaultResult
         return Err(VaultError::FileOperation("invalid PDF export".to_string()));
     }
 
-    std::fs::write(output_path, bytes)
-        .map_err(|error| VaultError::FileOperation(error.to_string()))
+    let Some(tmp_path) = pdf_export_tmp_path(output_path) else {
+        return Err(VaultError::FileOperation("invalid PDF export".to_string()));
+    };
+
+    crate::attachments::write_atomically(&tmp_path, output_path, bytes)
 }
 
+/// Requires an unlocked session. A Recovery Kit can only be produced from
+/// decrypted values, so a locked vault has nothing legitimate to export —
+/// and every other file-writing command here is gated the same way, which
+/// keeps this from being a general-purpose write primitive on the IPC surface.
 #[tauri::command]
-pub fn write_pdf_export(request: WritePdfExportRequest) -> Result<(), String> {
+pub fn write_pdf_export(
+    request: WritePdfExportRequest,
+    session: State<'_, SharedVaultSession>,
+) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    if session.key.is_none() {
+        return Err(command_error_code(VaultError::Locked));
+    }
     write_pdf_export_at_path(Path::new(&request.output_path), &request.bytes)
         .map_err(command_error_code)
 }

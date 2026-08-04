@@ -358,10 +358,22 @@ or bypass preview with a native quick-print command.
 Export PDF does not use a browser download. `recoveryKitPdf.ts` generates the
 same credential-filtered Kit as a `Uint8Array`; the Tauri dialog plugin opens a
 native Save As picker; `vaultApi.writePdfExport` sends the selected path and
-bytes to `write_pdf_export`. Rust accepts only a `.pdf` destination and a
-payload beginning with `%PDF-`, then writes the file. Cancellation is a no-op;
-success reports the chosen path and failures produce a visible page error.
-This path matters because `jsPDF.save()` can fail silently under WebView2.
+bytes to `write_pdf_export`. The command requires an unlocked session (a Kit
+only exists from decrypted values, and gating it keeps the IPC surface from
+carrying a general-purpose write primitive). Rust accepts only a `.pdf`
+destination and a payload beginning with `%PDF-`, then writes the file.
+Cancellation is a no-op; success reports the chosen path and failures produce a
+visible page error. This path matters because `jsPDF.save()` can fail silently
+under WebView2.
+
+The write is atomic, via the same `write_atomically` helper the attachment
+layer uses: the destination is a path the *user* chose and may already hold a
+file worth keeping, so a truncating write that failed partway would destroy the
+original without producing a replacement. `pdf_export_tmp_path` stages beside
+the destination rather than in `std::env::temp_dir()` — `rename` is atomic only
+within one filesystem, and the user can save to a USB stick or network share.
+That placement is a separate, tested function precisely because staging in the
+system temp dir would look equivalent and silently break the guarantee.
 
 `buildRecoveryKitPdf` takes the export date as an argument rather than reading
 the clock, so the builder stays pure and the date is assertable

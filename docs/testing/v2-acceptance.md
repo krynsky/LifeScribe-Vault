@@ -100,6 +100,8 @@ For each section, open it and verify:
 - [ ] Click **Export PDF**; a native **Save As** dialog opens with a `.pdf` filename and PDF filter. Cancel it and verify no file is created and no error appears.
 - [ ] Export again to a writable folder. Verify the file exists, begins with `%PDF-`, opens in a PDF reader, contains the current Kit, and the app reports the selected save path.
 - [ ] The exported PDF's header carries **today's date with the month spelled out** ("exported August 3, 2026"). A filed PDF has no staleness badge, so the date on the page is the only way a reader can judge whether it is current.
+- [ ] Export over an **existing** PDF (pick the same filename twice and confirm the overwrite). The file is fully replaced with the new Kit, and no `.tmp` file is left beside it.
+- [ ] Export to a **removable drive or network share**, not just a local folder — the export stages beside its destination, so this is the case that would break if that ever regressed.
 - [ ] Attempt an export to a location that cannot be written. Verify the app remains usable and shows a clear save error rather than failing silently.
 - [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Devices, save, then review, print, and export the Kit. **Neither value appears anywhere on it**, on screen, in print preview, or in the PDF. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
 - [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.

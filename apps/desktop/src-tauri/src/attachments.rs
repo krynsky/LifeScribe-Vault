@@ -323,7 +323,14 @@ fn belongs_to_vault(
     }
 }
 
-fn write_atomically(tmp_path: &Path, out_path: &Path, data: &[u8]) -> VaultResult<()> {
+/// Write `data` to `out_path` without ever leaving a partial file there:
+/// fully write and fsync a temp file, then rename it into place. `tmp_path`
+/// MUST be on the same filesystem as `out_path` (rename is only atomic within
+/// one volume), so callers build it as a sibling of the destination.
+///
+/// Shared with the Recovery Kit PDF export, which writes to a user-chosen
+/// path that may already hold a file worth keeping.
+pub(crate) fn write_atomically(tmp_path: &Path, out_path: &Path, data: &[u8]) -> VaultResult<()> {
     let result = (|| -> io::Result<()> {
         let mut f = File::create(tmp_path)?;
         f.write_all(data)?;
