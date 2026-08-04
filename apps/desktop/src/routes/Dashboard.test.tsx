@@ -243,6 +243,23 @@ describe("Dashboard checklist and saving", () => {
     expect(screen.queryByRole("button", { name: "Mark as reviewed" })).not.toBeInTheDocument();
   });
 
+  it("places Mark as complete above the record form, not below it", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    await openSectionAndTypeName(user, "Dana Estate");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const markComplete = await screen.findByRole("button", { name: "Mark as complete" });
+    const form = document.querySelector(".section-page__form");
+    expect(form).not.toBeNull();
+    // DOCUMENT_POSITION_FOLLOWING on the form means markComplete comes first.
+    expect(markComplete.compareDocumentPosition(form!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+      0,
+    );
+  });
+
   it("offers Mark as reviewed only once a completed section goes stale, and refreshes it back to Complete", async () => {
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {

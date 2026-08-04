@@ -189,6 +189,65 @@ export function SectionPage({
         </div>
       ) : null}
 
+      {editing ? null : (
+        <div className="section-page__actions section-page__actions--top">
+          {dirty ? <span className="section-page__dirty-hint">Unsaved changes</span> : null}
+
+          <div className="section-page__secondary">
+            {status === "started" ? (
+              <button
+                className="button button--secondary button--small"
+                type="button"
+                onClick={() => onSetCompleted(true)}
+              >
+                Mark as complete
+              </button>
+            ) : null}
+            {status === "stale-complete" ? (
+              <button
+                className="button button--ghost button--small"
+                type="button"
+                onClick={onMarkReviewed}
+              >
+                Mark as reviewed
+              </button>
+            ) : null}
+            {!meta.na && status === "not-started" ? (
+              confirmingNa ? (
+                <span className="section-page__na-confirm">
+                  <span>This section will count as complete.</span>
+                  <button
+                    className="button button--secondary button--small"
+                    type="button"
+                    onClick={() => {
+                      setConfirmingNa(false);
+                      onSetNa(true);
+                    }}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    className="button button--ghost button--small"
+                    type="button"
+                    onClick={() => setConfirmingNa(false)}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="button button--ghost button--small"
+                  type="button"
+                  onClick={() => setConfirmingNa(true)}
+                >
+                  Doesn't apply to me
+                </button>
+              )
+            ) : null}
+          </div>
+        </div>
+      )}
+
       <div
         className={`section-page__form${
           !editing && recordBased ? " section-page__form--records" : ""
@@ -217,63 +276,6 @@ export function SectionPage({
           />
         )}
       </div>
-
-      {editing ? null : <footer className="section-page__actions">
-        {dirty ? <span className="section-page__dirty-hint">Unsaved changes</span> : null}
-
-        <div className="section-page__secondary">
-          {status === "started" ? (
-            <button
-              className="button button--secondary button--small"
-              type="button"
-              onClick={() => onSetCompleted(true)}
-            >
-              Mark as complete
-            </button>
-          ) : null}
-          {status === "stale-complete" ? (
-            <button
-              className="button button--ghost button--small"
-              type="button"
-              onClick={onMarkReviewed}
-            >
-              Mark as reviewed
-            </button>
-          ) : null}
-          {!meta.na && status === "not-started" ? (
-            confirmingNa ? (
-              <span className="section-page__na-confirm">
-                <span>This section will count as complete.</span>
-                <button
-                  className="button button--secondary button--small"
-                  type="button"
-                  onClick={() => {
-                    setConfirmingNa(false);
-                    onSetNa(true);
-                  }}
-                >
-                  Confirm
-                </button>
-                <button
-                  className="button button--ghost button--small"
-                  type="button"
-                  onClick={() => setConfirmingNa(false)}
-                >
-                  Cancel
-                </button>
-              </span>
-            ) : (
-              <button
-                className="button button--ghost button--small"
-                type="button"
-                onClick={() => setConfirmingNa(true)}
-              >
-                Doesn't apply to me
-              </button>
-            )
-          ) : null}
-        </div>
-      </footer>}
     </article>
   );
 }
