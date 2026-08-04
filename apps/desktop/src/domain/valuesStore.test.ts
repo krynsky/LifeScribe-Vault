@@ -194,7 +194,7 @@ describe("reconcileSectionValues — orphaned field values", () => {
     expect(result.newlyArchived).toEqual([]);
   });
 
-  it("deletes the attached file (drops the ref) and archives the id when a file field is removed", () => {
+  it("moves attachment metadata into the archive when a file field is removed", () => {
     const sectionWithoutWillPdf = resolvedPlanSection((pack) => {
       pack.sections[0].groups[0].fields = [];
     });
@@ -214,7 +214,9 @@ describe("reconcileSectionValues — orphaned field values", () => {
     expect(reconciled.records[0].attachments).toEqual([]);
     const archived = newlyArchived.find((a) => a.systemKey === "willPdf");
     expect(archived?.value).toBe("att1");
+    expect(archived?.attachment).toEqual({ id: "att1", fileName: "will.pdf", sizeBytes: 10 });
     expect(archived?.reason).toMatch(/will\.pdf/);
+    expect(archived?.reason).not.toMatch(/deleted/i);
   });
 });
 
@@ -243,6 +245,32 @@ describe("reconcileSectionValues — whole orphaned records", () => {
     const byKey = Object.fromEntries(newlyArchived.map((answer) => [answer.systemKey, answer]));
     expect(byKey.contactName).toMatchObject({ originalLabel: "Contact name", value: "Dana Reyes" });
     expect(byKey.contactEmail).toMatchObject({ originalLabel: "Contact email", value: "dana@example.com" });
+  });
+
+  it("preserves attachment metadata when a whole record is archived", () => {
+    const section = resolvedPlanSection((pack) => {
+      pack.sections[0].groups = pack.sections[0].groups.filter((group) => group.groupKey !== "contact");
+    });
+    const sectionValues = makeSectionValues("plan", [
+      makeRecord({
+        id: "c1",
+        groupKey: "contact",
+        values: { contactFile: "att-contact" },
+        attachments: [{ id: "att-contact", fileName: "contact.pdf", sizeBytes: 42 }],
+      }),
+    ]);
+
+    const { sectionValues: reconciled, newlyArchived } = reconcileSectionValues(
+      sectionValues,
+      section,
+      PLAN_PREVIOUS_FIELDS,
+    );
+
+    expect(reconciled.records).toEqual([]);
+    expect(newlyArchived[0]).toMatchObject({
+      value: "att-contact",
+      attachment: { id: "att-contact", fileName: "contact.pdf", sizeBytes: 42 },
+    });
   });
 
   it("archives plain records beyond the first when the section stops being multi-record", () => {

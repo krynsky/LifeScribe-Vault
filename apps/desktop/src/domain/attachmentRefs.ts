@@ -15,13 +15,18 @@
 
 import type { SectionValues, VaultValues } from "./valuesStore";
 
-/** Every attachment id referenced by any record in the given sections. */
+/** Every attachment id referenced by active records or archived answers. */
 export function collectAttachmentIds(sections: Iterable<SectionValues>): string[] {
   const ids: string[] = [];
   for (const sectionValues of sections) {
     for (const record of sectionValues.records) {
       for (const att of record.attachments ?? []) {
         ids.push(att.id);
+      }
+    }
+    for (const answer of sectionValues.archivedAnswers) {
+      if (answer.attachment) {
+        ids.push(answer.attachment.id);
       }
     }
   }

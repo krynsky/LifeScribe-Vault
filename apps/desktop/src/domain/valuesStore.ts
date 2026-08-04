@@ -45,6 +45,12 @@ export interface ArchivedAnswer {
   /** The field label at the time the value was archived. */
   originalLabel: string;
   value: string;
+  /**
+   * File metadata retained when a file-valued answer is archived. The
+   * ciphertext remains part of the vault until the user explicitly deletes
+   * the archived answer; form-definition changes must never orphan it.
+   */
+  attachment?: AttachmentRef;
   /** Human-readable reason the value was orphaned. */
   reason: string;
 }
@@ -239,6 +245,7 @@ export function reconcileSectionValues(
   sectionValues: SectionValues,
   section: ResolvedSection,
   previousFields?: PreviousFieldIndex,
+  retypedFields?: ReadonlySet<string>,
 ): ReconcileResult {
   const fieldIndex = indexResolvedSection(section);
   const groupIndex = new Map(section.groups.map((group) => [group.groupKey, group]));
@@ -249,6 +256,7 @@ export function reconcileSectionValues(
     previousFields?.[systemKey]?.label ?? fieldIndex.get(systemKey)?.field.label ?? systemKey;
 
   const archiveValue = (record: SectionRecord, systemKey: string, value: string, reason: string) => {
+    const attachment = record.attachments?.find((candidate) => candidate.id === value);
     newlyArchived.push({
       id: nextArchiveId(archiveIds, `${sectionValues.sectionKey}:${record.id}:${systemKey}`),
       sectionKey: sectionValues.sectionKey,
@@ -256,6 +264,7 @@ export function reconcileSectionValues(
       systemKey,
       originalLabel: labelFor(systemKey),
       value,
+      ...(attachment ? { attachment: { ...attachment } } : {}),
       reason,
     });
   };
@@ -314,7 +323,7 @@ export function reconcileSectionValues(
               record,
               systemKey,
               value,
-              `This file field was removed; the attached file "${droppedRef.fileName}" was deleted from the vault.`,
+              `This file field was removed; the attached file "${droppedRef.fileName}" was preserved in archived data.`,
             );
             droppedAttachmentIds.add(value);
           } else {
@@ -326,8 +335,7 @@ export function reconcileSectionValues(
       }
       const previous = previousFields?.[systemKey];
       if (
-        previous &&
-        previous.type !== current.field.type &&
+        ((previous && previous.type !== current.field.type) || retypedFields?.has(systemKey)) &&
         value.length > 0 &&
         !valueConformsToField(value, current.field)
       ) {
@@ -335,7 +343,9 @@ export function reconcileSectionValues(
           record,
           systemKey,
           value,
-          `This field changed from ${previous.type} to ${current.field.type} and the previous answer no longer fits.`,
+          previous
+            ? `This field changed from ${previous.type} to ${current.field.type} and the previous answer no longer fits.`
+            : `This field changed to ${current.field.type} and the previous answer no longer fits.`,
         );
         changed = true;
         continue;

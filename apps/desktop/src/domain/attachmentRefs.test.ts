@@ -30,6 +30,22 @@ describe("collectAttachmentIds", () => {
     ];
     expect(collectAttachmentIds(sections)).toEqual(["a", "b", "c"]);
   });
+
+  it("collects attachment ids retained by archived answers", () => {
+    const archived = section("documents", []);
+    archived.archivedAnswers.push({
+      id: "documents:r1:file",
+      sectionKey: "documents",
+      recordId: "r1",
+      systemKey: "file",
+      originalLabel: "File",
+      value: "archived-file",
+      reason: "The field was removed.",
+      attachment: { id: "archived-file", fileName: "will.pdf", sizeBytes: 12 },
+    });
+
+    expect(collectAttachmentIds([archived])).toEqual(["archived-file"]);
+  });
 });
 
 describe("droppedAttachmentIds", () => {
@@ -61,5 +77,22 @@ describe("droppedAttachmentIds", () => {
       devices: section("devices", [{ recordId: "r2", ids: ["c", "a"] }]),
     };
     expect(droppedAttachmentIds(before, moved)).toEqual([]);
+  });
+
+  it("does not drop an id moved from an active record into archived data", () => {
+    const archived = section("documents", []);
+    archived.archivedAnswers.push({
+      id: "documents:r1:file_0",
+      sectionKey: "documents",
+      recordId: "r1",
+      systemKey: "file_0",
+      originalLabel: "File",
+      value: "a",
+      reason: "The field was removed.",
+      attachment: { id: "a", fileName: "a.pdf", sizeBytes: 1 },
+    });
+    const after: VaultValues = { ...before, documents: archived };
+
+    expect(droppedAttachmentIds(before, after).sort()).toEqual(["b"]);
   });
 });

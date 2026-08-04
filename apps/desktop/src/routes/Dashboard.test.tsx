@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import basePackJson from "../../src-tauri/resources/packs/default-pack.json";
 import * as vaultApi from "../api/vaultApi";
+import type { FormPack } from "../domain/formModel";
 import { Dashboard } from "./Dashboard";
 import { INACTIVITY_LOCK_MS } from "./lockPolicy";
 
@@ -142,6 +143,67 @@ describe("Dashboard branded phase states", () => {
     expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
       "brand-logo--panel",
     );
+  });
+
+  it("archives an incompatible value using retype migration provenance during the real load pipeline", async () => {
+    const upgradedPack = structuredClone(basePackJson) as FormPack;
+    const executors = upgradedPack.sections.find((section) => section.sectionKey === SECTION_KEY)!;
+    const relationship = executors.groups
+      .flatMap((group) => group.fields)
+      .find((field) => field.systemKey === "executorRelationship")!;
+    relationship.type = "date";
+    delete relationship.options;
+    upgradedPack.schemaVersion = 2;
+    upgradedPack.migrations = [
+      ...upgradedPack.migrations,
+      {
+        fromVersion: 1,
+        operations: [
+          {
+            op: "retypeField",
+            sectionKey: SECTION_KEY,
+            systemKey: "executorRelationship",
+            toType: "date",
+          },
+        ],
+      },
+    ];
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        customPack: upgradedPack,
+        values: {
+          [SECTION_KEY]: {
+            sectionKey: SECTION_KEY,
+            records: [
+              {
+                id: "executor-1",
+                groupKey: "executor",
+                schemaVersion: 1,
+                values: {
+                  executorName: "Dana Estate",
+                  executorRole: "primary",
+                  executorRelationship: "Sibling",
+                },
+              },
+            ],
+            archivedAnswers: [],
+          },
+        },
+      },
+      generation: 1,
+      recovered: false,
+    });
+
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    const user = userEvent.setup();
+    await user.click(sidebarSectionButton());
+    await user.click(screen.getByRole("button", { name: "Expand Dana Estate" }));
+
+    expect(screen.getByLabelText("Relationship")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Archived data (1)" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Archived data (1)" }));
+    expect(screen.getByText("Sibling")).toBeInTheDocument();
   });
 });
 

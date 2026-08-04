@@ -47,6 +47,7 @@ import { loadDefaultPack } from "../domain/loadDefaultPack";
 import {
   capRecordSchemaVersions,
   migrateVaultValues,
+  pendingRetypedFields,
   SNAPSHOT_SCHEMA_TOO_NEW,
 } from "../domain/packMigrations";
 import { mergePackWithOverlay } from "../domain/packMerge";
@@ -154,6 +155,7 @@ function buildLoadedVault(
 ): LoadedVault | { blocked: string } {
   const merge = mergePackWithOverlay(pack, parsed.overlay, parsed.values);
   let values = applyKeyRenames(parsed.values, merge.keyRenames);
+  const retypedFields = pendingRetypedFields(values, pack);
 
   let migrated = migrateVaultValues(values, pack);
   if (!migrated.ok) {
@@ -179,6 +181,8 @@ function buildLoadedVault(
       reconciled[section.sectionKey] = reconcileSectionValues(
         sectionValues,
         section,
+        undefined,
+        retypedFields.get(section.sectionKey),
       ).sectionValues;
     }
   }

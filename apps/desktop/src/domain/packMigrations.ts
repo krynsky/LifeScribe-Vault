@@ -27,6 +27,33 @@ export type MigrationResult =
   | { ok: false; error: MigrationError };
 
 /**
+ * Retype operations that will run for at least one record during this load.
+ * Reconciliation uses this provenance to archive values that do not conform
+ * to the new field type. Once records carry a newer stamp, the operation no
+ * longer participates on subsequent loads.
+ */
+export function pendingRetypedFields(
+  values: VaultValues,
+  pack: FormPack,
+): Map<string, ReadonlySet<string>> {
+  const mutable = new Map<string, Set<string>>();
+  for (const step of pack.migrations) {
+    if (step.fromVersion >= pack.schemaVersion) continue;
+    for (const operation of step.operations) {
+      if (operation.op !== "retypeField") continue;
+      const sectionValues = values[operation.sectionKey];
+      if (!sectionValues?.records.some((record) => record.schemaVersion <= step.fromVersion)) {
+        continue;
+      }
+      const keys = mutable.get(operation.sectionKey) ?? new Set<string>();
+      keys.add(operation.systemKey);
+      mutable.set(operation.sectionKey, keys);
+    }
+  }
+  return mutable;
+}
+
+/**
  * Refuse-read-write check: any record stamped beyond the app's migration
  * range means a newer app wrote this snapshot.
  */
