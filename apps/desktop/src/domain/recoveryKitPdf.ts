@@ -36,8 +36,30 @@ function addWrappedText(
   return y;
 }
 
+/**
+ * Header line identifying the artifact: whose vault, and when this copy was
+ * made. The export date matters more on paper than on screen — a PDF is filed
+ * away and read later, possibly years later, with no staleness badge and no way
+ * to tell a current Kit from an obsolete one. The date describes *this
+ * document*, not the Kit's last save: the PDF is built from current values, so
+ * an export can legitimately be newer than `kitMeta.lastGeneratedAt`, and
+ * printing that timestamp instead would understate how fresh the page is.
+ *
+ * `month: "long"` avoids the 03/08 ambiguity that a numeric date would carry
+ * across locales.
+ */
+export function recoveryKitPdfHeading(kit: RecoveryKit, exportedAt: Date): string {
+  const owner = kit.ownerName ? `${kit.ownerName}'s vault` : "Vault snapshot";
+  const exported = exportedAt.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  return `${owner} — exported ${exported}`;
+}
+
 /** Build the already-filtered Kit view as PDF bytes for a user-controlled export. */
-export function buildRecoveryKitPdf(kit: RecoveryKit): Uint8Array {
+export function buildRecoveryKitPdf(kit: RecoveryKit, exportedAt: Date): Uint8Array {
   const document = new jsPDF({ unit: "pt", format: "letter" });
   let y = MARGIN;
 
@@ -49,7 +71,7 @@ export function buildRecoveryKitPdf(kit: RecoveryKit): Uint8Array {
   document.setFont("helvetica", "normal");
   y = addWrappedText(
     document,
-    kit.ownerName ? `${kit.ownerName}'s vault` : "Vault snapshot",
+    recoveryKitPdfHeading(kit, exportedAt),
     MARGIN,
     y,
     11,

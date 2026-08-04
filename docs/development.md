@@ -363,6 +363,15 @@ payload beginning with `%PDF-`, then writes the file. Cancellation is a no-op;
 success reports the chosen path and failures produce a visible page error.
 This path matters because `jsPDF.save()` can fail silently under WebView2.
 
+`buildRecoveryKitPdf` takes the export date as an argument rather than reading
+the clock, so the builder stays pure and the date is assertable
+(`recoveryKitPdfHeading` is exported for exactly that). The PDF carries the
+**export** date, not `kitMeta.lastGeneratedAt`: the Kit is rebuilt from current
+values on every render, so an export can legitimately be newer than the last
+saved Kit, and stamping the save time would understate the page. The date is
+formatted with a spelled-out month — a filed PDF has no staleness badge, and a
+numeric date would read as day/month in one region and month/day in another.
+
 The exported file is deliberately plaintext and no longer protected by vault
 encryption. The explicit **Export PDF** action and user-selected destination are
 the security boundary. Do not add implicit, automatic, or fixed-path exports.

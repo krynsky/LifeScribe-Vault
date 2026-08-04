@@ -72,7 +72,7 @@ export function RecoveryKitPage({
       }
 
       setExportingPdf(true);
-      await writePdfExport(outputPath, buildRecoveryKitPdf(kit));
+      await writePdfExport(outputPath, buildRecoveryKitPdf(kit, new Date()));
       setPdfExportPath(outputPath);
     } catch {
       setPdfExportError("The PDF could not be saved. Choose another location and try again.");

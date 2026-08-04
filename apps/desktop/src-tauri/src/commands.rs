@@ -632,7 +632,6 @@ pub fn discard_draft(session: State<'_, SharedVaultSession>) -> Result<(), Strin
     crate::draft_stash::discard_draft_for_session(&session).map_err(command_error_code)
 }
 
-/// No `Debug` derive — carries a plaintext vault value in transit.
 // ---------------------------------------------------------------------------
 // Backup / restore commands (U9)
 // ---------------------------------------------------------------------------
@@ -889,6 +888,8 @@ pub fn sweep_orphaned_attachments(
 // Plaintext exports
 // ---------------------------------------------------------------------------
 
+/// No `Debug` derive — `bytes` is a rendered Recovery Kit, i.e. plaintext
+/// vault content in transit.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WritePdfExportRequest {
