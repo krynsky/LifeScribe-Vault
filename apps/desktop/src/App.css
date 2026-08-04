@@ -692,6 +692,14 @@ button {
   padding: var(--space-5);
 }
 
+.section-page__form--records {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
 .section-page__actions {
   display: flex;
   align-items: center;
@@ -760,11 +768,6 @@ button {
   line-height: var(--leading-tight);
 }
 
-.kit-page__generated {
-  font-size: var(--text-sm);
-  color: var(--color-ink-secondary);
-}
-
 .kit-page__updated {
   font-size: var(--text-xs);
   color: var(--color-ink-tertiary);
@@ -788,6 +791,21 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.kit-page__export-status,
+.kit-page__export-error {
+  max-width: 46rem;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.kit-page__export-status {
+  color: var(--color-success);
+}
+
+.kit-page__export-error {
+  color: var(--color-danger);
 }
 
 /* The Kit reads like a clean printable document: one calm surface,
@@ -873,24 +891,6 @@ button {
   overflow-wrap: anywhere;
 }
 
-.kit-item__copy {
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--color-accent);
-  background: none;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 1px var(--space-2);
-  cursor: pointer;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.kit-item__copy:hover {
-  background: var(--color-accent-tint);
-  border-color: var(--color-border-strong);
-}
-
 /* --- Generic form renderer (U4 structure, U5 design) --------------------------------- */
 
 .form-renderer {
@@ -956,6 +956,19 @@ button {
 
 /* --- Record list ------------------------------------------------------------------------ */
 
+.record-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-list__panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: var(--space-5);
+}
+
 .record-list__items {
   list-style: none;
   margin: 0;
@@ -971,6 +984,7 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .record-list__row-error {
@@ -983,6 +997,7 @@ button {
 
 .record-list__summary {
   flex: 1;
+  min-width: 12rem;
   text-align: left;
   padding: var(--space-2) var(--space-2);
   border: none;
@@ -1017,6 +1032,10 @@ button {
   color: var(--color-danger);
 }
 
+.record-list__toggle {
+  flex: none;
+}
+
 .record-list__confirm {
   display: flex;
   align-items: center;
@@ -1042,7 +1061,7 @@ button {
 }
 
 .record-list__empty {
-  padding: var(--space-3) 0;
+  padding: var(--space-1) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -1056,20 +1075,8 @@ button {
 }
 
 .record-list__add {
-  padding: var(--space-2) var(--space-3);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-accent);
-  font-weight: var(--weight-medium);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
-}
-
-.record-list__add:hover {
-  border-color: var(--color-accent);
-  background: var(--color-accent-tint);
+  align-self: flex-start;
+  margin-bottom: var(--space-3);
 }
 
 /* --- Form structure editor (master-detail: FieldList + FieldPropertyPanel) ------------------ */
@@ -1577,4 +1584,38 @@ button {
   font-family: var(--font-mono, monospace);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
+}
+
+@media print {
+  .app-frame__sidebar,
+  .kit-page__toolbar,
+  .kit-page__updated,
+  .kit-page__export-status,
+  .kit-page__export-error,
+  .banner {
+    display: none !important;
+  }
+
+  .app-frame__main,
+  .kit-page,
+  .kit-page__document {
+    max-width: none;
+    width: 100%;
+    background: white;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .kit-page {
+    gap: 1rem;
+  }
+
+  .kit-page__document {
+    padding: 0;
+  }
+
+  .kit-entry,
+  .kit-block {
+    break-inside: avoid;
+  }
 }

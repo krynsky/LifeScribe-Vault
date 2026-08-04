@@ -17,7 +17,6 @@ vi.mock("../api/vaultApi", () => ({
   stashDraft: vi.fn(),
   takeDraft: vi.fn(),
   discardDraft: vi.fn(),
-  copyVaultValue: vi.fn(),
   // loadDefaultPack falls back to the static bundled pack when this mock
   // yields no JSON string — tests always run against the shipped pack.
   readDefaultPack: vi.fn(),
@@ -154,6 +153,56 @@ async function openSectionAndTypeName(user: ReturnType<typeof userEvent.setup>, 
 }
 
 describe("Dashboard checklist and saving", () => {
+  it("shows the primary add action above the record panel and save only inside an expanded record", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: {
+        values: {
+          [SECTION_KEY]: {
+            sectionKey: SECTION_KEY,
+            records: [
+              {
+                id: "executor-1",
+                groupKey: "executor",
+                schemaVersion: 1,
+                values: { executorName: "Dana Estate", executorRole: "primary" },
+              },
+            ],
+            archivedAnswers: [],
+          },
+        },
+      },
+      generation: 1,
+      recovered: false,
+    });
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    await user.click(sidebarSectionButton());
+
+    const add = screen.getByRole("button", { name: "Add Executor" });
+    const panel = document.querySelector<HTMLElement>(".record-list__panel");
+    expect(add).toHaveClass("button", "button--primary");
+    expect(panel).not.toBeNull();
+    expect(add.compareDocumentPosition(panel!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
+    const expand = screen.getByRole("button", { name: "Expand Dana Estate" });
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+    await user.click(expand);
+
+    expect(screen.getByRole("button", { name: "Collapse Dana Estate" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    const editor = screen.getByLabelText("Full name").closest(".record-list__editor");
+    expect(editor).not.toBeNull();
+    expect(within(editor as HTMLElement).getByRole("button", { name: "Save" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Collapse Dana Estate" }));
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
   it("reflects saved data only: transient edits never move the badge, a save does", async () => {
     renderDashboard();
     await screen.findByText("Welcome, Dana");

@@ -1,12 +1,13 @@
 /**
  * Recovery Kit page states (U7): empty, fresh-with-timestamp, stale banner,
- * Save Kit committing new kit meta, and clipboard hygiene for per-row copies.
+ * Save Kit committing new kit meta, plus print and PDF export actions.
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as vaultApi from "../api/vaultApi";
+import { save as saveFilePicker } from "@tauri-apps/plugin-dialog";
+import { writePdfExport } from "../api/vaultApi";
 import { computeKitFingerprint } from "../domain/recoveryKit";
 import type { KitMeta } from "../domain/snapshot";
 import {
@@ -20,11 +21,18 @@ import {
 import type { VaultValues } from "../domain/valuesStore";
 import { RecoveryKitPage } from "./RecoveryKitPage";
 
-vi.mock("../api/vaultApi", () => ({
-  copyVaultValue: vi.fn(),
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  save: vi.fn(),
 }));
 
-const mocked = vi.mocked(vaultApi);
+vi.mock("../api/vaultApi", () => ({
+  writePdfExport: vi.fn(),
+}));
+
+vi.mock("../domain/recoveryKitPdf", () => ({
+  buildRecoveryKitPdf: vi.fn(() => new Uint8Array([37, 80, 68, 70, 45])),
+  recoveryKitPdfFilename: vi.fn(() => "recovery-kit-dana.pdf"),
+}));
 
 const SECTIONS = [
   makeSection({
@@ -88,7 +96,6 @@ function renderPage(overrides: {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocked.copyVaultValue.mockResolvedValue(undefined);
 });
 
 describe("RecoveryKitPage states", () => {
@@ -104,7 +111,7 @@ describe("RecoveryKitPage states", () => {
 
   it("renders the kit from current values with the owner header and 'Not saved yet'", () => {
     renderPage();
-    expect(screen.getByText(/Dana's vault — generated /)).toBeInTheDocument();
+    expect(screen.queryByText(/generated /)).not.toBeInTheDocument();
     expect(screen.getByText("Not saved yet")).toBeInTheDocument();
     expect(screen.getByText("Password manager")).toBeInTheDocument();
     expect(screen.getByText("1Password")).toBeInTheDocument();
@@ -152,27 +159,53 @@ describe("RecoveryKitPage states", () => {
     expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
   });
 
-  it("offers no export, print, or copy-all affordance (in-app only)", () => {
+  it("offers print and PDF export actions but no copy affordance", () => {
     renderPage();
-    for (const name of [/export/i, /print/i, /copy all/i, /download/i]) {
-      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
-    }
+    expect(screen.getByRole("button", { name: "Print" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export PDF" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /copy/i })).not.toBeInTheDocument();
   });
 
-  it("per-row copy goes through the clipboard-hygiene command, never navigator.clipboard", async () => {
-    const writeText = vi.fn();
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-    const user = userEvent.setup({ writeToClipboard: false });
+  it("prints the current Kit", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "Print" }));
+    expect(print).toHaveBeenCalledTimes(1);
+    print.mockRestore();
+  });
+
+  it("exports the current Kit through the native save flow", async () => {
+    vi.mocked(saveFilePicker).mockResolvedValue("C:\\Exports\\recovery-kit-dana.pdf");
+    vi.mocked(writePdfExport).mockResolvedValue();
+    const user = userEvent.setup();
     renderPage();
 
-    const row = screen.getByText("Emergency kit in the fire safe").closest("dd");
-    expect(row).not.toBeNull();
-    await user.click(within(row as HTMLElement).getByRole("button", { name: "Copy Access notes" }));
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
 
-    expect(mocked.copyVaultValue).toHaveBeenCalledWith("Emergency kit in the fire safe");
-    expect(writeText).not.toHaveBeenCalled();
+    expect(saveFilePicker).toHaveBeenCalledWith({
+      defaultPath: "recovery-kit-dana.pdf",
+      filters: [{ name: "PDF document", extensions: ["pdf"] }],
+    });
+    expect(writePdfExport).toHaveBeenCalledWith(
+      "C:\\Exports\\recovery-kit-dana.pdf",
+      new Uint8Array([37, 80, 68, 70, 45]),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "PDF saved to: C:\\Exports\\recovery-kit-dana.pdf",
+    );
+  });
+
+  it("shows a useful error when the PDF write fails", async () => {
+    vi.mocked(saveFilePicker).mockResolvedValue("C:\\Exports\\recovery-kit-dana.pdf");
+    vi.mocked(writePdfExport).mockRejectedValue(new Error("StorageError"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The PDF could not be saved. Choose another location and try again.",
+    );
   });
 });

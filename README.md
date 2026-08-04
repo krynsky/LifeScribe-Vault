@@ -24,7 +24,7 @@ LifeScribe Vault walks you through nine guided sections of your digital legacy p
 | **Backups & Storage** | Where backups live and how to get into them |
 | **Platform Legacy Tools** | Google Inactive Account Manager, Apple Legacy Contact, and similar |
 
-Every field is optional — fill in what's relevant and skip the rest. A **Recovery Kit** — an auto-generated, printable summary pulled from every section — is the document your family starts from. Each section drives a dashboard readiness indicator, so the app won't let you forget what's missing.
+Every field is optional — fill in what's relevant and skip the rest. A **Recovery Kit** — an auto-generated snapshot of saved data that can be printed or exported as a PDF — is the document your family starts from. Each section drives a dashboard readiness indicator, so the app won't let you forget what's missing.
 
 ---
 
@@ -65,7 +65,9 @@ Fields can also **link to records in another section** (`recordRef`) — a backu
 Pack migrations run on read, in memory, and are pure and idempotent. Changes only persist via the normal save path.
 
 ### Recovery Kit
-An auto-generated, printable summary derived only from each section's Kit mappings. It is pointer-based: it names *where* things are and who to contact, showing readable text (a dropdown's chosen label, an attachment's filename) rather than internal stored values, with no redaction of its own. Credential fields are excluded from it at two layers — pack validation and Kit generation — so a master password or device PIN can never reach the printed page.
+An auto-generated snapshot of saved data derived only from each section's Kit mappings. It can be printed or exported as a PDF. It is pointer-based: it names *where* things are and who to contact, showing readable text (a dropdown's chosen label, an attachment's filename) rather than internal stored values, with no redaction of its own. Credential fields are excluded from it at two layers — pack validation and Kit generation — so a master password or device PIN can never reach the printed page.
+
+The **Print** action opens the standard Windows/WebView print preview. **Export PDF** opens a native Save As dialog, writes the PDF to the selected location, and reports success or failure in the app. The exported PDF is an intentionally plaintext document outside the encrypted vault, so store it with the same care as a printed Recovery Kit.
 
 ### Vault Location
 The vault directory is chosen during setup and changeable from Settings. A pointer file in the app config dir names the folder; if that folder can't be reached (an external drive that isn't connected), the app says so rather than silently starting a fresh vault elsewhere.
@@ -120,7 +122,7 @@ apps/desktop/
                   # VaultUnavailableScreen)
   src-tauri/
     src/          # Rust: commands, crypto, repository, attachments,
-                  # vault_location, backup, draft_stash, clipboard
+                  # vault_location, backup, draft_stash
   pack-editor/    # Dev-only Vite app for editing the bundled pack
 ```
 
@@ -134,7 +136,6 @@ apps/desktop/
 
 - Never ask the user for a real master password in development or tests
 - Never request plaintext sensitive vault content
-- Clipboard writes of vault values go through the Rust clipboard-hygiene command (history/cloud exclusion + auto-clear)
 - Form definitions are data only — no custom JS, remote scripts, webhooks, or expression strings
 - Exported form-definition packs contain structure only — never personal field values
 

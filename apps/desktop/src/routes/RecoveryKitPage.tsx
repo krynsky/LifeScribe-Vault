@@ -7,20 +7,20 @@
  * CAS save path; a stale banner appears whenever the saved fingerprint no
  * longer matches what the current data produces.
  *
- * In-app only and pointer-based: it points the family to where things are
- * — it contains no passwords (structurally, only kit-mapped fields can
- * reach this view; see domain/recoveryKit.ts). No export, print, or
- * copy-all affordances; per-row copies go through the Rust clipboard-
- * hygiene command.
+ * Pointer-based: it contains only the credential-filtered, kit-mapped fields
+ * and can be printed or exported as a PDF.
  */
 
-import { copyVaultValue } from "../api/vaultApi";
+import { useState } from "react";
+import { save as saveFilePicker } from "@tauri-apps/plugin-dialog";
+import { writePdfExport } from "../api/vaultApi";
 import {
   buildRecoveryKit,
   computeKitFingerprint,
   isKitStale,
   type KitSourceSection,
 } from "../domain/recoveryKit";
+import { buildRecoveryKitPdf, recoveryKitPdfFilename } from "../domain/recoveryKitPdf";
 import type { KitMeta, SectionMetaMap, VaultProfile } from "../domain/snapshot";
 import type { VaultValues } from "../domain/valuesStore";
 
@@ -51,12 +51,35 @@ export function RecoveryKitPage({
   saving,
   onSaveKit,
 }: RecoveryKitPageProps) {
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [pdfExportPath, setPdfExportPath] = useState("");
+  const [pdfExportError, setPdfExportError] = useState("");
   const kit = buildRecoveryKit(sections, values, sectionMeta, profile);
   const currentFingerprint = computeKitFingerprint(sections, values, sectionMeta);
   const stale = isKitStale(currentFingerprint, kitMeta);
-  // Regenerate-on-view: this view IS the current Kit, generated now.
-  const generatedAt = new Date();
 
+  async function handleExportPdf() {
+    setPdfExportError("");
+    setPdfExportPath("");
+
+    try {
+      const outputPath = await saveFilePicker({
+        defaultPath: recoveryKitPdfFilename(kit),
+        filters: [{ name: "PDF document", extensions: ["pdf"] }],
+      });
+      if (!outputPath) {
+        return;
+      }
+
+      setExportingPdf(true);
+      await writePdfExport(outputPath, buildRecoveryKitPdf(kit, new Date()));
+      setPdfExportPath(outputPath);
+    } catch {
+      setPdfExportError("The PDF could not be saved. Choose another location and try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }
   if (kit.entries.length === 0) {
     return (
       <article className="kit-page" aria-labelledby="kit-title">
@@ -65,8 +88,8 @@ export function RecoveryKitPage({
             Recovery Kit
           </h1>
           <p className="kit-page__intro">
-            This Kit points your family to where things are — it contains no
-            passwords.
+            This is a snapshot of the data in your vault that you can print,
+            store, and review.
           </p>
         </header>
         <p className="kit-page__empty">
@@ -83,18 +106,14 @@ export function RecoveryKitPage({
         <h1 className="kit-page__title" id="kit-title">
           Recovery Kit
         </h1>
-        <p className="kit-page__generated">
-          {kit.ownerName ? `${kit.ownerName}'s vault — ` : ""}
-          generated {generatedAt.toLocaleDateString()}
-        </p>
         <p className="kit-page__updated">
           {kitMeta
             ? `Last updated ${formatTimestamp(kitMeta.lastGeneratedAt)}`
             : "Not saved yet"}
         </p>
         <p className="kit-page__intro">
-          This Kit points your family to where things are — it contains no
-          passwords.
+          This is a snapshot of the data in your vault that you can print,
+          store, and review.
         </p>
       </header>
 
@@ -121,7 +140,29 @@ export function RecoveryKitPage({
         >
           {saving ? "Saving…" : "Save Kit"}
         </button>
+        <button className="button" type="button" onClick={() => window.print()}>
+          Print
+        </button>
+        <button
+          className="button"
+          disabled={exportingPdf}
+          type="button"
+          onClick={() => void handleExportPdf()}
+        >
+          {exportingPdf ? "Exporting PDF..." : "Export PDF"}
+        </button>
       </div>
+
+      {pdfExportPath ? (
+        <p className="kit-page__export-status" role="status">
+          PDF saved to: {pdfExportPath}
+        </p>
+      ) : null}
+      {pdfExportError ? (
+        <p className="kit-page__export-error" role="alert">
+          {pdfExportError}
+        </p>
+      ) : null}
 
       <div className="kit-page__document">
         {kit.entries.map((entry, entryIndex) => (
@@ -141,19 +182,7 @@ export function RecoveryKitPage({
                   {block.items.map((item) => (
                     <div className="kit-item" key={item.systemKey}>
                       <dt className="kit-item__label">{item.label}</dt>
-                      <dd className="kit-item__value">
-                        <span>{item.value}</span>
-                        <button
-                          aria-label={`Copy ${item.label}`}
-                          className="kit-item__copy"
-                          type="button"
-                          onClick={() =>
-                            void copyVaultValue(item.value).catch(() => undefined)
-                          }
-                        >
-                          Copy
-                        </button>
-                      </dd>
+                      <dd className="kit-item__value">{item.value}</dd>
                     </div>
                   ))}
                 </dl>

@@ -1,6 +1,5 @@
 pub mod attachments;
 pub mod backup;
-pub mod clipboard;
 pub mod commands;
 pub mod crypto;
 pub mod draft_stash;
@@ -39,7 +38,6 @@ pub fn run() {
             commands::stash_draft,
             commands::take_draft,
             commands::discard_draft,
-            commands::copy_vault_value,
             commands::add_attachment,
             commands::delete_attachment,
             commands::read_attachment,
@@ -47,6 +45,7 @@ pub fn run() {
             commands::sweep_orphaned_attachments,
             commands::create_backup,
             commands::restore_backup,
+            commands::write_pdf_export,
             pack_resources::read_default_pack,
             pack_resources::write_default_pack
         ]);
@@ -62,14 +61,14 @@ mod tests {
     mod attachment_tests;
     #[path = "backup_tests.rs"]
     mod backup_tests;
-    #[path = "clipboard_tests.rs"]
-    mod clipboard_tests;
     #[path = "crypto_tests.rs"]
     mod crypto_tests;
     #[path = "draft_stash_tests.rs"]
     mod draft_stash_tests;
     #[path = "pack_resource_tests.rs"]
     mod pack_resource_tests;
+    #[path = "pdf_export_tests.rs"]
+    mod pdf_export_tests;
     #[path = "snapshot_tests.rs"]
     mod snapshot_tests;
     #[path = "vault_lifecycle_tests.rs"]

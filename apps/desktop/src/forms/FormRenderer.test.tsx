@@ -554,6 +554,49 @@ describe("FormRenderer", () => {
     expect(screen.getByRole("button", { name: "June Park" })).toBeInTheDocument();
   });
 
+  it("reveals an invalid collapsed sibling when record-local save validates the section", async () => {
+    const user = userEvent.setup();
+    const pack = makePack({
+      sections: [
+        makeSection({
+          sectionKey: "executors",
+          groups: [
+            makeGroup({
+              groupKey: "executor",
+              title: "Executor",
+              repeatable: true,
+              fields: [
+                makeField({
+                  systemKey: "executorName",
+                  label: "Full name",
+                  required: true,
+                  order: 1,
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+    const section = resolveSection(pack, "executors");
+    const values = makeSectionValues("executors", [
+      makeRecord({ id: "valid", groupKey: "executor", values: { executorName: "June Park" } }),
+      makeRecord({ id: "invalid", groupKey: "executor", values: { executorName: "" } }),
+    ]);
+    const onSave = vi.fn();
+    render(<Harness section={section} initial={values} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Expand June Park" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Full name is required.");
+    expect(screen.getByRole("button", { name: "Collapse Untitled" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
   it("supports add/duplicate/delete for repeatable groups inside a section form", async () => {
     const user = userEvent.setup();
     const section = resolveSection(makePlanPack(), "plan");

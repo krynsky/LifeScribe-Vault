@@ -65,8 +65,8 @@ function formatStashTime(iso: string | null): string {
 }
 
 /**
- * One guided section: entry form, primary Save (generation-CAS), and the
- * secondary "Mark as reviewed" / "Doesn't apply to me" actions below it.
+ * One guided section: record-local Save placement with section-level persistence
+ * (generation-CAS), plus the secondary review and not-applicable actions below.
  */
 export function SectionPage({
   section,
@@ -97,6 +97,8 @@ export function SectionPage({
   onAddField,
 }: SectionPageProps) {
   const [confirmingNa, setConfirmingNa] = useState(false);
+  const recordBased =
+    section.multiRecord || section.groups.some((group) => group.repeatable);
 
   return (
     <article className="section-page" aria-labelledby="section-title">
@@ -166,7 +168,11 @@ export function SectionPage({
         </div>
       ) : null}
 
-      <div className="section-page__form">
+      <div
+        className={`section-page__form${
+          !editing && recordBased ? " section-page__form--records" : ""
+        }`}
+      >
         {editing && packSection ? (
           <SectionStructureEditor
             section={packSection}
@@ -183,6 +189,8 @@ export function SectionPage({
             values={values}
             schemaVersion={schemaVersion}
             onChange={onChange}
+            onSave={() => onSave()}
+            saving={saving}
             validationIssues={validationIssues}
             recordReferences={recordReferences}
           />
@@ -190,14 +198,6 @@ export function SectionPage({
       </div>
 
       {editing ? null : <footer className="section-page__actions">
-        <button
-          className="button button--primary"
-          disabled={saving}
-          type="button"
-          onClick={onSave}
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
         {dirty ? <span className="section-page__dirty-hint">Unsaved changes</span> : null}
 
         <div className="section-page__secondary">

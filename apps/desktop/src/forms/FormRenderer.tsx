@@ -19,6 +19,7 @@
 import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
 import { Field } from "../components/Field";
 import { RecordDeleteConfirmation } from "../components/RecordDeleteConfirmation";
+import { RecordDisclosureButton } from "../components/RecordDisclosureButton";
 import {
   isConditionSatisfied,
   type ResolvedField,
@@ -55,6 +56,8 @@ export interface FormRendererProps {
   onChange: (values: SectionValues) => void;
   /** When provided, a Save button renders; called only when validation passes. */
   onSave?: (values: SectionValues) => void;
+  /** Disables and relabels the delegated Save action while persistence is active. */
+  saving?: boolean;
   /**
    * Required-field issues from the page-level Save, shown inline under the
    * matching field. Each issue is "required and empty", so it is displayed only
@@ -184,6 +187,7 @@ export function FormRenderer({
   recordId,
   onChange,
   onSave,
+  saving = false,
   externalIssues,
   recordReferences,
 }: FormRendererProps) {
@@ -270,7 +274,13 @@ export function FormRenderer({
   const erroredGroupRecordIds = (group: ResolvedGroup): Set<string> =>
     new Set(
       groupRecords(group)
-        .filter((record) => group.fields.some((f) => externalErrorFor(record, f.systemKey)))
+        .filter((record) =>
+          group.fields.some(
+            (field) =>
+              errors[errorKey(record.id, field.systemKey)] !== undefined ||
+              externalErrorFor(record, field.systemKey) !== undefined,
+          ),
+        )
         .map((record) => record.id),
     );
 
@@ -431,6 +441,15 @@ export function FormRenderer({
       .filter((field) => isConditionSatisfied(field.visibleWhen, record.values))
       .map((field) => renderField(field, record));
 
+  const renderSaveAction = () =>
+    onSave ? (
+      <div className="form-renderer__actions">
+        <button type="submit" className="form-renderer__save" disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    ) : null;
+
   const renderRepeatableGroup = (group: ResolvedGroup) => {
     const records = groupRecords(group);
     const visibleFields = group.fields.filter((field) => !field.hidden);
@@ -443,78 +462,88 @@ export function FormRenderer({
       explicit !== undefined ? explicit : (records.find((r) => errored.has(r.id))?.id ?? null);
     return (
       <section className="form-group form-group--repeatable" key={group.groupKey}>
-        <h3 className="form-group__title">{group.title}</h3>
-        {records.length === 0 ? (
-          <p className="record-list__empty-hint">No {group.title} added yet.</p>
-        ) : (
-          <ul className="record-list__items">
-            {records.map((record) => {
-              const label = recordSummaryLabel(
-                record,
-                visibleFields,
-                section,
-                allSections,
-                referenceValues,
-              );
-              const expanded = autoExpandedId === record.id;
-              const usages = pendingDeleteId === record.id ? referenceUsages(record) : [];
-              return (
-                <li className="record-list__item" key={record.id}>
-                  <div className="record-list__row">
-                    <button
-                      type="button"
-                      className="record-list__summary"
-                      aria-expanded={expanded}
-                      onClick={() =>
-                        setExpandedByGroup((previous) => ({
-                          ...previous,
-                          [group.groupKey]: expanded ? null : record.id,
-                        }))
-                      }
-                    >
-                      {label}
-                    </button>
-                    {!expanded && errored.has(record.id) ? (
-                      <span className="record-list__row-error">Required info missing</span>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="record-list__action"
-                      onClick={() => duplicateGroupRecord(record)}
-                    >
-                      Duplicate
-                    </button>
-                    <button
-                      type="button"
-                      className="record-list__action record-list__action--danger"
-                      onClick={() => setPendingDeleteId(record.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  {pendingDeleteId === record.id ? (
-                    <RecordDeleteConfirmation
-                      label={label}
-                      usages={usages}
-                      onConfirm={() => deleteGroupRecord(record)}
-                      onCancel={() => setPendingDeleteId(null)}
-                    />
-                  ) : null}
-                  {expanded ? (
-                    <div className="record-list__editor">{renderGroupFields(group, record)}</div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
         <button
           type="button"
-          className="record-list__add"
+          className="button button--primary record-list__add"
           onClick={() => addGroupRecord(group)}
         >
           Add {group.title}
         </button>
+        <div className="record-list__panel">
+          <h3 className="form-group__title">{group.title}</h3>
+          {records.length === 0 ? (
+            <p className="record-list__empty-hint">No {group.title} added yet.</p>
+          ) : (
+            <ul className="record-list__items">
+              {records.map((record) => {
+                const label = recordSummaryLabel(
+                  record,
+                  visibleFields,
+                  section,
+                  allSections,
+                  referenceValues,
+                );
+                const expanded = autoExpandedId === record.id;
+                const usages = pendingDeleteId === record.id ? referenceUsages(record) : [];
+                const toggle = () =>
+                  setExpandedByGroup((previous) => ({
+                    ...previous,
+                    [group.groupKey]: expanded ? null : record.id,
+                  }));
+                return (
+                  <li className="record-list__item" key={record.id}>
+                    <div className="record-list__row">
+                      <button
+                        type="button"
+                        className="record-list__summary"
+                        aria-expanded={expanded}
+                        onClick={toggle}
+                      >
+                        {label}
+                      </button>
+                      {!expanded && errored.has(record.id) ? (
+                        <span className="record-list__row-error">Required info missing</span>
+                      ) : null}
+                      <RecordDisclosureButton
+                        expanded={expanded}
+                        label={label}
+                        onToggle={toggle}
+                      />
+                      <button
+                        type="button"
+                        className="record-list__action"
+                        onClick={() => duplicateGroupRecord(record)}
+                      >
+                        Duplicate
+                      </button>
+                      <button
+                        type="button"
+                        className="record-list__action record-list__action--danger"
+                        onClick={() => setPendingDeleteId(record.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    {pendingDeleteId === record.id ? (
+                      <RecordDeleteConfirmation
+                        label={label}
+                        usages={usages}
+                        onConfirm={() => deleteGroupRecord(record)}
+                        onCancel={() => setPendingDeleteId(null)}
+                      />
+                    ) : null}
+                    {expanded ? (
+                      <div className="record-list__editor">
+                        {renderGroupFields(group, record)}
+                        {renderSaveAction()}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </section>
     );
   };
@@ -525,6 +554,7 @@ export function FormRenderer({
       return;
     }
     const nextErrors: Record<string, string> = {};
+    const firstInvalidRecordByGroup: Record<string, string> = {};
     for (const group of sortedGroups) {
       const records = group.repeatable ? groupRecords(group) : [boundRecord];
       for (const record of records) {
@@ -538,14 +568,19 @@ export function FormRenderer({
           }
           if ((record.values[field.systemKey] ?? "").trim().length === 0) {
             nextErrors[errorKey(record.id, field.systemKey)] = `${field.label} is required.`;
+            if (group.repeatable && firstInvalidRecordByGroup[group.groupKey] === undefined) {
+              firstInvalidRecordByGroup[group.groupKey] = record.id;
+            }
           }
         }
       }
     }
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) {
-      onSave(values);
+    if (Object.keys(nextErrors).length > 0) {
+      setExpandedByGroup((previous) => ({ ...previous, ...firstInvalidRecordByGroup }));
+      return;
     }
+    onSave(values);
   };
 
   return (
@@ -560,13 +595,7 @@ export function FormRenderer({
           </section>
         ),
       )}
-      {onSave ? (
-        <div className="form-renderer__actions">
-          <button type="submit" className="form-renderer__save">
-            Save
-          </button>
-        </div>
-      ) : null}
+      {sortedGroups.some((group) => !group.repeatable) ? renderSaveAction() : null}
     </form>
   );
 }

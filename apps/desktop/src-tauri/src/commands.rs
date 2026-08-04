@@ -632,25 +632,6 @@ pub fn discard_draft(session: State<'_, SharedVaultSession>) -> Result<(), Strin
     crate::draft_stash::discard_draft_for_session(&session).map_err(command_error_code)
 }
 
-/// No `Debug` derive — carries a plaintext vault value in transit.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CopyVaultValueRequest {
-    pub value: String,
-    pub clear_after_seconds: Option<u32>,
-}
-
-/// Clipboard-hygiene copy: Windows exclusion formats + auto-clear. The only
-/// sanctioned path for putting vault values on the clipboard (see
-/// `clipboard.rs` module docs).
-#[tauri::command]
-pub fn copy_vault_value(request: CopyVaultValueRequest) -> Result<(), String> {
-    crate::clipboard::copy_vault_value_with_auto_clear(
-        request.value,
-        request.clear_after_seconds,
-    )
-}
-
 // ---------------------------------------------------------------------------
 // Backup / restore commands (U9)
 // ---------------------------------------------------------------------------
@@ -900,6 +881,39 @@ pub fn sweep_orphaned_attachments(
     crate::attachments::sweep_stale_external_temp_dirs();
     let att_dir = crate::attachments::attachment_dir(&session.vault_path);
     crate::attachments::sweep_orphaned_attachments(&att_dir, &referenced_ids, key, vault_id)
+        .map_err(command_error_code)
+}
+
+// ---------------------------------------------------------------------------
+// Plaintext exports
+// ---------------------------------------------------------------------------
+
+/// No `Debug` derive — `bytes` is a rendered Recovery Kit, i.e. plaintext
+/// vault content in transit.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WritePdfExportRequest {
+    /// File path returned by the frontend OS save picker.
+    pub output_path: String,
+    pub bytes: Vec<u8>,
+}
+
+pub fn write_pdf_export_at_path(output_path: &Path, bytes: &[u8]) -> VaultResult<()> {
+    let is_pdf_path = output_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"));
+    if !is_pdf_path || !bytes.starts_with(b"%PDF-") {
+        return Err(VaultError::FileOperation("invalid PDF export".to_string()));
+    }
+
+    std::fs::write(output_path, bytes)
+        .map_err(|error| VaultError::FileOperation(error.to_string()))
+}
+
+#[tauri::command]
+pub fn write_pdf_export(request: WritePdfExportRequest) -> Result<(), String> {
+    write_pdf_export_at_path(Path::new(&request.output_path), &request.bytes)
         .map_err(command_error_code)
 }
 

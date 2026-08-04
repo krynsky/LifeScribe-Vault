@@ -16,7 +16,7 @@ Technical reference for contributors. User-facing behavior is described in
 ## Stack
 
 Tauri 2 · React 19 · TypeScript · Vite · Rust · SQLite (WAL) · Argon2id · XChaCha20-Poly1305.
-Windows-first; the Rust crate compiles elsewhere but Windows-only features (clipboard hygiene) no-op.
+Windows-first; the Rust crate compiles elsewhere, with Windows-specific behavior isolated at the platform boundary.
 
 ## Commands
 
@@ -75,7 +75,6 @@ apps/desktop/
     vault_location.rs      # pointer file, resolve_vault_dir, relocation
     draft_stash.rs         # encrypted draft stash (lock flow)
     backup.rs              # .lsvbackup create/restore, safety backup, marker
-    clipboard.rs           # Win32 clipboard hygiene (exclusion formats + auto-clear)
     pack_resources.rs      # bundled base pack read + dev write-back
     error.rs               # VaultError -> stable string error codes (IPC contract)
     tests/                 # integration tests against real SQLite (tempfile)
@@ -350,6 +349,33 @@ its stored attachment id, and a `recordRef` contributes the **composed label**
 of the record it points at, never the internal record id (an unresolvable
 reference prints "Unavailable saved record").
 
+`RecoveryKitPage.tsx` derives the view from saved values on each render. The
+Print action calls `window.print()` in the main WebView, with print CSS hiding
+app navigation, controls, and export-status messages. This is intentionally the
+standard WebView2 print-preview flow; do not move it into a child Tauri window
+or bypass preview with a native quick-print command.
+
+Export PDF does not use a browser download. `recoveryKitPdf.ts` generates the
+same credential-filtered Kit as a `Uint8Array`; the Tauri dialog plugin opens a
+native Save As picker; `vaultApi.writePdfExport` sends the selected path and
+bytes to `write_pdf_export`. Rust accepts only a `.pdf` destination and a
+payload beginning with `%PDF-`, then writes the file. Cancellation is a no-op;
+success reports the chosen path and failures produce a visible page error.
+This path matters because `jsPDF.save()` can fail silently under WebView2.
+
+`buildRecoveryKitPdf` takes the export date as an argument rather than reading
+the clock, so the builder stays pure and the date is assertable
+(`recoveryKitPdfHeading` is exported for exactly that). The PDF carries the
+**export** date, not `kitMeta.lastGeneratedAt`: the Kit is rebuilt from current
+values on every render, so an export can legitimately be newer than the last
+saved Kit, and stamping the save time would understate the page. The date is
+formatted with a spelled-out month — a filed PDF has no staleness badge, and a
+numeric date would read as day/month in one region and month/day in another.
+
+The exported file is deliberately plaintext and no longer protected by vault
+encryption. The explicit **Export PDF** action and user-selected destination are
+the security boundary. Do not add implicit, automatic, or fixed-path exports.
+
 ### Credential exclusion, and the two routes it has to cover
 
 Credential keys (`passwordManagerMasterPassword`, `devicePin`) may never appear
@@ -408,20 +434,21 @@ mapping, replace it with a flag on the field definition.
   the snapshot references it; a crash leaves a sweepable orphan, never a dangling
   reference. Sweep skips files younger than 120 s, no-ops while a restore marker
   exists, and verifies vault ownership before deleting.
-  `open_attachment_external` is the only sanctioned plaintext-to-disk path and
-  must stay behind explicit UI confirmation; it decrypts into a session-owned
+  `open_attachment_external` is a sanctioned plaintext-to-disk path and must
+  stay behind explicit UI confirmation; it decrypts into a session-owned
   temp dir that is purged on lock, because the OS launcher returns before the
   external app has necessarily read the file.
+- **Recovery Kit PDF export**: the other sanctioned plaintext-to-disk path.
+  It requires the explicit Export PDF action and a destination chosen through
+  native Save As. `write_pdf_export` accepts only `.pdf` paths and `%PDF-`
+  payloads. Unlike attachment temp files, the exported PDF is user-owned and
+  intentionally persists outside the encrypted vault.
 - **Backups**: self-contained `.lsvbackup` — fresh Argon2id params + a wrapped
   copy of the vault data key, payload AEAD-encrypted (its `version` field is
   inside the authenticated region). Restore: safety backup → marker → atomic
   swap; marker + safety backup auto-clear on the next successful unlock.
   Attachment names from a payload must be single plain path components
   (`is_safe_file_component`) — fail closed on anything else.
-- **Clipboard hygiene**: `copy_vault_value` sets Windows exclusion formats
-  (no Win+V history, no cloud clipboard, no monitor processing) and auto-clears
-  after 45 s (clamped 1–600) only if the clipboard still holds our value.
-  `navigator.clipboard.writeText` is banned for vault values.
 
 ## Pack editor (dev tool)
 
@@ -476,7 +503,8 @@ a base pack or a module option was deleted with the module system.
 
 - Never ask a user for a real master password; never request plaintext vault
   content unless they explicitly volunteer it.
-- No new plaintext export paths except behind explicit user confirmation.
+- No new plaintext export paths except behind an explicit user action and
+  user-selected destination. Recovery Kit PDF export is the approved path.
 - Exported packs: structure only — never personal values, never `custom.*` keys.
 - No cloud sync, telemetry, death detection, or remote release services without
   a new product decision.
