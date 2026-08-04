@@ -348,6 +348,24 @@ describe("Dashboard N/A flow", () => {
     expect(await within(sidebarSectionButton()).findByText("Not started")).toBeInTheDocument();
     expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
   });
+
+  it("hides Doesn't apply to me once a section has saved data", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    await user.click(sidebarSectionButton());
+    expect(screen.getByRole("button", { name: "Doesn't apply to me" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add Executor" }));
+    await user.type(screen.getByLabelText("Full name"), "Dana Estate");
+    await user.selectOptions(screen.getByLabelText("Role"), "primary");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await within(sidebarSectionButton()).findByText("Started");
+    // Real data now exists — N/A no longer makes sense for this section.
+    expect(screen.queryByRole("button", { name: "Doesn't apply to me" })).not.toBeInTheDocument();
+  });
 });
 
 describe("Dashboard draft restore", () => {

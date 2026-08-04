@@ -46,7 +46,7 @@ For each section you can:
 - **Save** — commits your entries to the encrypted vault.
 - **Mark as complete** — tells the app *you* consider this section done. This is the only thing that moves a section into your readiness percentage (besides "Doesn't apply to me," below) — saving records on their own does not, however many you add. Every section is different, so only you know when it has enough.
 - **Mark as reviewed** — appears once a completed section is flagged for another look (12 months by default), and refreshes its "up to date" status without changing anything. It doesn't appear right after you mark a section complete, since that action already counts as a review.
-- **Doesn't apply to me** — marks a section N/A so it counts as handled without fake entries.
+- **Doesn't apply to me** — marks a section N/A so it counts as handled without fake entries. Only offered while a section is still empty; once you've saved real data, use "Mark as complete" instead.
 
 Status badges are driven only by **saved** data — typing in a form doesn't change a badge until you save. A section moves through **Not started → Started → Complete** as you add data and then explicitly mark it done; if you later delete everything you saved in a completed section, it drops back to Not started rather than staying marked complete with nothing in it.
 

@@ -361,8 +361,12 @@ not guess.
   so a freshly-completed section is by definition not yet due — the "Mark as
   reviewed" control only renders on `stale-complete`, not on plain `complete`,
   or it would be a visible no-op the instant you complete a section.
-- **`na`** — "Doesn't apply to me". Unchanged from before; still the escape
-  hatch that keeps 100% reachable for sections that genuinely don't apply.
+- **`na`** — "Doesn't apply to me". Still the escape hatch that keeps 100%
+  reachable for sections that genuinely don't apply. The control itself is
+  now gated in `SectionPage.tsx` to `status === "not-started"`: once a
+  section has any saved data it is, by definition, applying to the user —
+  "Mark as complete" is the correct action past that point, and offering both
+  invites the two to disagree about what "done" means for the same section.
 
 Only `complete`, `stale-complete`, and `na` count toward the readiness
 percentage (`isReadyStatus`). `started` deliberately does not — saving one

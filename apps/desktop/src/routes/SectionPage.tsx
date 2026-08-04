@@ -240,7 +240,7 @@ export function SectionPage({
               Mark as reviewed
             </button>
           ) : null}
-          {!meta.na ? (
+          {!meta.na && status === "not-started" ? (
             confirmingNa ? (
               <span className="section-page__na-confirm">
                 <span>This section will count as complete.</span>
