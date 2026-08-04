@@ -793,6 +793,21 @@ button {
   gap: var(--space-3);
 }
 
+.kit-page__export-status,
+.kit-page__export-error {
+  max-width: 46rem;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.kit-page__export-status {
+  color: var(--color-success);
+}
+
+.kit-page__export-error {
+  color: var(--color-danger);
+}
+
 /* The Kit reads like a clean printable document: one calm surface,
    typographic hierarchy doing the work. */
 .kit-page__document {
@@ -1575,6 +1590,8 @@ button {
   .app-frame__sidebar,
   .kit-page__toolbar,
   .kit-page__updated,
+  .kit-page__export-status,
+  .kit-page__export-error,
   .banner {
     display: none !important;
   }

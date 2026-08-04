@@ -225,6 +225,13 @@ export function restoreBackup(
   return invoke("restore_backup", { request: { backupPath, backupPassword } });
 }
 
+/** Write a generated Recovery Kit PDF to a path chosen by the user. */
+export function writePdfExport(outputPath: string, bytes: Uint8Array): Promise<void> {
+  return invoke("write_pdf_export", {
+    request: { outputPath, bytes: Array.from(bytes) },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Vault data location
 // ---------------------------------------------------------------------------

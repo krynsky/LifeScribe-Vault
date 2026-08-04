@@ -886,6 +886,37 @@ pub fn sweep_orphaned_attachments(
 }
 
 // ---------------------------------------------------------------------------
+// Plaintext exports
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WritePdfExportRequest {
+    /// File path returned by the frontend OS save picker.
+    pub output_path: String,
+    pub bytes: Vec<u8>,
+}
+
+pub fn write_pdf_export_at_path(output_path: &Path, bytes: &[u8]) -> VaultResult<()> {
+    let is_pdf_path = output_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"));
+    if !is_pdf_path || !bytes.starts_with(b"%PDF-") {
+        return Err(VaultError::FileOperation("invalid PDF export".to_string()));
+    }
+
+    std::fs::write(output_path, bytes)
+        .map_err(|error| VaultError::FileOperation(error.to_string()))
+}
+
+#[tauri::command]
+pub fn write_pdf_export(request: WritePdfExportRequest) -> Result<(), String> {
+    write_pdf_export_at_path(Path::new(&request.output_path), &request.bytes)
+        .map_err(command_error_code)
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

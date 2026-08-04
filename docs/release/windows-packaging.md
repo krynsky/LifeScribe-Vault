@@ -35,8 +35,8 @@ Output directory: `apps/desktop/src-tauri/target/release/bundle/`
 
 | Subdirectory | Artifact |
 |---|---|
-| `msi/` | `LifeScribe Vault_0.2.0_x64_en-US.msi` (per-machine, Windows Installer) |
-| `nsis/` | `LifeScribe Vault_0.2.0_x64-setup.exe` (NSIS installer, per-machine) |
+| `msi/` | `LifeScribe Vault 2_0.2.0_x64_en-US.msi` (per-machine, Windows Installer) |
+| `nsis/` | `LifeScribe Vault 2_0.2.0_x64-setup.exe` (NSIS installer, per-machine) |
 
 ### Pack-authoring surface in the release build
 
@@ -93,4 +93,5 @@ npm run build
 - [ ] Pack-authoring surface confirmed inert: the standalone pack-editor app is not part of the bundle, and `write_default_pack` targets only a dev-only path (see "Pack-authoring surface in the release build")
 - [ ] Installer runs on a clean Windows profile without additional prerequisites (WebView2 skip mode is set)
 - [ ] App launches, shows the setup wizard, and vault directory is `%APPDATA%\com.lifescribe.vault.v2\`
+- [ ] From a populated Recovery Kit, **Print** opens the standard preview and cancel returns to the app; **Export PDF** opens native Save As, writes a readable PDF, and reports its path
 - [ ] Run the [v2 acceptance checklist](../testing/v2-acceptance.md) before distributing

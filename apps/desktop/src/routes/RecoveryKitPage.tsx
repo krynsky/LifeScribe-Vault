@@ -11,13 +11,16 @@
  * and can be printed or exported as a PDF.
  */
 
+import { useState } from "react";
+import { save as saveFilePicker } from "@tauri-apps/plugin-dialog";
+import { writePdfExport } from "../api/vaultApi";
 import {
   buildRecoveryKit,
   computeKitFingerprint,
   isKitStale,
   type KitSourceSection,
 } from "../domain/recoveryKit";
-import { exportRecoveryKitToPdf } from "../domain/recoveryKitPdf";
+import { buildRecoveryKitPdf, recoveryKitPdfFilename } from "../domain/recoveryKitPdf";
 import type { KitMeta, SectionMetaMap, VaultProfile } from "../domain/snapshot";
 import type { VaultValues } from "../domain/valuesStore";
 
@@ -48,9 +51,35 @@ export function RecoveryKitPage({
   saving,
   onSaveKit,
 }: RecoveryKitPageProps) {
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [pdfExportPath, setPdfExportPath] = useState("");
+  const [pdfExportError, setPdfExportError] = useState("");
   const kit = buildRecoveryKit(sections, values, sectionMeta, profile);
   const currentFingerprint = computeKitFingerprint(sections, values, sectionMeta);
   const stale = isKitStale(currentFingerprint, kitMeta);
+
+  async function handleExportPdf() {
+    setPdfExportError("");
+    setPdfExportPath("");
+
+    try {
+      const outputPath = await saveFilePicker({
+        defaultPath: recoveryKitPdfFilename(kit),
+        filters: [{ name: "PDF document", extensions: ["pdf"] }],
+      });
+      if (!outputPath) {
+        return;
+      }
+
+      setExportingPdf(true);
+      await writePdfExport(outputPath, buildRecoveryKitPdf(kit));
+      setPdfExportPath(outputPath);
+    } catch {
+      setPdfExportError("The PDF could not be saved. Choose another location and try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }
   if (kit.entries.length === 0) {
     return (
       <article className="kit-page" aria-labelledby="kit-title">
@@ -114,10 +143,26 @@ export function RecoveryKitPage({
         <button className="button" type="button" onClick={() => window.print()}>
           Print
         </button>
-        <button className="button" type="button" onClick={() => exportRecoveryKitToPdf(kit)}>
-          Export PDF
+        <button
+          className="button"
+          disabled={exportingPdf}
+          type="button"
+          onClick={() => void handleExportPdf()}
+        >
+          {exportingPdf ? "Exporting PDF..." : "Export PDF"}
         </button>
       </div>
+
+      {pdfExportPath ? (
+        <p className="kit-page__export-status" role="status">
+          PDF saved to: {pdfExportPath}
+        </p>
+      ) : null}
+      {pdfExportError ? (
+        <p className="kit-page__export-error" role="alert">
+          {pdfExportError}
+        </p>
+      ) : null}
 
       <div className="kit-page__document">
         {kit.entries.map((entry, entryIndex) => (

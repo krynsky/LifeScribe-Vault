@@ -6,6 +6,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { save as saveFilePicker } from "@tauri-apps/plugin-dialog";
+import { writePdfExport } from "../api/vaultApi";
 import { computeKitFingerprint } from "../domain/recoveryKit";
 import type { KitMeta } from "../domain/snapshot";
 import {
@@ -19,8 +21,17 @@ import {
 import type { VaultValues } from "../domain/valuesStore";
 import { RecoveryKitPage } from "./RecoveryKitPage";
 
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  save: vi.fn(),
+}));
+
+vi.mock("../api/vaultApi", () => ({
+  writePdfExport: vi.fn(),
+}));
+
 vi.mock("../domain/recoveryKitPdf", () => ({
-  exportRecoveryKitToPdf: vi.fn(),
+  buildRecoveryKitPdf: vi.fn(() => new Uint8Array([37, 80, 68, 70, 45])),
+  recoveryKitPdfFilename: vi.fn(() => "recovery-kit-dana.pdf"),
 }));
 
 const SECTIONS = [
@@ -162,5 +173,39 @@ describe("RecoveryKitPage states", () => {
     await user.click(screen.getByRole("button", { name: "Print" }));
     expect(print).toHaveBeenCalledTimes(1);
     print.mockRestore();
+  });
+
+  it("exports the current Kit through the native save flow", async () => {
+    vi.mocked(saveFilePicker).mockResolvedValue("C:\\Exports\\recovery-kit-dana.pdf");
+    vi.mocked(writePdfExport).mockResolvedValue();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(saveFilePicker).toHaveBeenCalledWith({
+      defaultPath: "recovery-kit-dana.pdf",
+      filters: [{ name: "PDF document", extensions: ["pdf"] }],
+    });
+    expect(writePdfExport).toHaveBeenCalledWith(
+      "C:\\Exports\\recovery-kit-dana.pdf",
+      new Uint8Array([37, 80, 68, 70, 45]),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "PDF saved to: C:\\Exports\\recovery-kit-dana.pdf",
+    );
+  });
+
+  it("shows a useful error when the PDF write fails", async () => {
+    vi.mocked(saveFilePicker).mockResolvedValue("C:\\Exports\\recovery-kit-dana.pdf");
+    vi.mocked(writePdfExport).mockRejectedValue(new Error("StorageError"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Export PDF" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The PDF could not be saved. Choose another location and try again.",
+    );
   });
 });

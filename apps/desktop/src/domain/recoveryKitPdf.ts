@@ -36,8 +36,8 @@ function addWrappedText(
   return y;
 }
 
-/** Export the already-filtered Kit view as a user-controlled PDF file. */
-export function exportRecoveryKitToPdf(kit: RecoveryKit): void {
+/** Build the already-filtered Kit view as PDF bytes for a user-controlled export. */
+export function buildRecoveryKitPdf(kit: RecoveryKit): Uint8Array {
   const document = new jsPDF({ unit: "pt", format: "letter" });
   let y = MARGIN;
 
@@ -102,8 +102,12 @@ export function exportRecoveryKitToPdf(kit: RecoveryKit): void {
     y += 8;
   }
 
+  return new Uint8Array(document.output("arraybuffer"));
+}
+
+export function recoveryKitPdfFilename(kit: RecoveryKit): string {
   const filenameOwner = kit.ownerName
     ? `-${kit.ownerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
     : "";
-  document.save(`recovery-kit${filenameOwner}.pdf`);
+  return `recovery-kit${filenameOwner}.pdf`;
 }

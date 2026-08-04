@@ -96,6 +96,10 @@ For each section, open it and verify:
 - [ ] Kit renders with all sections' key information (no blank/error panels for sections with saved data).
 - [ ] Click **Save Kit**; the dashboard readiness indicator for Recovery Kit shows "up to date".
 - [ ] Edit a section field; verify Recovery Kit shows a staleness indicator.
+- [ ] Click **Print**; the standard Windows/WebView print preview opens with the Kit document, app navigation and controls are absent from the printed pages, and cancelling the preview returns to the still-open app.
+- [ ] Click **Export PDF**; a native **Save As** dialog opens with a `.pdf` filename and PDF filter. Cancel it and verify no file is created and no error appears.
+- [ ] Export again to a writable folder. Verify the file exists, begins with `%PDF-`, opens in a PDF reader, contains the current Kit, and the app reports the selected save path.
+- [ ] Attempt an export to a location that cannot be written. Verify the app remains usable and shows a clear save error rather than failing silently.
 - [ ] **Credential exclusion.** Enter a distinctive master password in Password Manager and a distinctive PIN in Devices, save, then review, print, and export the Kit. **Neither value appears anywhere on it**, on screen, in print preview, or in the PDF. This is the one check on this list where a failure is a data-disclosure bug, not a defect.
 - [ ] A document attachment appears on the Kit as its **filename**, never its contents or an internal id.
 - [ ] A dropdown field mapped into the Kit (e.g. Devices' device type, or Platform Legacy Tools' platform) shows its **readable option text** — "External drive," "Apple Legacy Contact" — never the underlying stored value like "external-drive" or "apple-legacy-contact".

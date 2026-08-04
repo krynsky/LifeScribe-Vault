@@ -25,6 +25,7 @@ npm run build    # Windows installers
 - Snapshot saves are generation-counted compare-and-swap; previous generations are retained; no save path may blind-overwrite.
 - Form definitions are data, not executable scripts. No custom JS, remote scripts, webhooks, or expression strings — declarative conditional objects only.
 - Credential system keys (`passwordManagerMasterPassword`, `devicePin`) may never reach the Recovery Kit, which emits mapped field values with no redaction of its own (type-appropriate display — a select's option label, a file's filename, a `recordRef`'s composed label — is resolution, not redaction; nothing is hidden by field name or type). There are **two routes into a record's values**, and both are gated: a section's own `kitMapping`, and a `recordRef`'s `reference.displayFields` reaching into the section it points at. Each is enforced at authoring (`validatePack` rejects the pack) and again at consumption (`buildRecoveryKit` filters mapped keys; `recordReferenceLabel` filters display fields). The consumption gates are the load-bearing half — a stored `customPack` reaches the Kit without ever passing `validatePack`. Adding a new way to compose display text from another record's values means adding a third gate.
+- Recovery Kit printing deliberately uses the main WebView's standard `window.print()` preview. Do not replace it with a child preview window or native quick-print command. PDF export is a separate native Save As flow: `recoveryKitPdf.ts` builds bytes, `@tauri-apps/plugin-dialog` chooses the path, and `write_pdf_export` validates the `.pdf` path and `%PDF-` payload before Rust writes it. Do not use `jsPDF.save()` or another browser-download path in Tauri; it can fail silently in WebView2.
 - Keep protected system keys stable unless all dependent save/status/recovery mappings are migrated in the same change.
 - Field-level user data is never silently dropped — orphaned values become archived answers.
 - Migrations are pure, deterministic, idempotent; migrate-on-read in memory; persist only via the normal save path.
@@ -34,7 +35,7 @@ npm run build    # Windows installers
 
 - Never ask the user for a real master password.
 - Never request plaintext sensitive vault content unless the user explicitly decides to share it.
-- Do not introduce plaintext export paths except behind explicit user confirmation.
+- Do not introduce plaintext export paths except behind an explicit user action and user-selected destination. Recovery Kit PDF export is the approved path; the saved PDF is plaintext and outside vault encryption.
 - Exported form-definition packs contain structure only — never personal field values, never `custom.*` overlay keys.
 - No cloud sync, telemetry, death detection, or remote release services without a new product decision.
 

@@ -130,6 +130,17 @@ key.
 
 The Recovery Kit is a snapshot of the data you've saved: contacts, instructions, and *locations*. You can print it for storage and review, or export it as a PDF. It's the document your family starts from.
 
+- Choose **Print** to open the standard Windows print preview. Use **Cancel** or
+  close the preview to return to LifeScribe Vault.
+- Choose **Export PDF** to open **Save As**, select a folder and filename, and
+  save. The app shows the saved path when the export succeeds and a visible
+  message if Windows could not write the file. Closing Save As cancels without
+  creating anything.
+
+> **The PDF is not encrypted by LifeScribe Vault.** Once exported, it is a
+> normal readable file. Keep it in a protected folder or with the printed Kit,
+> and delete copies you no longer need.
+
 Because the Kit is meant to be printed and left somewhere findable, it will
 never print the **master password** you may have saved for your password
 manager, or a device's **PIN or passcode** — those two are blocked outright, so

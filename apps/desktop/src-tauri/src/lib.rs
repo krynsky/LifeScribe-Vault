@@ -45,6 +45,7 @@ pub fn run() {
             commands::sweep_orphaned_attachments,
             commands::create_backup,
             commands::restore_backup,
+            commands::write_pdf_export,
             pack_resources::read_default_pack,
             pack_resources::write_default_pack
         ]);
@@ -66,6 +67,8 @@ mod tests {
     mod draft_stash_tests;
     #[path = "pack_resource_tests.rs"]
     mod pack_resource_tests;
+    #[path = "pdf_export_tests.rs"]
+    mod pdf_export_tests;
     #[path = "snapshot_tests.rs"]
     mod snapshot_tests;
     #[path = "vault_lifecycle_tests.rs"]
