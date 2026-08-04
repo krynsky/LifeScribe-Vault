@@ -36,6 +36,8 @@ export interface SectionPageProps {
   onDiscardDraft: () => void;
   onMarkReviewed: () => void;
   onSetNa: (na: boolean) => void;
+  /** The user's own "I'm done with this section" decision — see domain/readiness.ts. */
+  onSetCompleted: (completed: boolean) => void;
   /** Whether form-structure editing is active for this section. */
   editing?: boolean;
   /** Raw PackSection edited by the structure editor when `editing`. */
@@ -87,6 +89,7 @@ export function SectionPage({
   onDiscardDraft,
   onMarkReviewed,
   onSetNa,
+  onSetCompleted,
   editing,
   packSection,
   packSections,
@@ -168,6 +171,24 @@ export function SectionPage({
         </div>
       ) : null}
 
+      {!meta.na && meta.completed ? (
+        <div className="banner banner--neutral" role="status">
+          <p className="banner__text">
+            You've marked this section as complete. Add or edit records here
+            any time — that alone won't change this.
+          </p>
+          <div className="banner__actions">
+            <button
+              className="button button--ghost button--small"
+              type="button"
+              onClick={() => onSetCompleted(false)}
+            >
+              It's not complete yet
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div
         className={`section-page__form${
           !editing && recordBased ? " section-page__form--records" : ""
@@ -201,13 +222,24 @@ export function SectionPage({
         {dirty ? <span className="section-page__dirty-hint">Unsaved changes</span> : null}
 
         <div className="section-page__secondary">
-          <button
-            className="button button--ghost button--small"
-            type="button"
-            onClick={onMarkReviewed}
-          >
-            Mark as reviewed
-          </button>
+          {status === "started" ? (
+            <button
+              className="button button--secondary button--small"
+              type="button"
+              onClick={() => onSetCompleted(true)}
+            >
+              Mark as complete
+            </button>
+          ) : null}
+          {status === "complete" || status === "stale-complete" ? (
+            <button
+              className="button button--ghost button--small"
+              type="button"
+              onClick={onMarkReviewed}
+            >
+              Mark as reviewed
+            </button>
+          ) : null}
           {!meta.na ? (
             confirmingNa ? (
               <span className="section-page__na-confirm">

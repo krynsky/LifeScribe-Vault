@@ -52,6 +52,7 @@ import {
 import { mergePackWithOverlay } from "../domain/packMerge";
 import {
   readinessSummary,
+  sectionMetaAfterSave,
   sectionStatus,
   type SectionStatus,
 } from "../domain/readiness";
@@ -622,7 +623,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       { ...loaded.vault.savedValues, [sectionKey]: sectionValues },
       {
         ...loaded.vault.sectionMeta,
-        [sectionKey]: { ...loaded.vault.sectionMeta[sectionKey], lastSavedAt: now },
+        [sectionKey]: sectionMetaAfterSave(loaded.vault.sectionMeta[sectionKey], sectionValues, now),
       },
       sectionKey,
     );
@@ -662,7 +663,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       { ...fresh.vault.savedValues, [sectionKey]: sectionValues },
       {
         ...fresh.vault.sectionMeta,
-        [sectionKey]: { ...fresh.vault.sectionMeta[sectionKey], lastSavedAt: now },
+        [sectionKey]: sectionMetaAfterSave(fresh.vault.sectionMeta[sectionKey], sectionValues, now),
       },
       sectionKey,
     );
@@ -704,6 +705,33 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       nextMeta.na = true;
     } else {
       delete nextMeta.na;
+    }
+    await persist(
+      loaded,
+      loaded.vault.savedValues,
+      { ...loaded.vault.sectionMeta, [sectionKey]: nextMeta },
+      null,
+    );
+  }
+
+  /**
+   * The user's own "I'm done with this section" decision — the only thing
+   * that can produce "complete". Marking complete also stamps
+   * `lastReviewedAt`, since the decision itself is a review: without this,
+   * a section saved long ago would immediately show as stale-complete the
+   * instant it was marked, which reads as broken.
+   */
+  async function handleSetCompleted(sectionKey: string, completed: boolean) {
+    if (!loaded) {
+      return;
+    }
+    const previousMeta = loaded.vault.sectionMeta[sectionKey] ?? {};
+    const nextMeta = { ...previousMeta };
+    if (completed) {
+      nextMeta.completed = true;
+      nextMeta.lastReviewedAt = new Date().toISOString();
+    } else {
+      delete nextMeta.completed;
     }
     await persist(
       loaded,
@@ -927,7 +955,6 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
   const orderedSections = [...loaded.sections].sort((a, b) => a.order - b.order);
   const statusFor = (section: ResolvedSection): SectionStatus =>
     sectionStatus(
-      section,
       loaded.vault.savedValues[section.sectionKey],
       loaded.vault.sectionMeta[section.sectionKey],
       cadence,
@@ -1312,6 +1339,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
             onSave={() => void handleSaveSection(section.sectionKey)}
             onSaveAgain={() => void handleSaveAgain(section.sectionKey)}
             onSetNa={(na) => void handleSetNa(section.sectionKey, na)}
+            onSetCompleted={(completed) => void handleSetCompleted(section.sectionKey, completed)}
             editing={isSectionEditing}
             packSection={packSectionForEdit}
             packSections={workingPack?.sections}

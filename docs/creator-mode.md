@@ -83,16 +83,23 @@ a migration op to the pack's `migrations` array and bump its `schemaVersion`
 > bundled pack. If you edit the bundled pack and don't write the migration
 > yourself, there is no migration.
 
-**Adding or moving which field anchors a section's readiness** is a UI
-control, not a hand-edit: select the field and check **"Required for section
-readiness"** in its panel. It sets that field `protected` + `required` and adds
-it to the section's `readinessRule.requiredKeys` without touching any other
-readiness field the section already has — a section can require more than one
-(Digital Executors requires two). Unchecking releases the field back to
-ordinary and drops it from the rule. Get this wrong and the dashboard's "ready"
-checkmark quietly means the wrong thing — that's exactly how Backups & Storage
-ended up anchored on its fallback field after a restructure, before this
-control existed.
+**Choosing a section's identifying field** is a UI control, not a hand-edit:
+select the field and check **"Identifying field"** in its panel. It sets that
+field `protected` + `required` and adds it to the section's
+`readinessRule.requiredKeys` without touching any other identifying field the
+section already has — a section can name more than one (Digital Executors
+names two). Unchecking releases the field back to ordinary and drops it from
+the rule.
+
+This field drives the **fallback record label** — what a record is called on
+the dashboard and the Recovery Kit when the section has no explicit
+`recordLabel` — and nothing else. It does **not** affect whether the dashboard
+shows the section as "ready"; that is a separate, explicit "Mark as complete"
+decision the *end user* makes (`domain/readiness.ts`), not something a pack
+author configures. Get the label field wrong and a section's records read
+poorly on the dashboard and the Kit — that's exactly how Backups & Storage
+ended up labeled by its fallback field after a restructure, before this
+control existed — but it will never silently change what counts as "done".
 
 There is still no equivalent control for a section's **groups** — no UI path
 creates, renames, or removes one. A section that legitimately needs more than

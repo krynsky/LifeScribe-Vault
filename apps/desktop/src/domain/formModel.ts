@@ -78,7 +78,16 @@ export interface FieldGroup {
   fields: FieldDefinition[];
 }
 
-/** Names the protected systemKeys whose values gate section readiness. */
+/**
+ * Names the section's protected, identifying field(s) — e.g. a device's
+ * name, an executor's name and role. These fields cannot be removed, and
+ * their values are the fallback record label (dashboard rows, Recovery Kit
+ * block labels) when the section declares no explicit `recordLabel`.
+ *
+ * Despite the name, this does NOT gate section completeness — see
+ * domain/readiness.ts. Completeness is a user decision (`SectionMeta.completed`),
+ * not inferred from which fields happen to be filled.
+ */
 export interface ReadinessRule {
   requiredKeys: string[];
 }

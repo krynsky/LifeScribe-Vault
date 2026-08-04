@@ -44,10 +44,11 @@ The sections cover:
 For each section you can:
 
 - **Save** — commits your entries to the encrypted vault.
-- **Mark reviewed** — refreshes the section's "up to date" status without changing anything. Sections gently flag themselves for review after a while (12 months by default).
+- **Mark as complete** — tells the app *you* consider this section done. This is the only thing that moves a section into your readiness percentage (besides "Doesn't apply to me," below) — saving records on their own does not, however many you add. Every section is different, so only you know when it has enough.
+- **Mark as reviewed** — once complete, refreshes the section's "up to date" status without changing anything. Sections gently flag themselves for review after a while (12 months by default).
 - **Doesn't apply to me** — marks a section N/A so it counts as handled without fake entries.
 
-Status badges are driven only by **saved** data — typing in a form doesn't change a badge until you save.
+Status badges are driven only by **saved** data — typing in a form doesn't change a badge until you save. A section moves through **Not started → Started → Complete** as you add data and then explicitly mark it done; if you later delete everything you saved in a completed section, it drops back to Not started rather than staying marked complete with nothing in it.
 
 ### Passwords, PINs, and what you decide to store
 
@@ -223,7 +224,7 @@ Turn on **Form Editor** at the bottom of the sidebar to reshape the forms to you
 - Add new fields, duplicate or reorder existing ones, remove ones you don't need
 - Rename sections and add new ones
 
-A few fields are **protected** because the Recovery Kit and readiness tracking depend on them — they can be renamed but not removed. If removing or retyping a field would orphan something you've already entered, the value is archived rather than lost.
+A few fields are **protected** because the Recovery Kit depends on them to label each record — they can be renamed but not removed. If removing or retyping a field would orphan something you've already entered, the value is archived rather than lost.
 
 ---
 

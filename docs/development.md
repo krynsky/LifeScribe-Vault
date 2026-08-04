@@ -322,19 +322,65 @@ key.
 in-app structure editor passes no locked keys (`NO_LOCKED_KEYS`), so only
 protected fields are undeletable.
 
-**Designating a section's readiness anchor is a Pack Editor UI control, not a
+**Designating a section's identifying field is a Pack Editor UI control, not a
 hand-edit.** `setFieldReadinessRequired` in `packEdits.ts` is the single toggle
-behind the field panel's "Required for section readiness" checkbox — it keeps
-`protected`, `required`, and membership in `readinessRule.requiredKeys` in sync
-for one field, without disturbing a section's other readiness fields (Digital
-Executors requires two; Platform Legacy Tools requires the identifying field of
-each record). Before this existed, changing which field anchored a section's
-readiness meant editing the JSON directly, which is exactly how Backups &
-Storage ended up with its anchor on the wrong field after a restructure.
+behind the field panel's "Identifying field" checkbox — it keeps `protected`,
+`required`, and membership in `readinessRule.requiredKeys` in sync for one
+field, without disturbing a section's other identifying fields (Digital
+Executors names two). Before this existed, changing which field a section used
+for its fallback record label meant editing the JSON directly, which is exactly
+how Backups & Storage ended up with the wrong field driving both its label and
+(at the time) its readiness after a restructure.
+
+Despite the historical name, `readinessRule` no longer gates section
+completeness — see [Section completeness is a user decision](#section-completeness-is-a-user-decision)
+below.
 
 **`customPack` is not validated on save or on read.** `handleSavePack` persists
 it directly and `resolveBasePack` returns it as-authored. Anything that must
 hold for *every* pack the app renders cannot rely on `validatePack` alone.
+
+## Section completeness is a user decision
+
+`domain/readiness.ts` computes each section's dashboard status. It has no
+concept of "how many fields is enough" — every section is shaped differently,
+and the right amount of detail is different for every user, so the model does
+not guess.
+
+`SectionStatus` is one of:
+
+- **`not-started`** — no saved record has any non-empty value.
+- **`started`** — at least one non-empty value exists, but the user has not
+  said they're done. `sectionHasAnyValue` is the sole gate, and it does not
+  care *which* field has a value — unlike the old model, no field is special.
+- **`complete`** / **`stale-complete`** — the user clicked **Mark as
+  complete**, persisted as `SectionMeta.completed`. Stale-complete is the same
+  underlying decision, just overdue for a look (past `reviewCadenceMonths`
+  since the last save or "Mark as reviewed" — unchanged from before).
+- **`na`** — "Doesn't apply to me". Unchanged from before; still the escape
+  hatch that keeps 100% reachable for sections that genuinely don't apply.
+
+Only `complete`, `stale-complete`, and `na` count toward the readiness
+percentage (`isReadyStatus`). `started` deliberately does not — saving one
+record was the entire bar under the old model, and that was the problem this
+replaced.
+
+**A stale `completed` flag can never resurrect a false "complete".** If every
+record in a completed section is later deleted, `sectionStatus` ignores the
+flag and reports `not-started` — a section with nothing in it cannot be
+complete, no matter what was true earlier. `sectionMetaAfterSave` goes
+further and clears the flag from storage at that point, not just from the
+computed status: without that, adding a single new value later would silently
+resurrect "Complete" with no re-confirmation from the user, which is exactly
+the kind of un-asked-for inference this model exists to avoid. Both properties
+are mutation-tested in `readiness.test.ts`.
+
+`readinessRule.requiredKeys` still exists, and still means something — it
+names a section's protected, identifying field(s), used as the fallback
+record label when no `recordLabel` is set (see [Record labels](#record-labels-sectionrecordlabel)
+above) — but it no longer has anything to do with completeness. The Pack
+Editor's field-panel checkbox for it is labeled "Identifying field", not
+"Required for section readiness", for exactly this reason.
 
 ## Recovery Kit
 

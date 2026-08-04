@@ -430,7 +430,7 @@ describe("PackEditorApp", () => {
       mocked.savePack.mockResolvedValue(undefined);
       render(<PackEditorApp />);
       await userEvent.click(await screen.findByRole("button", { name: /edit field Nickname/i }));
-      const checkbox = screen.getByRole("checkbox", { name: /required for section readiness/i });
+      const checkbox = screen.getByRole("checkbox", { name: /identifying field/i });
       expect(checkbox).not.toBeChecked();
       await userEvent.click(checkbox);
 
@@ -446,7 +446,7 @@ describe("PackEditorApp", () => {
       mocked.savePack.mockResolvedValue(undefined);
       render(<PackEditorApp />);
       await userEvent.click(await screen.findByRole("button", { name: /edit field Full name/i }));
-      const checkbox = screen.getByRole("checkbox", { name: /required for section readiness/i });
+      const checkbox = screen.getByRole("checkbox", { name: /identifying field/i });
       expect(checkbox).toBeChecked();
       await userEvent.click(checkbox);
 

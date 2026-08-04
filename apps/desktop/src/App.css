@@ -543,8 +543,13 @@ button {
   white-space: nowrap;
 }
 
-.status-badge--incomplete {
+.status-badge--not-started {
   background: var(--color-border);
+  color: var(--color-ink-secondary);
+}
+
+.status-badge--started {
+  background: var(--color-info-tint);
   color: var(--color-ink-secondary);
 }
 

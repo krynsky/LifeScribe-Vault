@@ -18,10 +18,14 @@ export interface FieldPropertyPanelProps {
   field: FieldDefinition | null;
   onChange: (updated: FieldDefinition) => void;
   /**
-   * Whether this field counts toward its section's readiness (the dashboard
-   * checklist and the Recovery Kit's default record label both key off this).
-   * Omit both this and `onToggleReadinessAnchor` when the caller has no
-   * section context to offer — the control is hidden rather than shown inert.
+   * Whether this field is the section's protected, identifying field — it
+   * cannot be removed, and (absent an explicit `recordLabel`) its value is
+   * what labels the record on the dashboard and the Recovery Kit. Despite the
+   * prop name, this no longer affects section *completeness*: that is a
+   * separate, user-driven decision (`SectionMeta.completed` — see
+   * domain/readiness.ts and the "Mark as complete" control). Omit both this
+   * and `onToggleReadinessAnchor` when the caller has no section context to
+   * offer — the control is hidden rather than shown inert.
    */
   isReadinessAnchor?: boolean;
   onToggleReadinessAnchor?: () => void;
@@ -149,11 +153,12 @@ export function FieldPropertyPanel({
               checked={isReadinessAnchor ?? false}
               onChange={onToggleReadinessAnchor}
             />
-            <span>Required for section readiness</span>
+            <span>Identifying field</span>
           </label>
           <p className="field-panel__note">
-            The section shows "ready" on the dashboard once every field marked
-            here has a value. Checking this also locks the field as required
+            Used to label this section's records on the dashboard and the
+            Recovery Kit when no other labeling rule is set — a device's name,
+            an executor's name. Checking this also locks the field as required
             and un-removable; unchecking releases it back to an ordinary
             optional field.
           </p>

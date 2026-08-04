@@ -1,16 +1,28 @@
 /**
- * Generic readiness model (U5).
+ * Generic readiness model (U5; revised to a user-driven "mark complete" model
+ * — see docs/development.md "Section completeness is a user decision").
  *
- * Laws (plan: Key Technical Decisions / readiness model):
- * - A section is READY when at least one record has every
- *   `readinessRule.requiredKeys` value non-empty, OR it is marked
- *   "doesn't apply to me" (N/A). Without N/A most real users could never
- *   reach 100% and the motivational loop dies.
- * - STALENESS: a ready section goes "stale-complete" when neither a save
+ * Laws:
+ * - Completeness is a DECISION, not a field count. A section is READY when
+ *   the user has explicitly marked it complete (and it still has at least
+ *   one non-empty value — see below), or marked it "doesn't apply to me"
+ *   (N/A). It is never inferred from which fields happen to be filled: every
+ *   section is structured differently, and "how much is enough" is arbitrary
+ *   and different for every user. A single filled-in record is STARTED, not
+ *   complete, however many fields it has.
+ * - A section that loses all its data (every record deleted, or every value
+ *   cleared) cannot remain "complete" — the flag is ignored, not just hidden,
+ *   the moment there is nothing left to be complete about. Re-adding data
+ *   later starts over at "started"; completeness is never silently restored
+ *   from a stale flag.
+ * - Without N/A, most real users could never reach 100% and the motivational
+ *   loop dies — N/A remains the escape hatch for "this genuinely does not
+ *   apply to me."
+ * - STALENESS: a completed section goes "stale-complete" when neither a save
  *   nor an explicit "mark reviewed" has happened within the review cadence
  *   (profile setting, default 12 months). Mark-reviewed and saves both
  *   reset the clock. Stale-complete still counts toward the readiness
- *   percentage — it is "done but worth a look", distinct from incomplete.
+ *   percentage — it is "done but worth a look", distinct from not ready.
  * - Readiness is computed from SAVED data only; transient form edits never
  *   move a badge.
  */
@@ -21,34 +33,29 @@ import type { SectionValues, VaultValues } from "./valuesStore";
 
 export { DEFAULT_REVIEW_CADENCE_MONTHS } from "./snapshot";
 
-export type SectionStatus = "incomplete" | "complete" | "stale-complete" | "na";
+export type SectionStatus = "not-started" | "started" | "complete" | "stale-complete" | "na";
 
 export interface ReadinessSummary {
   /** 0-100, sections counting as ready (complete, stale-complete, or N/A). */
   percent: number;
   readySections: number;
   totalSections: number;
-  /** First section (pack order) still incomplete — the welcome CTA target. */
+  /** First section (pack order) not ready — the welcome CTA target. */
   firstIncomplete: ResolvedSection | null;
 }
 
-/** ≥1 record with every readiness-rule required key filled (trimmed). */
-export function isSectionFilled(
-  section: ResolvedSection,
-  values: SectionValues | undefined,
-): boolean {
+/**
+ * ≥1 saved record with at least one non-empty value, in ANY field. This is
+ * the sole gate for "started" and the sole thing that can revoke a stale
+ * `completed` flag — it deliberately knows nothing about which fields the
+ * pack considers important, because completeness itself no longer does.
+ */
+export function sectionHasAnyValue(values: SectionValues | undefined): boolean {
   if (!values || values.records.length === 0) {
     return false;
   }
-  const requiredKeys = section.readinessRule.requiredKeys;
-  if (requiredKeys.length === 0) {
-    // No gating keys authored: any record with any non-empty value counts.
-    return values.records.some((record) =>
-      Object.values(record.values).some((value) => value.trim().length > 0),
-    );
-  }
   return values.records.some((record) =>
-    requiredKeys.every((key) => (record.values[key] ?? "").trim().length > 0),
+    Object.values(record.values).some((value) => value.trim().length > 0),
   );
 }
 
@@ -77,7 +84,6 @@ function staleAnchor(meta: SectionMeta | undefined): Date | null {
 }
 
 export function sectionStatus(
-  section: ResolvedSection,
   values: SectionValues | undefined,
   meta: SectionMeta | undefined,
   reviewCadenceMonths: number,
@@ -86,12 +92,15 @@ export function sectionStatus(
   if (meta?.na) {
     return "na";
   }
-  if (!isSectionFilled(section, values)) {
-    return "incomplete";
+  const hasContent = sectionHasAnyValue(values);
+  if (!meta?.completed || !hasContent) {
+    // Not marked complete, OR marked complete but nothing is left to be
+    // complete about — a stale flag is worth exactly nothing here.
+    return hasContent ? "started" : "not-started";
   }
   const anchor = staleAnchor(meta);
   if (!anchor) {
-    // Filled but with no recorded save/review time (e.g. imported data):
+    // Completed but with no recorded save/review time (e.g. imported data):
     // surface it as worth a review rather than silently fresh.
     return "stale-complete";
   }
@@ -99,7 +108,7 @@ export function sectionStatus(
 }
 
 export function isReadyStatus(status: SectionStatus): boolean {
-  return status !== "incomplete";
+  return status === "complete" || status === "stale-complete" || status === "na";
 }
 
 export function readinessSummary(
@@ -114,7 +123,6 @@ export function readinessSummary(
   let firstIncomplete: ResolvedSection | null = null;
   for (const section of ordered) {
     const status = sectionStatus(
-      section,
       values[section.sectionKey],
       sectionMeta[section.sectionKey],
       reviewCadenceMonths,
@@ -133,4 +141,27 @@ export function readinessSummary(
     totalSections,
     firstIncomplete,
   };
+}
+
+/**
+ * Meta to persist alongside a section save: stamps `lastSavedAt`, and drops
+ * a stale `completed` flag the moment the save leaves nothing behind to be
+ * complete about.
+ *
+ * `sectionStatus` already ignores `completed` when the section is empty, so
+ * omitting this step would be safe for *display* — but the flag would sit in
+ * storage waiting to silently resurrect "Complete" the instant a single new
+ * value is saved, with no re-confirmation from the user. Clearing it here
+ * keeps storage honest, not just the computed status.
+ */
+export function sectionMetaAfterSave(
+  meta: SectionMeta | undefined,
+  values: SectionValues,
+  now: string,
+): SectionMeta {
+  const next: SectionMeta = { ...meta, lastSavedAt: now };
+  if (meta?.completed && !sectionHasAnyValue(values)) {
+    delete next.completed;
+  }
+  return next;
 }

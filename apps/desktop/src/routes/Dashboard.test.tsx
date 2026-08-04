@@ -207,26 +207,32 @@ describe("Dashboard checklist and saving", () => {
     renderDashboard();
     await screen.findByText("Welcome, Dana");
 
-    // Fresh vault: section incomplete, 0% readiness.
-    expect(within(sidebarSectionButton()).getByText("To do")).toBeInTheDocument();
+    // Fresh vault: section not started, 0% readiness.
+    expect(within(sidebarSectionButton()).getByText("Not started")).toBeInTheDocument();
     expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
 
     const user = userEvent.setup();
     await openSectionAndTypeName(user, "Dana Estate");
 
     // Transient edit: badge and percentage unchanged.
-    expect(within(sidebarSectionButton()).getByText("To do")).toBeInTheDocument();
+    expect(within(sidebarSectionButton()).getByText("Not started")).toBeInTheDocument();
     expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    // Saved: checklist status and overall percentage update together.
+    // Saved: checklist status updates, but a save alone never counts as
+    // ready — readiness is a decision, not a field count.
     expect(mocked.saveVaultSnapshot).toHaveBeenCalledTimes(1);
     const [snapshot, baseGeneration] = mocked.saveVaultSnapshot.mock.calls[0];
     expect(baseGeneration).toBe(0);
     const values = snapshot.values as Record<string, { records: Array<{ values: Record<string, string> }> }>;
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Dana Estate");
+    expect(await within(sidebarSectionButton()).findByText("Started")).toBeInTheDocument();
+    expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
+
+    // The user's own "Mark as complete" decision is what moves it to ready.
+    await user.click(screen.getByRole("button", { name: "Mark as complete" }));
     expect(await within(sidebarSectionButton()).findByText("Complete")).toBeInTheDocument();
     // 1 of the pack's 9 sections ready -> 11% overall readiness.
     expect(screen.getAllByText("11%").length).toBeGreaterThan(0);
@@ -287,7 +293,7 @@ describe("Dashboard N/A flow", () => {
 
     mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
     await user.click(screen.getByRole("button", { name: "It applies to me after all" }));
-    expect(await within(sidebarSectionButton()).findByText("To do")).toBeInTheDocument();
+    expect(await within(sidebarSectionButton()).findByText("Not started")).toBeInTheDocument();
     expect(screen.getAllByText("0%").length).toBeGreaterThan(0);
   });
 });
@@ -399,7 +405,7 @@ describe("Dashboard snapshot conflict", () => {
     const values = lastCall[0].values as Record<string, { records: Array<{ values: Record<string, string> }> }>;
     expect(values[SECTION_KEY].records[0].values.executorName).toBe("Dana Estate");
     expect(screen.queryByText(/The vault was updated since/)).not.toBeInTheDocument();
-    expect(await within(sidebarSectionButton()).findByText("Complete")).toBeInTheDocument();
+    expect(await within(sidebarSectionButton()).findByText("Started")).toBeInTheDocument();
   });
 });
 
@@ -418,7 +424,7 @@ describe("Dashboard Recovery Kit", () => {
   async function saveExecutorAndKit(user: ReturnType<typeof userEvent.setup>) {
     await openSectionAndTypeName(user, "Dana Estate");
     await user.click(screen.getByRole("button", { name: "Save" }));
-    await within(sidebarSectionButton()).findByText("Complete");
+    await within(sidebarSectionButton()).findByText("Started");
 
     mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
     await user.click(kitSidebarButton());
@@ -434,7 +440,7 @@ describe("Dashboard Recovery Kit", () => {
     // A never-saved Kit carries no badge, even once it has content.
     await openSectionAndTypeName(user, "Dana Estate");
     await user.click(screen.getByRole("button", { name: "Save" }));
-    await within(sidebarSectionButton()).findByText("Complete");
+    await within(sidebarSectionButton()).findByText("Started");
     expect(screen.queryByText("Kit out of date")).not.toBeInTheDocument();
 
     // Regenerate-on-view: the kit reflects saved values; commit it.

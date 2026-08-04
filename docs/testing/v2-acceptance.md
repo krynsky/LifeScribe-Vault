@@ -29,10 +29,18 @@ Record the environment at the top of your run:
 - [ ] Setup is a **single screen** — no form-style or privacy-posture questions.
 - [ ] Create a vault with a strong test password (do not use a real master password).
 - [ ] Dashboard shows all nine sections in the sidebar, in pack order: Digital Executors, Password Manager, Devices, Financial Accounts, Subscriptions, Online Accounts, Documents, Backups & Storage, Platform Legacy Tools.
-- [ ] Readiness indicators are visible on the dashboard checklist.
+- [ ] Readiness indicators are visible on the dashboard checklist; every section starts **"Not started"**.
 - [ ] Recovery Kit section is present and shows its empty state until a guided section has saved data.
 
 ## 3. Section entry forms
+
+### Section completeness (a user decision, not a field count)
+
+- [ ] Add one record to a section (e.g. one Financial Account) and save. The badge reads **"Started"**, not "Complete" — and the overall readiness percentage does **not** move. This is the core behavior change: saving data alone was never supposed to mark a section done.
+- [ ] Click **Mark as complete**. The badge changes to **"Complete"** and the readiness percentage increases. A banner explains the decision and offers "It's not complete yet" to undo it.
+- [ ] Click "It's not complete yet". The section returns to **"Started"** (it still has data) and drops back out of the readiness percentage.
+- [ ] Mark the section complete again, then delete every record in it and save. The badge reverts to **"Not started"** on its own — a section with nothing in it cannot stay marked complete. Add one record back: it comes back as **"Started"**, not silently "Complete" again.
+- [ ] **"Mark as reviewed"** only appears once a section is Complete or stale; it is not offered on a merely Started section.
 
 For each section, open it and verify:
 

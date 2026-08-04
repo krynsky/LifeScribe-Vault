@@ -67,7 +67,7 @@ describe("FieldPropertyPanel", () => {
 
   it("hides the readiness-anchor control when the caller offers no section context", () => {
     render(<FieldPropertyPanel field={field} onChange={vi.fn()} />);
-    expect(screen.queryByText(/required for section readiness/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/identifying field/i)).not.toBeInTheDocument();
   });
 
   it("shows the readiness-anchor checkbox unchecked, and emits the toggle on click", async () => {
@@ -80,7 +80,7 @@ describe("FieldPropertyPanel", () => {
         onToggleReadinessAnchor={onToggle}
       />,
     );
-    const checkbox = screen.getByRole("checkbox", { name: /required for section readiness/i });
+    const checkbox = screen.getByRole("checkbox", { name: /identifying field/i });
     expect(checkbox).not.toBeChecked();
     await userEvent.click(checkbox);
     expect(onToggle).toHaveBeenCalledTimes(1);
@@ -95,7 +95,7 @@ describe("FieldPropertyPanel", () => {
         onToggleReadinessAnchor={vi.fn()}
       />,
     );
-    expect(screen.getByRole("checkbox", { name: /required for section readiness/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /identifying field/i })).toBeChecked();
   });
 
   it("adds an option from a single Value input, auto-generating the stored value", async () => {

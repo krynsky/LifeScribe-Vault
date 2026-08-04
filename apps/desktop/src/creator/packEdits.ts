@@ -302,9 +302,13 @@ export function removeField(
 }
 
 /**
- * Toggles whether a field counts toward its section's readiness (the
- * dashboard checklist and the Recovery Kit's default record label both read
- * `readinessRule.requiredKeys`; readiness is "every key has a value").
+ * Toggles whether a field is one of its section's protected, identifying
+ * fields (`readinessRule.requiredKeys`) — the fallback record label
+ * (dashboard rows, Recovery Kit block labels) when the section declares no
+ * explicit `recordLabel`. Despite the name, this does NOT gate section
+ * completeness: that is `SectionMeta.completed`, a separate decision the user
+ * makes explicitly (see domain/readiness.ts). This toggle is about labeling
+ * and about which fields cannot be deleted, nothing more.
  *
  * A field can only appear there while `protected: true` (validatePack's
  * rule), and a protected field must be `required: true` — so this single
@@ -313,9 +317,9 @@ export function removeField(
  * an ordinary optional one and drops the key. Returns the pack unchanged
  * (referential identity) if the field is not found.
  *
- * A section may have zero, one, or several readiness fields — Digital
- * Executors requires two, Platform Legacy Tools three — so this only ever
- * adds or removes one key; it never clears the others.
+ * A section may name zero, one, or several such fields — Digital Executors
+ * names two, Platform Legacy Tools one — so this only ever adds or removes
+ * one key; it never clears the others.
  */
 export function setFieldReadinessRequired(
   pack: FormPack,

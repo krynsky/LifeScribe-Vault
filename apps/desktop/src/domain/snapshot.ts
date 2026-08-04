@@ -57,6 +57,15 @@ export interface VaultProfile {
 
 export interface SectionMeta {
   na?: boolean;
+  /**
+   * User's own explicit "I'm done with this section" decision — see
+   * domain/readiness.ts. Not derived from field data: a section with saved
+   * records is merely "started" until this is set. Ignored (treated as
+   * false) if the section has no non-empty value at read time, so a
+   * completed section that later loses all its data cannot still claim to
+   * be complete.
+   */
+  completed?: boolean;
   lastReviewedAt?: string;
   lastSavedAt?: string;
 }
