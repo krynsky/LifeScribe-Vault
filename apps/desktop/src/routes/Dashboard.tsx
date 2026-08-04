@@ -44,6 +44,9 @@ import { deriveAutoMigration } from "../creator/packAutoMigrate";
 import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
+import { rebaseCustomPack } from "../domain/packRebase";
+import { validatePack, validatePackUpgrade } from "../domain/packValidation";
+import packageJson from "../../package.json";
 import {
   migrateVaultValues,
   pendingRetypedFields,
@@ -110,6 +113,7 @@ interface VaultState {
   kitMeta: KitMeta | null;
   extra: Record<string, unknown>;
   customPack: FormPack | null;
+  customPackBase: FormPack | null;
 }
 
 interface LoadedVault {
@@ -132,8 +136,56 @@ function errorCode(error: unknown): string {
  * The pack this vault renders from: the saved customPack (form-editor edits) or
  * the bundled base pack, as authored — no composition step.
  */
-async function resolveBasePack(parsed: ParsedSnapshot): Promise<FormPack> {
-  return parsed.customPack ?? (await loadDefaultPack());
+function compareVersions(left: string, right: string): number {
+  const parts = (value: string) => value.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const a = parts(left);
+  const b = parts(right);
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    if ((a[index] ?? 0) !== (b[index] ?? 0)) return (a[index] ?? 0) - (b[index] ?? 0);
+  }
+  return 0;
+}
+
+async function resolveBasePack(parsed: ParsedSnapshot): Promise<{
+  pack: FormPack;
+  bundledBase: FormPack;
+  customPack?: FormPack;
+}> {
+  const bundledBase = await loadDefaultPack();
+  if (compareVersions(packageJson.version, bundledBase.minAppVersion) < 0) {
+    throw new Error(`This form requires LifeScribe Vault ${bundledBase.minAppVersion} or later.`);
+  }
+  if (!parsed.customPack) return { pack: bundledBase, bundledBase };
+
+  const customValidation = validatePack(parsed.customPack);
+  if (!customValidation.ok) {
+    throw new Error(`The saved custom form is invalid: ${customValidation.errors.join("; ")}`);
+  }
+  let effective = customValidation.pack;
+  if (parsed.customPackBase) {
+    const baseValidation = validatePack(parsed.customPackBase);
+    if (!baseValidation.ok) {
+      throw new Error(`The saved custom-form baseline is invalid: ${baseValidation.errors.join("; ")}`);
+    }
+    effective = rebaseCustomPack(baseValidation.pack, effective, bundledBase);
+  } else if (effective.packId !== bundledBase.packId) {
+    throw new Error("The saved custom form belongs to a different bundled form pack.");
+  }
+
+  const rebasedValidation = validatePack(effective);
+  if (!rebasedValidation.ok) {
+    throw new Error(`The rebased custom form is invalid: ${rebasedValidation.errors.join("; ")}`);
+  }
+  const upgrade = validatePackUpgrade(bundledBase, rebasedValidation.pack);
+  if (upgrade.errors.length > 0) {
+    throw new Error(`The saved custom form is incompatible: ${upgrade.errors.join("; ")}`);
+  }
+  if (compareVersions(packageJson.version, rebasedValidation.pack.minAppVersion) < 0) {
+    throw new Error(
+      `This form requires LifeScribe Vault ${rebasedValidation.pack.minAppVersion} or later.`,
+    );
+  }
+  return { pack: rebasedValidation.pack, bundledBase, customPack: rebasedValidation.pack };
 }
 
 /**
@@ -157,9 +209,7 @@ function buildLoadedVault(
 
   const migrated = migrateVaultValues(values, pack);
   if (!migrated.ok) {
-    if (!migrated.ok) {
-      return { blocked: migrated.error.message };
-    }
+    return { blocked: migrated.error.message };
   }
   values = migrated.values;
 
@@ -199,6 +249,7 @@ function buildLoadedVault(
       kitMeta: parsed.kitMeta,
       extra: parsed.extra,
       customPack: parsed.customPack ?? null,
+      customPackBase: parsed.customPack ? (parsed.customPackBase ?? pack) : null,
     },
   };
 }
@@ -302,9 +353,18 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       }
       let pack: FormPack;
       try {
-        pack = await resolveBasePack(parsed);
-      } catch {
-        if (isCurrent) setPhase("error");
+        const resolved = await resolveBasePack(parsed);
+        pack = resolved.pack;
+        parsed = {
+          ...parsed,
+          customPack: resolved.customPack,
+          customPackBase: resolved.customPack ? resolved.bundledBase : undefined,
+        };
+      } catch (error) {
+        if (isCurrent) {
+          setBlockedMessage(error instanceof Error ? error.message : "The saved custom form is invalid.");
+          setPhase("blocked");
+        }
         return;
       }
 
@@ -481,6 +541,7 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       kitMeta,
       extra: current.vault.extra,
       customPack: current.vault.customPack ?? undefined,
+      customPackBase: current.vault.customPackBase ?? undefined,
     });
   }
 
@@ -640,8 +701,18 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     try {
       const response = await loadVaultSnapshot();
       const parsed = normalizeSnapshot(response.snapshot, ownerNameHint);
-      const pack = await resolveBasePack(parsed);
-      const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
+      const resolved = await resolveBasePack(parsed);
+      const resolvedParsed = {
+        ...parsed,
+        customPack: resolved.customPack,
+        customPackBase: resolved.customPack ? resolved.bundledBase : undefined,
+      };
+      const result = buildLoadedVault(
+        resolved.pack,
+        resolvedParsed,
+        response.generation,
+        response.recovered,
+      );
       if ("blocked" in result) {
         setBlockedMessage(result.blocked);
         setPhase("blocked");
@@ -676,8 +747,18 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     try {
       const response = await loadVaultSnapshot();
       const parsed = normalizeSnapshot(response.snapshot, ownerNameHint);
-      const pack = await resolveBasePack(parsed);
-      const result = buildLoadedVault(pack, parsed, response.generation, response.recovered);
+      const resolved = await resolveBasePack(parsed);
+      const resolvedParsed = {
+        ...parsed,
+        customPack: resolved.customPack,
+        customPackBase: resolved.customPack ? resolved.bundledBase : undefined,
+      };
+      const result = buildLoadedVault(
+        resolved.pack,
+        resolvedParsed,
+        response.generation,
+        response.recovered,
+      );
       if ("blocked" in result) {
         setBlockedMessage(result.blocked);
         setPhase("blocked");

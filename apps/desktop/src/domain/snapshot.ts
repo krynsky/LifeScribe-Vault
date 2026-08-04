@@ -97,6 +97,8 @@ export interface ParsedSnapshot {
   extra: Record<string, unknown>;
   /** User's personal form-definition pack, stored encrypted in their vault. */
   customPack?: FormPack;
+  /** Bundled base the custom pack was last rebased against. */
+  customPackBase?: FormPack;
 }
 
 const KNOWN_KEYS = new Set([
@@ -108,6 +110,7 @@ const KNOWN_KEYS = new Set([
   "overlay",
   "kitMeta",
   "customPack",
+  "customPackBase",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -261,6 +264,9 @@ export function normalizeSnapshot(
     customPack: isRecord(raw.customPack)
       ? (raw.customPack as unknown as FormPack)
       : undefined,
+    customPackBase: isRecord(raw.customPackBase)
+      ? (raw.customPackBase as unknown as FormPack)
+      : undefined,
     extra,
   };
 }
@@ -277,5 +283,6 @@ export function buildSnapshot(parsed: ParsedSnapshot): VaultSnapshot {
     ...(parsed.overlay ? { overlay: parsed.overlay } : {}),
     ...(parsed.kitMeta ? { kitMeta: parsed.kitMeta } : {}),
     ...(parsed.customPack ? { customPack: parsed.customPack } : {}),
+    ...(parsed.customPackBase ? { customPackBase: parsed.customPackBase } : {}),
   };
 }

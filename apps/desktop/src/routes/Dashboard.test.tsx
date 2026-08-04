@@ -159,6 +159,54 @@ describe("Dashboard branded phase states", () => {
     expect(mocked.readDefaultPack).not.toHaveBeenCalled();
   });
 
+  it("rebases saved form edits onto newly bundled fields", async () => {
+    const oldBase = structuredClone(basePackJson) as FormPack;
+    const custom = structuredClone(oldBase);
+    const customName = custom.sections
+      .find((section) => section.sectionKey === SECTION_KEY)!
+      .groups[0].fields.find((field) => field.systemKey === "executorName")!;
+    customName.label = "Executor legal name";
+    const newBase = structuredClone(oldBase);
+    newBase.packVersion = "1.1.0";
+    newBase.sections.find((section) => section.sectionKey === SECTION_KEY)!.groups[0].fields.push({
+      systemKey: "executorFutureNote",
+      label: "New bundled note",
+      type: "text",
+      required: false,
+      protected: false,
+      order: 99,
+    });
+    mocked.readDefaultPack.mockResolvedValue(JSON.stringify(newBase));
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: { customPack: custom, customPackBase: oldBase },
+      generation: 1,
+      recovered: false,
+    });
+
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    const user = userEvent.setup();
+    await user.click(sidebarSectionButton());
+    await user.click(screen.getByRole("button", { name: "Add Executor" }));
+
+    expect(screen.getByLabelText("Executor legal name")).toBeInTheDocument();
+    expect(screen.getByLabelText("New bundled note")).toBeInTheDocument();
+  });
+
+  it("blocks a saved custom form whose minimum app version is newer", async () => {
+    const custom = structuredClone(basePackJson) as FormPack;
+    custom.minAppVersion = "99.0.0";
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: { customPack: custom },
+      generation: 1,
+      recovered: false,
+    });
+
+    renderDashboard();
+
+    expect(await screen.findByText(/requires LifeScribe Vault 99\.0\.0/)).toBeInTheDocument();
+  });
+
   it("archives an incompatible value using retype migration provenance during the real load pipeline", async () => {
     const upgradedPack = structuredClone(basePackJson) as FormPack;
     const executors = upgradedPack.sections.find((section) => section.sectionKey === SECTION_KEY)!;

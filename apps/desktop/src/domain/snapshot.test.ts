@@ -175,6 +175,15 @@ describe("customPack round-trip", () => {
     expect(result.customPack).toEqual(MINIMAL_PACK);
   });
 
+  it("preserves the custom pack baseline used for future rebases", () => {
+    const parsed = emptySnapshot("Alice");
+    parsed.customPack = MINIMAL_PACK;
+    parsed.customPackBase = MINIMAL_PACK;
+    const result = normalizeSnapshot(buildSnapshot(parsed));
+    expect(result.customPackBase).toEqual(MINIMAL_PACK);
+    expect(result.extra).not.toHaveProperty("customPackBase");
+  });
+
   it("returns undefined customPack when field is absent in a null snapshot", () => {
     const result = normalizeSnapshot(null, "");
     expect(result.customPack).toBeUndefined();
