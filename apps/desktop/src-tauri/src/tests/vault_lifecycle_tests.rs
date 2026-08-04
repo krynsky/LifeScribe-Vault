@@ -73,6 +73,42 @@ fn unlock_without_a_vault_returns_not_found() {
 }
 
 #[test]
+fn legacy_database_is_stamped_with_current_schema_on_open() {
+    let (_dir, path, mut session) = setup();
+    create(&path, &mut session);
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    connection.execute_batch("PRAGMA user_version = 0;").unwrap();
+    drop(connection);
+
+    crate::repository::VaultRepository::open_existing(&path).unwrap();
+
+    let version: u32 = rusqlite::Connection::open(&path)
+        .unwrap()
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, crate::repository::CURRENT_DB_SCHEMA_VERSION);
+}
+
+#[test]
+fn future_database_schema_is_refused_without_modification() {
+    let (_dir, path, mut session) = setup();
+    create(&path, &mut session);
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    connection.execute_batch("PRAGMA user_version = 2;").unwrap();
+    drop(connection);
+
+    assert!(matches!(
+        crate::repository::VaultRepository::open_existing(&path),
+        Err(VaultError::VaultDatabaseTooNew)
+    ));
+    let version: u32 = rusqlite::Connection::open(&path)
+        .unwrap()
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 2);
+}
+
+#[test]
 fn snapshot_with_unknown_top_level_fields_round_trips_byte_identical_across_lock_unlock() {
     // Regression test for the v1 stripping bug: a mirrored Rust struct
     // silently dropped fields it didn't know about. The opaque

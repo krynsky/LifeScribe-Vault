@@ -43,6 +43,13 @@ import type { SectionValues, VaultValues } from "./valuesStore";
 export const SNAPSHOT_FORMAT = 1;
 export const DEFAULT_REVIEW_CADENCE_MONTHS = 12;
 
+export class SnapshotFormatTooNewError extends Error {
+  constructor(readonly foundFormat: number) {
+    super(`Snapshot format ${foundFormat} requires a newer version of LifeScribe Vault.`);
+    this.name = "SnapshotFormatTooNewError";
+  }
+}
+
 export interface VaultProfile {
   ownerName: string;
   reviewCadenceMonths: number;
@@ -120,6 +127,7 @@ function normalizeSectionValues(sectionKey: string, raw: unknown): SectionValues
     return { sectionKey, records: [], archivedAnswers: [] };
   }
   return {
+    ...raw,
     sectionKey,
     records: Array.isArray(raw.records) ? (raw.records as SectionValues["records"]) : [],
     archivedAnswers: Array.isArray(raw.archivedAnswers)
@@ -148,7 +156,7 @@ function normalizeSectionMeta(raw: unknown): SectionMetaMap {
     if (!isRecord(entryRaw)) {
       continue;
     }
-    const entry: SectionMeta = {};
+    const entry: SectionMeta = { ...entryRaw };
     if (entryRaw.na === true) {
       entry.na = true;
     }
@@ -175,7 +183,7 @@ function normalizeKitMeta(raw: unknown): KitMeta | null {
   if (typeof raw.lastGeneratedAt !== "string" || typeof raw.fingerprint !== "string") {
     return null;
   }
-  return { lastGeneratedAt: raw.lastGeneratedAt, fingerprint: raw.fingerprint };
+  return { ...raw, lastGeneratedAt: raw.lastGeneratedAt, fingerprint: raw.fingerprint };
 }
 
 /** A brand-new snapshot for a vault that has never been saved. */
@@ -207,7 +215,20 @@ export function normalizeSnapshot(
   if (!isRecord(raw)) {
     return emptySnapshot(fallbackOwnerName);
   }
+  if (typeof raw.snapshotFormat === "number" && raw.snapshotFormat > SNAPSHOT_FORMAT) {
+    throw new SnapshotFormatTooNewError(raw.snapshotFormat);
+  }
   const profileRaw = isRecord(raw.profile) ? raw.profile : {};
+  const knownProfileKeys = new Set([
+    "ownerName",
+    "reviewCadenceMonths",
+    "basePackId",
+    "formMode",
+    "moduleSelections",
+  ]);
+  const profileExtra = Object.fromEntries(
+    Object.entries(profileRaw).filter(([key]) => !knownProfileKeys.has(key)),
+  );
   const cadenceRaw = profileRaw.reviewCadenceMonths;
   const reviewCadenceMonths =
     typeof cadenceRaw === "number" && Number.isFinite(cadenceRaw) && cadenceRaw > 0
@@ -226,6 +247,7 @@ export function normalizeSnapshot(
       typeof raw.snapshotFormat === "number" ? raw.snapshotFormat : SNAPSHOT_FORMAT,
     schemaVersion: typeof raw.schemaVersion === "number" ? raw.schemaVersion : 0,
     profile: {
+      ...profileExtra,
       ownerName: asString(profileRaw.ownerName, fallbackOwnerName),
       reviewCadenceMonths,
       ...(typeof profileRaw.basePackId === "string" && profileRaw.basePackId.length > 0

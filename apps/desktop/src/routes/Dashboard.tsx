@@ -45,10 +45,8 @@ import { buildDraftPayload, parseDraftPayload } from "../domain/draft";
 import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../domain/formModel";
 import { loadDefaultPack } from "../domain/loadDefaultPack";
 import {
-  capRecordSchemaVersions,
   migrateVaultValues,
   pendingRetypedFields,
-  SNAPSHOT_SCHEMA_TOO_NEW,
 } from "../domain/packMigrations";
 import { mergePackWithOverlay } from "../domain/packMerge";
 import {
@@ -157,17 +155,8 @@ function buildLoadedVault(
   let values = applyKeyRenames(parsed.values, merge.keyRenames);
   const retypedFields = pendingRetypedFields(values, pack);
 
-  let migrated = migrateVaultValues(values, pack);
+  const migrated = migrateVaultValues(values, pack);
   if (!migrated.ok) {
-    // If records carry a higher schemaVersion than the base pack but there is
-    // no customPack, this was almost certainly caused by a now-cleared
-    // customPack that left its schemaVersion stamp on the records. Cap and
-    // retry so the vault remains accessible. If a customPack IS present, the
-    // block is genuine (an incompatibly newer app wrote those records).
-    if (migrated.error.code === SNAPSHOT_SCHEMA_TOO_NEW && !parsed.customPack) {
-      values = capRecordSchemaVersions(values, pack.schemaVersion);
-      migrated = migrateVaultValues(values, pack);
-    }
     if (!migrated.ok) {
       return { blocked: migrated.error.message };
     }
@@ -301,7 +290,16 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
       }
 
       // Use the user's personal pack if saved, else the bundled default.
-      const parsed = normalizeSnapshot(raw, ownerNameHint);
+      let parsed: ParsedSnapshot;
+      try {
+        parsed = normalizeSnapshot(raw, ownerNameHint);
+      } catch (error) {
+        if (isCurrent) {
+          setBlockedMessage(error instanceof Error ? error.message : "This vault requires a newer app.");
+          setPhase("blocked");
+        }
+        return;
+      }
       let pack: FormPack;
       try {
         pack = await resolveBasePack(parsed);

@@ -118,7 +118,6 @@ describe("Dashboard branded phase states", () => {
   it("shows the panel logo when a newer app wrote the vault", async () => {
     mocked.loadVaultSnapshot.mockResolvedValue({
       snapshot: {
-        customPack: basePackJson,
         values: {
           [SECTION_KEY]: {
             sectionKey: SECTION_KEY,
@@ -143,6 +142,21 @@ describe("Dashboard branded phase states", () => {
     expect(screen.getByRole("img", { name: "LifeScribe Vault" })).toHaveClass(
       "brand-logo--panel",
     );
+  });
+
+  it("blocks a future snapshot format before loading a form pack", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: { snapshotFormat: 2, futurePayload: { mustSurvive: true } },
+      generation: 1,
+      recovered: false,
+    });
+
+    renderDashboard();
+
+    expect(
+      await screen.findByText("Snapshot format 2 requires a newer version of LifeScribe Vault."),
+    ).toBeInTheDocument();
+    expect(mocked.readDefaultPack).not.toHaveBeenCalled();
   });
 
   it("archives an incompatible value using retype migration provenance during the real load pipeline", async () => {

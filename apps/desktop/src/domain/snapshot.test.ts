@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { FormPack } from "./formModel";
-import { buildSnapshot, emptySnapshot, normalizeSnapshot } from "./snapshot";
+import {
+  buildSnapshot,
+  emptySnapshot,
+  normalizeSnapshot,
+  SnapshotFormatTooNewError,
+} from "./snapshot";
 
 const MINIMAL_PACK: FormPack = {
   packId: "test-pack",
@@ -69,6 +74,38 @@ describe("unknown top-level fields", () => {
     expect(parsed.extra).toEqual({ futureThing: { nested: [1, 2] } });
     const wire = buildSnapshot(parsed) as Record<string, unknown>;
     expect(wire.futureThing).toEqual({ nested: [1, 2] });
+  });
+});
+
+describe("forward compatibility", () => {
+  it("refuses a snapshot format written by a newer app", () => {
+    expect(() => normalizeSnapshot({ snapshotFormat: 2 })).toThrow(SnapshotFormatTooNewError);
+  });
+
+  it("preserves unknown nested fields in same-format snapshots", () => {
+    const raw = {
+      snapshotFormat: 1,
+      profile: { ownerName: "A", futureProfileSetting: { enabled: true } },
+      values: {
+        identity: {
+          sectionKey: "identity",
+          records: [],
+          archivedAnswers: [],
+          futureSectionValue: "kept",
+        },
+      },
+      sectionMeta: { identity: { completed: true, futureMeta: 7 } },
+      kitMeta: {
+        lastGeneratedAt: "2026-01-01T00:00:00Z",
+        fingerprint: "abc",
+        futureKitField: [1, 2],
+      },
+    };
+    const roundTrip = buildSnapshot(normalizeSnapshot(raw)) as typeof raw;
+    expect(roundTrip.profile.futureProfileSetting).toEqual({ enabled: true });
+    expect(roundTrip.values.identity.futureSectionValue).toBe("kept");
+    expect(roundTrip.sectionMeta.identity.futureMeta).toBe(7);
+    expect(roundTrip.kitMeta.futureKitField).toEqual([1, 2]);
   });
 });
 

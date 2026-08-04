@@ -27,10 +27,13 @@ use crate::error::{VaultError, VaultResult};
 pub const VAULT_FILE_NAME: &str = "vault.sqlite3";
 
 const POINTER_FILE_NAME: &str = "vault-location.json";
+const POINTER_FORMAT_VERSION: u8 = 1;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LocationPointer {
+    #[serde(default)]
+    version: u8,
     vault_dir: String,
 }
 
@@ -46,13 +49,21 @@ pub fn vault_file_in(vault_dir: &Path) -> PathBuf {
 
 /// Read the recorded vault directory. `None` when the pointer is absent,
 /// unreadable, or unparseable — all three degrade identically by design.
-pub fn read_location(config_dir: &Path) -> Option<PathBuf> {
-    let bytes = fs::read(pointer_path(config_dir)).ok()?;
-    let pointer: LocationPointer = serde_json::from_slice(&bytes).ok()?;
-    if pointer.vault_dir.is_empty() {
-        return None;
+pub fn read_location(config_dir: &Path) -> VaultResult<Option<PathBuf>> {
+    let bytes = match fs::read(pointer_path(config_dir)) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(VaultError::FileOperation(error.to_string())),
+    };
+    let pointer: LocationPointer =
+        serde_json::from_slice(&bytes).map_err(|_| VaultError::InvalidVaultLocation)?;
+    if pointer.version > POINTER_FORMAT_VERSION {
+        return Err(VaultError::VaultLocationTooNew);
     }
-    Some(PathBuf::from(pointer.vault_dir))
+    if pointer.vault_dir.is_empty() {
+        return Err(VaultError::InvalidVaultLocation);
+    }
+    Ok(Some(PathBuf::from(pointer.vault_dir)))
 }
 
 fn temp_pointer_path(final_path: &Path) -> PathBuf {
@@ -68,6 +79,7 @@ fn temp_pointer_path(final_path: &Path) -> PathBuf {
 pub fn write_location(config_dir: &Path, vault_dir: &Path) -> VaultResult<()> {
     fs::create_dir_all(config_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     let pointer = LocationPointer {
+        version: POINTER_FORMAT_VERSION,
         // `to_string_lossy` can lose data for a path containing unpaired
         // UTF-16 surrogates, but JSON requires valid UTF-8 and paths handed
         // to us via a folder-picker dialog are always well-formed, so the
@@ -88,8 +100,8 @@ pub fn write_location(config_dir: &Path, vault_dir: &Path) -> VaultResult<()> {
 }
 
 /// The vault directory in effect: the pointer when usable, else `config_dir`.
-pub fn resolve_vault_dir(config_dir: &Path) -> PathBuf {
-    read_location(config_dir).unwrap_or_else(|| config_dir.to_path_buf())
+pub fn resolve_vault_dir(config_dir: &Path) -> VaultResult<PathBuf> {
+    Ok(read_location(config_dir)?.unwrap_or_else(|| config_dir.to_path_buf()))
 }
 
 /// The destination rules for a move, shared by `relocate` and the pre-flight

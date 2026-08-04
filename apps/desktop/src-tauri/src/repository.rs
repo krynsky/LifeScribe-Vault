@@ -21,6 +21,7 @@ use crate::error::{VaultError, VaultResult};
 
 /// Number of previous snapshot generations retained alongside the newest.
 pub const SNAPSHOT_RETAIN_PREVIOUS: u64 = 3;
+pub const CURRENT_DB_SCHEMA_VERSION: u32 = 1;
 
 pub struct VaultRepository {
     connection: Connection,
@@ -89,7 +90,9 @@ impl VaultRepository {
             }
             error => VaultError::Storage(error.to_string()),
         })?;
-        Self::configure(connection)
+        let repository = Self::configure(connection)?;
+        repository.migrate_existing_schema()?;
+        Ok(repository)
     }
 
     fn configure(connection: Connection) -> VaultResult<Self> {
@@ -104,6 +107,7 @@ impl VaultRepository {
             .execute_batch(
                 r#"
                 PRAGMA journal_mode = WAL;
+                PRAGMA user_version = 1;
                 CREATE TABLE IF NOT EXISTS vault_header (
                     id INTEGER PRIMARY KEY CHECK (id = 1),
                     kdf_metadata TEXT NOT NULL,
@@ -122,6 +126,22 @@ impl VaultRepository {
                 "#,
             )
             .map_err(|error| VaultError::Storage(error.to_string()))?;
+        Ok(())
+    }
+
+    fn migrate_existing_schema(&self) -> VaultResult<()> {
+        let version: u32 = self
+            .connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .map_err(|error| VaultError::Storage(error.to_string()))?;
+        if version > CURRENT_DB_SCHEMA_VERSION {
+            return Err(VaultError::VaultDatabaseTooNew);
+        }
+        if version == 0 {
+            self.connection
+                .execute_batch("BEGIN IMMEDIATE; PRAGMA user_version = 1; COMMIT;")
+                .map_err(|error| VaultError::Storage(error.to_string()))?;
+        }
         Ok(())
     }
 

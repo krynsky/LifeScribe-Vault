@@ -31,6 +31,10 @@ pub enum VaultError {
     SnapshotConflict,
     #[error("This backup requires a newer version of LifeScribe Vault.")]
     BackupVersionTooNew,
+    #[error("This vault database requires a newer version of LifeScribe Vault.")]
+    VaultDatabaseTooNew,
+    #[error("The saved vault location requires a newer version of LifeScribe Vault.")]
+    VaultLocationTooNew,
     #[error("A restore is already in progress. Complete or roll back before starting a new one.")]
     RestoreConflict,
     #[error("The v1 vault file is locked by another application. Close LifeScribe Vault v1 and try again.")]
@@ -61,6 +65,8 @@ pub fn command_error_code(error: VaultError) -> String {
             "CorruptVault"
         }
         VaultError::BackupVersionTooNew => "BackupVersionTooNew",
+        VaultError::VaultDatabaseTooNew => "VaultDatabaseTooNew",
+        VaultError::VaultLocationTooNew => "VaultLocationTooNew",
         VaultError::RestoreConflict => "RestoreConflict",
         VaultError::DatabaseLocked => "DatabaseLocked",
         VaultError::InvalidVaultLocation => "InvalidVaultLocation",

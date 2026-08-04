@@ -12,7 +12,7 @@ use crate::vault_location::{
 #[test]
 fn resolve_falls_back_to_config_dir_when_no_pointer_exists() {
     let dir = tempdir().unwrap();
-    assert_eq!(resolve_vault_dir(dir.path()), dir.path().to_path_buf());
+    assert_eq!(resolve_vault_dir(dir.path()).unwrap(), dir.path().to_path_buf());
 }
 
 #[test]
@@ -22,26 +22,57 @@ fn pointer_round_trips() {
 
     write_location(config.path(), target.path()).unwrap();
 
-    assert_eq!(read_location(config.path()), Some(target.path().to_path_buf()));
-    assert_eq!(resolve_vault_dir(config.path()), target.path().to_path_buf());
+    assert_eq!(read_location(config.path()).unwrap(), Some(target.path().to_path_buf()));
+    assert_eq!(resolve_vault_dir(config.path()).unwrap(), target.path().to_path_buf());
 }
 
 #[test]
-fn corrupt_pointer_degrades_to_the_default_without_panicking() {
+fn corrupt_pointer_is_refused_instead_of_falling_back() {
     let config = tempdir().unwrap();
     fs::write(config.path().join("vault-location.json"), b"{ this is not json").unwrap();
 
-    assert_eq!(read_location(config.path()), None);
-    assert_eq!(resolve_vault_dir(config.path()), config.path().to_path_buf());
+    assert!(read_location(config.path()).is_err());
+    assert!(resolve_vault_dir(config.path()).is_err());
 }
 
 #[test]
-fn pointer_with_wrong_shape_degrades_to_the_default() {
+fn pointer_with_wrong_shape_is_refused() {
     let config = tempdir().unwrap();
     // Valid JSON, missing the vaultDir key.
     fs::write(config.path().join("vault-location.json"), br#"{"other":1}"#).unwrap();
 
-    assert_eq!(read_location(config.path()), None);
+    assert!(read_location(config.path()).is_err());
+}
+
+#[test]
+fn future_pointer_version_is_refused() {
+    let config = tempdir().unwrap();
+    fs::write(
+        config.path().join("vault-location.json"),
+        br#"{"version":2,"vaultDir":"D:\\FutureVault"}"#,
+    )
+    .unwrap();
+
+    assert!(matches!(
+        read_location(config.path()),
+        Err(crate::error::VaultError::VaultLocationTooNew)
+    ));
+}
+
+#[test]
+fn legacy_unversioned_pointer_remains_readable() {
+    let config = tempdir().unwrap();
+    let target = tempdir().unwrap();
+    fs::write(
+        config.path().join("vault-location.json"),
+        serde_json::to_vec(&serde_json::json!({
+            "vaultDir": target.path().to_string_lossy()
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(read_location(config.path()).unwrap(), Some(target.path().to_path_buf()));
 }
 
 #[test]
@@ -52,7 +83,7 @@ fn write_location_creates_the_config_directory_when_absent() {
 
     write_location(&config, target.path()).unwrap();
 
-    assert_eq!(read_location(&config), Some(target.path().to_path_buf()));
+    assert_eq!(read_location(&config).unwrap(), Some(target.path().to_path_buf()));
 }
 
 #[test]
@@ -220,7 +251,7 @@ fn relocate_rejects_a_destination_that_fails_verification() {
 
     assert_eq!(command_error_code(error), "CorruptVault");
     assert!(vault_file_in(from.path()).exists(), "source must be untouched");
-    assert!(read_location(from.path()).is_none(), "the pointer must NOT be written");
+    assert!(read_location(from.path()).unwrap().is_none(), "the pointer must NOT be written");
 }
 
 #[test]
@@ -255,7 +286,7 @@ fn relocate_stores_a_pointer_without_the_verbatim_prefix() {
 
     relocate(from.path(), from.path(), &to.path().join("moved")).unwrap();
 
-    let stored = read_location(from.path()).expect("pointer must be written");
+    let stored = read_location(from.path()).unwrap().expect("pointer must be written");
     assert!(
         !stored.to_string_lossy().starts_with(r"\\?\"),
         "stored pointer must not keep the verbatim prefix: {stored:?}",
@@ -350,7 +381,7 @@ fn set_location_creates_the_directory_writes_the_pointer_and_repoints_the_sessio
     let status = set_vault_location_for_session(&mut session, &target).unwrap();
 
     assert!(target.is_dir(), "the directory is created when absent");
-    assert_eq!(read_location(config.path()), Some(target.clone()));
+    assert_eq!(read_location(config.path()).unwrap(), Some(target.clone()));
     assert_eq!(session.vault_path, vault_file_in(&target));
     assert!(!status.vault_exists, "an empty folder holds no vault");
     assert!(status.vault_dir_available);
@@ -400,7 +431,7 @@ fn relocate_command_moves_the_vault_and_repoints_the_session() {
     assert_eq!(response.vault_dir, target.to_string_lossy());
     assert!(response.originals_removed);
     assert_eq!(session.vault_path, vault_file_in(&target));
-    let stored = read_location(home.path()).expect("pointer must be written");
+    let stored = read_location(home.path()).unwrap().expect("pointer must be written");
     assert_eq!(
         fs::canonicalize(&stored).unwrap(),
         fs::canonicalize(&target).unwrap(),
