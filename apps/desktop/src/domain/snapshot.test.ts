@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FormPack } from "./formModel";
+import releaseSnapshot from "./fixtures/snapshot-v1.0.json";
 import {
   buildSnapshot,
   emptySnapshot,
@@ -80,6 +81,10 @@ describe("unknown top-level fields", () => {
 describe("forward compatibility", () => {
   it("refuses a snapshot format written by a newer app", () => {
     expect(() => normalizeSnapshot({ snapshotFormat: 2 })).toThrow(SnapshotFormatTooNewError);
+  });
+
+  it("keeps the checked-in 1.0 release snapshot readable and lossless", () => {
+    expect(buildSnapshot(normalizeSnapshot(releaseSnapshot))).toEqual(releaseSnapshot);
   });
 
   it("preserves unknown nested fields in same-format snapshots", () => {

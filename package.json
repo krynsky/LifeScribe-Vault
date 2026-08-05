@@ -7,7 +7,9 @@
     "test": "npm --prefix apps/desktop test",
     "typecheck": "npm --prefix apps/desktop run typecheck",
     "lint": "npm --prefix apps/desktop run lint",
-    "pack-editor": "npm --prefix apps/desktop run pack-editor"
+    "pack-editor": "npm --prefix apps/desktop run pack-editor",
+    "release:clean": "node scripts/clean-release-artifacts.mjs",
+    "release:check": "node scripts/release-check.mjs"
   },
   "workspaces": [
     "apps/desktop"

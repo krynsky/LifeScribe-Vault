@@ -55,10 +55,10 @@ Every field is optional — fill in what's relevant and skip the rest. A **Recov
 ## Architecture
 
 ### Vault Snapshot
-The vault is stored as an encrypted opaque JSON blob (`VaultSnapshot`). Rust never inspects field names — it stores and returns bytes identically, so the TypeScript domain model is the only place the shape is defined. Unknown fields from newer app versions are preserved verbatim on every round-trip.
+The vault is stored as an encrypted opaque JSON blob (`VaultSnapshot`). Rust never inspects field names — it stores and returns bytes identically, so the TypeScript domain model is the only place the shape is defined. Same-format unknown fields are preserved at every modeled level; a future snapshot format is refused until the app is upgraded.
 
 ### Form Pack System
-Forms are driven by a versioned **FormPack** — a data-only definition of sections, groups, fields, readiness rules, and Recovery Kit mappings. The app ships one bundled pack and uses it as authored; every field is either protected (structural) or optional, and nothing is gated behind a setup question. On top of that, users can apply a **UserOverlay** (relabel fields, reorder, add custom fields, hide optional ones); the overlay is constrained — it cannot delete or retype protected fields.
+Forms are driven by a versioned **FormPack** — a data-only definition of sections, groups, fields, readiness rules, and Recovery Kit mappings. The app ships one bundled pack; every field is either protected (structural) or optional. Personal Pack Editor changes are stored with the bundled baseline they came from, then three-way rebased onto future bundled packs so user changes and new base fields/migrations both survive. Stored and rebased packs are validated before rendering. On top of that, users can apply a constrained **UserOverlay** (relabel fields, reorder, add custom fields, hide optional ones).
 
 Fields can also **link to records in another section** (`recordRef`) — a backup naming the device it protects, a subscription naming the account that pays for it. The link stores the target record's id, so renaming the target updates every reference to it, and a record cannot be deleted while something still points at it.
 
@@ -102,7 +102,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 # Run the app in dev mode (hot reload)
 npm run dev
 
-# Build Windows installers (MSI + NSIS)
+# Build the Windows NSIS installer
 npm run build
 ```
 

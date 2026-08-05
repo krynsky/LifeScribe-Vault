@@ -8,7 +8,7 @@ Record the environment at the top of your run:
 |---|---|
 | Date | |
 | Build version | |
-| Installer type (MSI / NSIS) | |
+| Installer type | NSIS |
 | Windows version | |
 | Profile / machine | |
 | Tester | |
@@ -18,6 +18,7 @@ Record the environment at the top of your run:
 ## 1. Clean install
 
 - [ ] Run the installer on a machine with no prior `com.lifescribe.vault.v2` app-data directory.
+- [ ] On a second profile, install over the previous released NSIS version without uninstalling. Confirm the populated vault, attachments, custom forms, and vault location all survive.
 - [ ] Installation completes without errors or privilege prompts beyond UAC.
 - [ ] App launches from Start menu / desktop shortcut.
 - [ ] No WebView2 install prompt (WebView2 skip mode is set in `tauri.conf.json`).

@@ -1,0 +1,52 @@
+{
+  "snapshotFormat": 1,
+  "schemaVersion": 1,
+  "profile": {
+    "ownerName": "Release Fixture",
+    "reviewCadenceMonths": 12,
+    "basePackId": "lifescribe-default",
+    "futureProfileField": "preserve"
+  },
+  "values": {
+    "documents": {
+      "sectionKey": "documents",
+      "records": [
+        {
+          "id": "fixture-document",
+          "groupKey": "document",
+          "schemaVersion": 1,
+          "values": {
+            "documentName": "Will"
+          }
+        }
+      ],
+      "archivedAnswers": [
+        {
+          "id": "archived-file",
+          "sectionKey": "documents",
+          "recordId": "fixture-document",
+          "systemKey": "oldFile",
+          "originalLabel": "Old file",
+          "value": "fixture-attachment",
+          "attachment": {
+            "id": "fixture-attachment",
+            "fileName": "will.pdf",
+            "sizeBytes": 42
+          },
+          "reason": "Fixture archival"
+        }
+      ],
+      "futureSectionField": true
+    }
+  },
+  "sectionMeta": {
+    "documents": {
+      "completed": true,
+      "lastSavedAt": "2026-08-04T00:00:00.000Z",
+      "futureMetaField": 1
+    }
+  },
+  "futureTopLevelField": {
+    "preserve": true
+  }
+}

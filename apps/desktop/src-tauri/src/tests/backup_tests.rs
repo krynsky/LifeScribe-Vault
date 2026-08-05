@@ -261,6 +261,39 @@ fn tampered_payload_version_fails_aead_not_version_check() {
     }
 }
 
+#[test]
+fn authenticated_future_backup_is_refused_before_touching_the_vault() {
+    let dir = tempdir().unwrap();
+    let (_, vault_path) = create_test_vault(dir.path());
+    let att_dir = attachment_dir(&vault_path);
+    let backup = create_backup(
+        &vault_path,
+        &att_dir,
+        MASTER_PASSWORD,
+        &dir.path().join("backups"),
+    )
+    .unwrap();
+    crate::backup::set_authenticated_payload_version_for_test(
+        &backup.output_path,
+        MASTER_PASSWORD,
+        crate::backup::MAX_BACKUP_PAYLOAD_VERSION + 1,
+    )
+    .unwrap();
+    let before = fs::read(&vault_path).unwrap();
+
+    let result = restore_backup(
+        &backup.output_path,
+        MASTER_PASSWORD,
+        &vault_path,
+        &att_dir,
+        dir.path(),
+    );
+
+    assert!(matches!(result, Err(crate::error::VaultError::BackupVersionTooNew)));
+    assert_eq!(fs::read(&vault_path).unwrap(), before);
+    assert!(!dir.path().join(RESTORE_MARKER_NAME).exists());
+}
+
 // ---------------------------------------------------------------------------
 // Edge case: restore while restore-in-progress marker exists → RestoreConflict.
 // ---------------------------------------------------------------------------

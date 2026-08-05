@@ -398,6 +398,38 @@ fn read_and_decrypt_backup(
     Ok(payload)
 }
 
+#[cfg(test)]
+pub(crate) fn set_authenticated_payload_version_for_test(
+    backup_path: &Path,
+    master_password: &str,
+    version: u8,
+) -> VaultResult<()> {
+    let bytes = fs::read(backup_path).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let mut envelope: BackupEnvelope =
+        serde_json::from_slice(&bytes).map_err(|_| VaultError::CorruptVault)?;
+    let key = unwrap_data_key(
+        master_password,
+        &envelope.kdf,
+        envelope.wrap_format_version,
+        &envelope.wrapped_key,
+    )?;
+    let aad = backup_payload_aad();
+    let plaintext = decrypt_bytes(&envelope.payload, &key, &aad)?;
+    let mut payload: BackupPayload =
+        serde_json::from_slice(&plaintext).map_err(|_| VaultError::CorruptVault)?;
+    payload.version = version;
+    envelope.payload = encrypt_bytes(
+        &serde_json::to_vec(&payload).map_err(|e| VaultError::Storage(e.to_string()))?,
+        &key,
+        &aad,
+    )?;
+    fs::write(
+        backup_path,
+        serde_json::to_vec(&envelope).map_err(|e| VaultError::Storage(e.to_string()))?,
+    )
+    .map_err(|e| VaultError::FileOperation(e.to_string()))
+}
+
 /// Fixed AAD for the backup payload — the vault_id is inside the authenticated
 /// region, so we use a stable sentinel for the record identity.
 fn backup_payload_aad() -> Vec<u8> {
