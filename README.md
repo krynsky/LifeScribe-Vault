@@ -1,8 +1,8 @@
 # LifeScribe Vault
 
-A Windows-first local desktop app for building an encrypted digital legacy plan. Helps you document your digital executors, password-manager emergency access, devices, financial accounts and subscriptions, important documents, online accounts, platform legacy settings, and backups — plus a printable Recovery Kit — without putting any data on a server.
+A Windows-first local desktop app for building an encrypted digital legacy plan. Helps you document your digital executors, password-manager emergency access, devices, photos and videos, financial accounts and subscriptions, important documents, online accounts, platform legacy settings, and backups — plus a printable Recovery Kit — without putting any data on a server.
 
-**Version:** 0.2.0  
+**Version:** 1.0.0
 **Platform:** Windows (x64)  
 **Status:** Active development
 
@@ -10,13 +10,14 @@ A Windows-first local desktop app for building an encrypted digital legacy plan.
 
 ## What It Does
 
-LifeScribe Vault walks you through nine guided sections of your digital legacy plan:
+LifeScribe Vault walks you through ten guided sections of your digital legacy plan:
 
 | Section | What you capture |
 |---|---|
 | **Digital Executors** | Primary and backup executors — contact info, responsibilities, step-in notes |
 | **Password Manager** | Provider, vault location, and how a trusted person gains emergency access |
 | **Devices** | The phones and computers your family would need to unlock |
+| **Photos & Videos** | Each device and collection, its location, and the software or app used to open it |
 | **Financial Accounts** | Institutions and accounts, so nothing is missed |
 | **Subscriptions** | Recurring services and what should happen to each (keep / cancel) |
 | **Online Accounts** | Email, domains, and accounts that matter |
@@ -24,7 +25,7 @@ LifeScribe Vault walks you through nine guided sections of your digital legacy p
 | **Backups & Storage** | Where backups live and how to get into them |
 | **Platform Legacy Tools** | Google Inactive Account Manager, Apple Legacy Contact, and similar |
 
-Every field is optional — fill in what's relevant and skip the rest. A **Recovery Kit** — an auto-generated snapshot of saved data that can be printed or exported as a PDF — is the document your family starts from. Each section drives a dashboard readiness indicator, so the app won't let you forget what's missing.
+Each section has identifying fields and optional supporting details — fill in what applies to your plan. A **Recovery Kit** — an auto-generated snapshot of saved data that can be printed or exported as a PDF — is the document your family starts from. Each section drives a dashboard readiness indicator, so the app won't let you forget what's missing.
 
 ---
 

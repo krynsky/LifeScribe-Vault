@@ -373,8 +373,8 @@ describe("Dashboard checklist and saving", () => {
     // The user's own "Mark as complete" decision is what moves it to ready.
     await user.click(screen.getByRole("button", { name: "Mark as complete" }));
     expect(await within(sidebarSectionButton()).findByText("Complete")).toBeInTheDocument();
-    // 1 of the pack's 9 sections ready -> 11% overall readiness.
-    expect(screen.getAllByText("11%").length).toBeGreaterThan(0);
+    // 1 of the pack's 10 sections ready -> 10% overall readiness.
+    expect(screen.getAllByText("10%").length).toBeGreaterThan(0);
 
     // Marking complete already counts as a review, so a freshly-completed
     // section has nothing left to confirm — the button would be a no-op.
@@ -496,8 +496,8 @@ describe("Dashboard N/A flow", () => {
       (snapshot.sectionMeta as Record<string, { na?: boolean }>)[SECTION_KEY].na,
     ).toBe(true);
     expect(await within(sidebarSectionButton()).findByText("Doesn't apply")).toBeInTheDocument();
-    // 1 of 9 sections ready (via N/A) -> 11% overall readiness.
-    expect(screen.getAllByText("11%").length).toBeGreaterThan(0);
+    // 1 of 10 sections ready (via N/A) -> 10% overall readiness.
+    expect(screen.getAllByText("10%").length).toBeGreaterThan(0);
 
     mocked.saveVaultSnapshot.mockResolvedValue({ generation: 2 });
     await user.click(screen.getByRole("button", { name: "It applies to me after all" }));

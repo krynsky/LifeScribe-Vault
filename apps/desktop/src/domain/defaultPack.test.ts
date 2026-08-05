@@ -11,7 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { createElement, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { RecordList } from "../components/RecordList";
-import type { SectionValues } from "./valuesStore";
+import type { SectionValues, VaultValues } from "./valuesStore";
 import type {
   FieldDefinition,
   FormPack,
@@ -30,11 +30,12 @@ const EXPECTED_SECTION_KEYS = [
   "digital-executors",
   "password-manager",
   "devices",
+  "section_1785893722058_kq87l",
+  "documents",
+  "backups",
   "financial-accounts",
   "subscriptions",
   "online-accounts",
-  "documents",
-  "backups",
   "platform-legacy",
 ];
 
@@ -86,10 +87,10 @@ describe("shipped default pack", () => {
     expect(pack.migrations).toEqual([]);
   });
 
-  it("ships exactly the nine guided sections in order", () => {
+  it("ships exactly the ten guided sections in order", () => {
     const ordered = [...pack.sections].sort((left, right) => left.order - right.order);
     expect(ordered.map((section) => section.sectionKey)).toEqual(EXPECTED_SECTION_KEYS);
-    expect(pack.sections).toHaveLength(9);
+    expect(pack.sections).toHaveLength(10);
   });
 
   it("every section has a non-empty caring lede and a kit mapping heading", () => {
@@ -160,6 +161,14 @@ describe("shipped default pack", () => {
     expect(sectionByKey("financial-accounts").recordLabel).toEqual({
       fields: ["accountInstitution", "accountName"],
       separator: " — ",
+    });
+  });
+
+  it("configures Photos & Videos record labels with device and description", () => {
+    const section = pack.sections.find((candidate) => candidate.title === "Photos & Videos");
+    expect(section?.recordLabel).toEqual({
+      fields: ["field_1785893722058_qp8gz", "field_1785945049853_tx0hx"],
+      separator: " - ",
     });
   });
 
@@ -285,7 +294,7 @@ describe("shipped default pack: the three permanent optional fields", () => {
     }
   });
 
-  it("section readiness is unchanged by the newly permanent fields", () => {
+  it("configures the intended required keys for every section", () => {
     expect(
       Object.fromEntries(
         pack.sections.map((section) => [
@@ -297,6 +306,7 @@ describe("shipped default pack: the three permanent optional fields", () => {
       "digital-executors": ["executorName", "executorRole"],
       "password-manager": ["passwordManagerProvider"],
       devices: ["deviceName"],
+      section_1785893722058_kq87l: ["field_1785893722058_qp8gz"],
       "financial-accounts": ["accountInstitution"],
       subscriptions: ["subscriptionName"],
       "online-accounts": ["onlineServiceName"],
@@ -311,9 +321,13 @@ describe("shipped default pack: the three permanent optional fields", () => {
 function SectionHarness({
   section,
   initialValues,
+  referenceValues,
+  allSections,
 }: {
   section: ResolvedSection;
   initialValues?: SectionValues;
+  referenceValues?: VaultValues;
+  allSections?: ResolvedSection[];
 }) {
   const [values, setValues] = useState<SectionValues>(() =>
     initialValues ?? makeSectionValues(section.sectionKey),
@@ -323,6 +337,14 @@ function SectionHarness({
     values,
     schemaVersion: pack.schemaVersion,
     onChange: setValues,
+    recordReferences:
+      referenceValues && allSections
+        ? {
+            sections: allSections,
+            savedValues: referenceValues,
+            effectiveValues: referenceValues,
+          }
+        : undefined,
   });
 }
 
@@ -376,6 +398,47 @@ describe("shipped default pack renders through RecordList", () => {
 
     expect(
       screen.getByRole("button", { name: "Chase — Sapphire Reserve" }),
+    ).toBeInTheDocument();
+  });
+
+  it("labels Photos & Videos records with the device name and description", () => {
+    const { resolved } = mergePackWithOverlay(pack);
+    const section = resolved.sections.find(
+      (candidate) => candidate.title === "Photos & Videos",
+    );
+    expect(section).toBeDefined();
+
+    const initialValues = makeSectionValues(section!.sectionKey, [
+      {
+        id: "photos-1",
+        schemaVersion: pack.schemaVersion,
+        values: {
+          field_1785893722058_qp8gz: "device-1",
+          field_1785945049853_tx0hx: "Family vacations",
+        },
+      },
+    ]);
+    const referenceValues: VaultValues = {
+      devices: makeSectionValues("devices", [
+        {
+          id: "device-1",
+          schemaVersion: pack.schemaVersion,
+          values: { deviceName: "Home laptop" },
+        },
+      ]),
+    };
+
+    render(
+      createElement(SectionHarness, {
+        section: section!,
+        initialValues,
+        referenceValues,
+        allSections: resolved.sections,
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Home laptop - Family vacations" }),
     ).toBeInTheDocument();
   });
 });

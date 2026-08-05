@@ -35,6 +35,7 @@ The sections cover:
 - **Password Manager** — your provider, where the vault lives, and how emergency access works
 - **Documents** — wills, insurance, deeds, tax records, and where they're kept
 - **Devices** — the phones and computers your family would need to unlock
+- **Photos & Videos** — each device and collection, where the files live, and which software or app opens them
 - **Financial Accounts** — the institutions and accounts that exist, so nothing is missed
 - **Subscriptions** — recurring services and what should happen to each (keep or cancel), so nothing keeps billing unnoticed
 - **Online Accounts** — email, domains, and accounts that matter
@@ -72,8 +73,9 @@ printed in the Recovery Kit** — see below.
 ### Fields that link to another entry
 
 Some fields ask you to pick something you've already entered elsewhere rather
-than retype it. "Backups & Storage → Device" lists the devices from your Device
-list; "Subscriptions → Payment method" lists your financial accounts.
+than retype it. "Photos & Videos → Device" and "Backups & Storage → Device"
+list the devices from your Device list; "Subscriptions → Payment method" lists
+your financial accounts.
 
 - **Rename once, updated everywhere.** The link remembers *which* entry you
   picked, not the words on screen. Rename a device and every backup pointing at
@@ -90,6 +92,17 @@ list; "Subscriptions → Payment method" lists your financial accounts.
 
 Where a linked field appears on the Recovery Kit, it prints the readable name of
 the entry it points at — never an internal id, and never a password or PIN.
+
+### Photos & Videos
+
+Create one entry for each meaningful combination of **Device** and
+**Description**. The collapsed entry name is shown as `Device - Description`,
+for example `Home laptop - Family vacations`.
+
+Use **Location(s)** for the folder, drive, cloud location, or mobile app where
+that collection lives. If the same device stores another distinct collection,
+add another Photos & Videos entry with its own description. **Software or
+Apps** records what someone can use to view or manage the files.
 
 ### Attaching files
 
@@ -124,6 +137,15 @@ key.
 > you already created — restoring one still asks for the password that was in
 > effect when it was made. If you change your password, consider making a fresh
 > backup so you have one that matches.
+
+---
+
+## App Version
+
+**Settings → App version** shows the version of LifeScribe Vault currently
+running on this computer. The initial release is **1.0.0**. This value comes
+from the installed app, so it matches the version used by the installer rather
+than being a separate settings value.
 
 ---
 

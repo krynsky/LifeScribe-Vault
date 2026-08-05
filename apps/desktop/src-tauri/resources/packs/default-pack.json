@@ -471,389 +471,97 @@
       }
     },
     {
-      "sectionKey": "financial-accounts",
-      "title": "Financial Accounts",
-      "lede": "Your family can't close, transfer, or even find what they don't know exists. You don't need account numbers or balances here — just an inventory of which institutions are part of your life, and what should happen to each one.",
+      "sectionKey": "section_1785893722058_kq87l",
+      "title": "Photos & Videos",
+      "lede": "Decades of family photos and videos can live on one laptop, one phone, or one drive your family doesn't know to look for. List each device or collection, where the files actually are, and what it takes to open them, so nothing gets left behind with the hardware.",
       "multiRecord": true,
       "order": 4,
-      "groups": [
-        {
-          "groupKey": "account",
-          "title": "Account",
-          "repeatable": false,
-          "order": 1,
-          "fields": [
-            {
-              "systemKey": "accountInstitution",
-              "label": "Bank or Institution",
-              "helperText": "The bank, broker, insurer, or \"Chase\", \"Vanguard\", \"Netflix\".",
-              "type": "text",
-              "required": true,
-              "protected": true,
-              "order": 1
-            },
-            {
-              "systemKey": "accountType",
-              "label": "Account type",
-              "type": "select",
-              "required": false,
-              "protected": false,
-              "options": [
-                {
-                  "value": "checking",
-                  "label": "Checking"
-                },
-                {
-                  "value": "savings",
-                  "label": "Savings"
-                },
-                {
-                  "value": "brokerage",
-                  "label": "Brokerage"
-                },
-                {
-                  "value": "retirement",
-                  "label": "Retirement"
-                },
-                {
-                  "value": "credit-card",
-                  "label": "Credit card"
-                },
-                {
-                  "value": "loan",
-                  "label": "Loan"
-                },
-                {
-                  "value": "insurance",
-                  "label": "Insurance"
-                },
-                {
-                  "value": "other",
-                  "label": "Other"
-                }
-              ],
-              "order": 2
-            },
-            {
-              "systemKey": "accountName",
-              "label": "Account Name",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 3,
-              "helperText": "Credit card name \"Sapphire Reserve\", \"Platinum\" or other name identifier"
-            },
-            {
-              "systemKey": "accountNumber",
-              "label": "Account Number",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 4
-            },
-            {
-              "systemKey": "field_1785517494204_wh9do",
-              "label": "Access stored in password manager?",
-              "type": "select",
-              "required": false,
-              "protected": false,
-              "order": 5,
-              "options": [
-                {
-                  "value": "yes",
-                  "label": "Yes"
-                },
-                {
-                  "value": "no",
-                  "label": "No"
-                }
-              ]
-            },
-            {
-              "systemKey": "accountAccessLocation",
-              "label": "How to access",
-              "helperText": "Access location if not stored in password manager.",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 6
-            },
-            {
-              "systemKey": "accountInstructions",
-              "label": "What should happen to it",
-              "helperText": "Close it, transfer it, cancel it — and anything your family should know first, like autopays that depend on it.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 7
-            }
-          ]
-        }
-      ],
-      "readinessRule": {
-        "requiredKeys": [
-          "accountInstitution"
-        ]
-      },
       "recordLabel": {
         "fields": [
-          "accountInstitution",
-          "accountName"
+          "field_1785893722058_qp8gz",
+          "field_1785945049853_tx0hx"
         ],
-        "separator": " — "
+        "separator": " - "
       },
-      "kitMapping": {
-        "entries": [
-          {
-            "heading": "Financial accounts and subscriptions",
-            "fields": [
-              "accountInstitution",
-              "accountType",
-              "accountName",
-              "accountNumber",
-              "accountAccessLocation",
-              "accountInstructions"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "sectionKey": "subscriptions",
-      "title": "Subscriptions",
-      "lede": "Your family can't close, transfer, or even find what they don't know exists. Provide an inventory of which subscriptions are part of your life, and what should happen to each one.",
-      "multiRecord": true,
-      "order": 5,
       "groups": [
         {
-          "groupKey": "subscription",
-          "title": "Subscription",
+          "groupKey": "group_1785893722058_7vequ",
+          "title": "Details",
           "repeatable": false,
           "order": 1,
           "fields": [
             {
-              "systemKey": "subscriptionName",
-              "label": "Subscription",
-              "helperText": "The service this entry is for — a streaming plan, a membership, a recurring app or utility.",
-              "type": "text",
+              "systemKey": "field_1785893722058_qp8gz",
+              "label": "Device",
+              "type": "recordRef",
               "required": true,
               "protected": true,
-              "order": 1
-            },
-            {
-              "systemKey": "subscriptionAction",
-              "label": "Action",
-              "helperText": "What you'd like done with this subscription.",
-              "type": "select",
-              "required": true,
-              "protected": false,
-              "order": 2,
-              "options": [
-                {
-                  "value": "keep",
-                  "label": "Keep"
-                },
-                {
-                  "value": "cancel",
-                  "label": "Cancel"
-                },
-                {
-                  "value": "optional",
-                  "label": "Optional"
-                }
-              ]
-            },
-            {
-              "systemKey": "field_1785343571564_a2230",
-              "label": "Cost",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 3,
-              "helperText": "Monthly or annual cost with any additional details."
-            },
-            {
-              "systemKey": "subscriptionPaymentAccount",
-              "label": "Payment method",
-              "type": "recordRef",
-              "required": false,
-              "protected": false,
-              "order": 4,
-              "helperText": "Which saved financial account pays for this subscription?",
+              "order": 1,
               "reference": {
-                "sectionKey": "financial-accounts",
+                "sectionKey": "devices",
                 "displayFields": [
                   {
-                    "systemKey": "accountInstitution"
-                  },
-                  {
-                    "systemKey": "accountName"
-                  },
-                  {
-                    "systemKey": "accountNumber",
-                    "format": "last4"
+                    "systemKey": "deviceName"
                   }
                 ],
                 "separator": " — "
-              }
+              },
+              "helperText": "The device the photos or videos are stored on."
             },
             {
-              "systemKey": "subscriptionNotes",
-              "label": "Notes",
+              "systemKey": "field_1785945049853_tx0hx",
+              "label": "Description",
+              "type": "text",
+              "required": true,
+              "protected": false,
+              "order": 2,
+              "helperText": "Details such as personal photos, home videos, or vacation photos."
+            },
+            {
+              "systemKey": "field_1785893880972_5wik2",
+              "label": "Location(s)",
+              "type": "path",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "helperText": "For computers this would be the drives and folder locations of the files."
+            },
+            {
+              "systemKey": "field_1785894073109_zm83v",
+              "label": "Software or Apps",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 4,
+              "helperText": "If you use software or mobile apps to view and manage the files list them here."
+            },
+            {
+              "systemKey": "field_1785894111453_izx5k",
+              "label": "Additional Notes",
               "type": "textarea",
               "required": false,
               "protected": false,
               "order": 5,
-              "helperText": "Additional details. Billed monthly or annually, credit card used, which account, or other information."
+              "helperText": "Any other information that is important to provide."
             }
           ]
         }
       ],
       "readinessRule": {
         "requiredKeys": [
-          "subscriptionName"
+          "field_1785893722058_qp8gz"
         ]
       },
       "kitMapping": {
         "entries": [
           {
-            "heading": "Subscriptions",
+            "heading": "Photos and videos",
             "fields": [
-              "subscriptionName",
-              "subscriptionAction",
-              "subscriptionNotes"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "sectionKey": "online-accounts",
-      "title": "Online Accounts",
-      "lede": "Email, cloud storage, social profiles, domain names, creator and business accounts — each one is something your family may need to keep alive, hand off, or close with dignity. List what exists and what you'd like done, so nothing important quietly expires or lingers.",
-      "multiRecord": true,
-      "order": 6,
-      "groups": [
-        {
-          "groupKey": "account",
-          "title": "Account",
-          "repeatable": false,
-          "order": 1,
-          "fields": [
-            {
-              "systemKey": "onlineServiceName",
-              "label": "Service name",
-              "helperText": "The service or site — \"Gmail\", \"Dropbox\", \"my photography site at example.com\".",
-              "type": "text",
-              "required": true,
-              "protected": true,
-              "order": 1
-            },
-            {
-              "systemKey": "onlineAccountKind",
-              "label": "Account Type",
-              "type": "select",
-              "required": false,
-              "protected": false,
-              "options": [
-                {
-                  "value": "email",
-                  "label": "Email"
-                },
-                {
-                  "value": "cloud-storage",
-                  "label": "Cloud storage"
-                },
-                {
-                  "value": "social",
-                  "label": "Social"
-                },
-                {
-                  "value": "domain",
-                  "label": "Domain name"
-                },
-                {
-                  "value": "website",
-                  "label": "Website"
-                },
-                {
-                  "value": "creator",
-                  "label": "Creator account"
-                },
-                {
-                  "value": "business",
-                  "label": "Business account"
-                },
-                {
-                  "value": "other",
-                  "label": "Other"
-                }
-              ],
-              "order": 2
-            },
-            {
-              "systemKey": "onlineUsername",
-              "label": "Username or profile",
-              "helperText": "The handle, profile URL, or address — enough for your family to find the right account.",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 3
-            },
-            {
-              "systemKey": "field_1785343366863_1eerk",
-              "label": "Access stored in password manager?",
-              "type": "select",
-              "required": true,
-              "protected": false,
-              "order": 4,
-              "options": [
-                {
-                  "value": "yes",
-                  "label": "Yes"
-                },
-                {
-                  "value": "no",
-                  "label": "No"
-                }
-              ]
-            },
-            {
-              "systemKey": "onlineAccessLocation",
-              "label": "How to access",
-              "helperText": "Access location if not stored in password manager.",
-              "type": "text",
-              "required": false,
-              "protected": false,
-              "order": 5
-            },
-            {
-              "systemKey": "onlineWishes",
-              "label": "What you'd like done with it",
-              "helperText": "Memorialize it, delete it, transfer it to someone, keep the domain renewed — whatever feels right to you.",
-              "type": "textarea",
-              "required": false,
-              "protected": false,
-              "order": 6
-            }
-          ]
-        }
-      ],
-      "readinessRule": {
-        "requiredKeys": [
-          "onlineServiceName"
-        ]
-      },
-      "kitMapping": {
-        "entries": [
-          {
-            "heading": "Online accounts and domains",
-            "fields": [
-              "onlineServiceName",
-              "onlineAccountKind",
-              "onlineUsername",
-              "onlineAccessLocation",
-              "onlineWishes"
+              "field_1785893722058_qp8gz",
+              "field_1785945049853_tx0hx",
+              "field_1785893880972_5wik2",
+              "field_1785894073109_zm83v",
+              "field_1785894111453_izx5k"
             ]
           }
         ]
@@ -864,7 +572,7 @@
       "title": "Documents",
       "lede": "Wills, deeds, insurance policies, medical directives — your family will need them fast, and \"somewhere in the office\" is not a location. A short list of where each important document lives can save them days of searching at the worst possible time.",
       "multiRecord": true,
-      "order": 7,
+      "order": 5,
       "groups": [
         {
           "groupKey": "document",
@@ -975,7 +683,7 @@
       "title": "Backups & Storage",
       "lede": "Backups are where the irreplaceable things live — decades of photos, tax records, the family videos. Record where each backup is, what's on it, and how to get in, so the copy you so carefully kept doesn't become one more thing nobody can open.",
       "multiRecord": true,
-      "order": 8,
+      "order": 6,
       "groups": [
         {
           "groupKey": "backup",
@@ -1126,11 +834,400 @@
       }
     },
     {
+      "sectionKey": "financial-accounts",
+      "title": "Financial Accounts",
+      "lede": "Your family can't close, transfer, or even find what they don't know exists. You don't need account numbers or balances here — just an inventory of which institutions are part of your life, and what should happen to each one.",
+      "multiRecord": true,
+      "order": 7,
+      "groups": [
+        {
+          "groupKey": "account",
+          "title": "Account",
+          "repeatable": false,
+          "order": 1,
+          "fields": [
+            {
+              "systemKey": "accountInstitution",
+              "label": "Bank or Institution",
+              "helperText": "The bank, broker, insurer, or \"Chase\", \"Vanguard\", \"Netflix\".",
+              "type": "text",
+              "required": true,
+              "protected": true,
+              "order": 1
+            },
+            {
+              "systemKey": "accountType",
+              "label": "Account type",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "options": [
+                {
+                  "value": "checking",
+                  "label": "Checking"
+                },
+                {
+                  "value": "savings",
+                  "label": "Savings"
+                },
+                {
+                  "value": "brokerage",
+                  "label": "Brokerage"
+                },
+                {
+                  "value": "retirement",
+                  "label": "Retirement"
+                },
+                {
+                  "value": "credit-card",
+                  "label": "Credit card"
+                },
+                {
+                  "value": "loan",
+                  "label": "Loan"
+                },
+                {
+                  "value": "insurance",
+                  "label": "Insurance"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
+              ],
+              "order": 2
+            },
+            {
+              "systemKey": "accountName",
+              "label": "Account Name",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "helperText": "Credit card name \"Sapphire Reserve\", \"Platinum\" or other name identifier"
+            },
+            {
+              "systemKey": "accountNumber",
+              "label": "Account Number",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 4
+            },
+            {
+              "systemKey": "field_1785517494204_wh9do",
+              "label": "Access stored in password manager?",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "order": 5,
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                }
+              ]
+            },
+            {
+              "systemKey": "accountAccessLocation",
+              "label": "How to access",
+              "helperText": "Access location if not stored in password manager.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 6
+            },
+            {
+              "systemKey": "accountInstructions",
+              "label": "What should happen to it",
+              "helperText": "Close it, transfer it, cancel it — and anything your family should know first, like autopays that depend on it.",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "order": 7
+            }
+          ]
+        }
+      ],
+      "readinessRule": {
+        "requiredKeys": [
+          "accountInstitution"
+        ]
+      },
+      "recordLabel": {
+        "fields": [
+          "accountInstitution",
+          "accountName"
+        ],
+        "separator": " — "
+      },
+      "kitMapping": {
+        "entries": [
+          {
+            "heading": "Financial accounts and subscriptions",
+            "fields": [
+              "accountInstitution",
+              "accountType",
+              "accountName",
+              "accountNumber",
+              "accountAccessLocation",
+              "accountInstructions"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "sectionKey": "subscriptions",
+      "title": "Subscriptions",
+      "lede": "Your family can't close, transfer, or even find what they don't know exists. Provide an inventory of which subscriptions are part of your life, and what should happen to each one.",
+      "multiRecord": true,
+      "order": 8,
+      "groups": [
+        {
+          "groupKey": "subscription",
+          "title": "Subscription",
+          "repeatable": false,
+          "order": 1,
+          "fields": [
+            {
+              "systemKey": "subscriptionName",
+              "label": "Subscription",
+              "helperText": "The service this entry is for — a streaming plan, a membership, a recurring app or utility.",
+              "type": "text",
+              "required": true,
+              "protected": true,
+              "order": 1
+            },
+            {
+              "systemKey": "subscriptionAction",
+              "label": "Action",
+              "helperText": "What you'd like done with this subscription.",
+              "type": "select",
+              "required": true,
+              "protected": false,
+              "order": 2,
+              "options": [
+                {
+                  "value": "keep",
+                  "label": "Keep"
+                },
+                {
+                  "value": "cancel",
+                  "label": "Cancel"
+                },
+                {
+                  "value": "optional",
+                  "label": "Optional"
+                }
+              ]
+            },
+            {
+              "systemKey": "field_1785343571564_a2230",
+              "label": "Cost",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 3,
+              "helperText": "Monthly or annual cost with any additional details."
+            },
+            {
+              "systemKey": "subscriptionPaymentAccount",
+              "label": "Payment method",
+              "type": "recordRef",
+              "required": false,
+              "protected": false,
+              "order": 4,
+              "helperText": "Which saved financial account pays for this subscription?",
+              "reference": {
+                "sectionKey": "financial-accounts",
+                "displayFields": [
+                  {
+                    "systemKey": "accountInstitution"
+                  },
+                  {
+                    "systemKey": "accountName"
+                  },
+                  {
+                    "systemKey": "accountNumber",
+                    "format": "last4"
+                  }
+                ],
+                "separator": " — "
+              }
+            },
+            {
+              "systemKey": "subscriptionNotes",
+              "label": "Notes",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "order": 5,
+              "helperText": "Additional details. Billed monthly or annually, credit card used, which account, or other information."
+            }
+          ]
+        }
+      ],
+      "readinessRule": {
+        "requiredKeys": [
+          "subscriptionName"
+        ]
+      },
+      "kitMapping": {
+        "entries": [
+          {
+            "heading": "Subscriptions",
+            "fields": [
+              "subscriptionName",
+              "subscriptionAction",
+              "subscriptionNotes"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "sectionKey": "online-accounts",
+      "title": "Online Accounts",
+      "lede": "Email, cloud storage, social profiles, domain names, creator and business accounts — each one is something your family may need to keep alive, hand off, or close with dignity. List what exists and what you'd like done, so nothing important quietly expires or lingers.",
+      "multiRecord": true,
+      "order": 9,
+      "groups": [
+        {
+          "groupKey": "account",
+          "title": "Account",
+          "repeatable": false,
+          "order": 1,
+          "fields": [
+            {
+              "systemKey": "onlineServiceName",
+              "label": "Service name",
+              "helperText": "The service or site — \"Gmail\", \"Dropbox\", \"my photography site at example.com\".",
+              "type": "text",
+              "required": true,
+              "protected": true,
+              "order": 1
+            },
+            {
+              "systemKey": "onlineAccountKind",
+              "label": "Account Type",
+              "type": "select",
+              "required": false,
+              "protected": false,
+              "options": [
+                {
+                  "value": "email",
+                  "label": "Email"
+                },
+                {
+                  "value": "cloud-storage",
+                  "label": "Cloud storage"
+                },
+                {
+                  "value": "social",
+                  "label": "Social"
+                },
+                {
+                  "value": "domain",
+                  "label": "Domain name"
+                },
+                {
+                  "value": "website",
+                  "label": "Website"
+                },
+                {
+                  "value": "creator",
+                  "label": "Creator account"
+                },
+                {
+                  "value": "business",
+                  "label": "Business account"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
+              ],
+              "order": 2
+            },
+            {
+              "systemKey": "onlineUsername",
+              "label": "Username or profile",
+              "helperText": "The handle, profile URL, or address — enough for your family to find the right account.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 3
+            },
+            {
+              "systemKey": "field_1785343366863_1eerk",
+              "label": "Access stored in password manager?",
+              "type": "select",
+              "required": true,
+              "protected": false,
+              "order": 4,
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                }
+              ]
+            },
+            {
+              "systemKey": "onlineAccessLocation",
+              "label": "How to access",
+              "helperText": "Access location if not stored in password manager.",
+              "type": "text",
+              "required": false,
+              "protected": false,
+              "order": 5
+            },
+            {
+              "systemKey": "onlineWishes",
+              "label": "What you'd like done with it",
+              "helperText": "Memorialize it, delete it, transfer it to someone, keep the domain renewed — whatever feels right to you.",
+              "type": "textarea",
+              "required": false,
+              "protected": false,
+              "order": 6
+            }
+          ]
+        }
+      ],
+      "readinessRule": {
+        "requiredKeys": [
+          "onlineServiceName"
+        ]
+      },
+      "kitMapping": {
+        "entries": [
+          {
+            "heading": "Online accounts and domains",
+            "fields": [
+              "onlineServiceName",
+              "onlineAccountKind",
+              "onlineUsername",
+              "onlineAccessLocation",
+              "onlineWishes"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "sectionKey": "platform-legacy",
       "title": "Platform Legacy Tools",
       "lede": "Apple, Google, and Facebook each have a built-in legacy setting — free, official, and far easier for your family than support tickets and death certificates. Each takes about ten minutes to set up. They only cover part of the picture, but they're the easiest wins in this whole checklist.",
       "multiRecord": true,
-      "order": 9,
+      "order": 10,
       "groups": [
         {
           "groupKey": "platform",

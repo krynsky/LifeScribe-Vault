@@ -287,6 +287,13 @@ section-level `recordLabel` composes several fields instead:
 "recordLabel": { "fields": ["accountInstitution", "accountName"], "separator": " — " }
 ```
 
+The shipped Photos & Videos section uses the same mechanism with its Device
+`recordRef` and Description fields, separated by `" - "`. A referenced Device
+is resolved to its readable device name before the label is composed, so a
+record can display as `Home laptop - Family vacations`. Empty label parts are
+omitted; the normal readiness-value fallback remains available when no label
+part has a value.
+
 It is honored in **two** places, and they resolve values differently on purpose:
 
 - `recordSummaryLabel` (dashboard rows, reference pickers) reads
