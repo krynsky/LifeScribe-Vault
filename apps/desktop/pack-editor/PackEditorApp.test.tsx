@@ -198,7 +198,8 @@ describe("PackEditorApp", () => {
     expect(mocked.savePack).toHaveBeenCalledTimes(1);
     const call = mocked.savePack.mock.calls[0]!;
     // savePack(pack) only — no variant second argument.
-    expect(call).toHaveLength(1);
+    expect(call).toHaveLength(2);
+    expect(call[1]).toEqual(basePack);
     const field = call[0].sections
       .find((s) => s.sectionKey === "identity")!
       .groups.flatMap((g) => g.fields)
@@ -441,7 +442,7 @@ describe("PackEditorApp", () => {
       expect(section.readinessRule.requiredKeys).toEqual(["fullName", "nickname"]);
     });
 
-    it("un-anchoring the existing protected field releases it and drops it from requiredKeys", async () => {
+    it("refuses to demote an existing protected field", async () => {
       mocked.savePack.mockResolvedValue(undefined);
       render(<PackEditorApp />);
       await userEvent.click(await screen.findByRole("button", { name: /edit field Full name/i }));
@@ -450,10 +451,8 @@ describe("PackEditorApp", () => {
       await userEvent.click(checkbox);
 
       await save();
-      const section = savedPack().sections.find((s) => s.sectionKey === "identity")!;
-      const field = section.groups.flatMap((g) => g.fields).find((f) => f.systemKey === "fullName")!;
-      expect(field.protected).toBe(false);
-      expect(section.readinessRule.requiredKeys).toEqual([]);
+      expect(mocked.savePack).not.toHaveBeenCalled();
+      expect(screen.getByRole("alert")).toHaveTextContent(/must remain protected/i);
     });
   });
 

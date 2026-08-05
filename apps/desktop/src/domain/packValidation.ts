@@ -490,6 +490,11 @@ function validateMigrationOperation(candidate: unknown, stepLabel: string, error
         errors.push(`Migration ${stepLabel}: reduceCardinality requires sectionKey.`);
       }
       break;
+    case "archiveField":
+      if (!isNonEmptyString(candidate.sectionKey) || !isNonEmptyString(candidate.systemKey)) {
+        errors.push(`Migration ${stepLabel}: archiveField requires sectionKey and systemKey.`);
+      }
+      break;
     default:
       errors.push(
         `Migration ${stepLabel}: unknown operation "${candidate.op}" — migrations are declarative data, not scripts.`,
@@ -638,6 +643,11 @@ export function validatePackUpgrade(
       (op) => op.op === "retypeField" && op.sectionKey === sectionKey && op.systemKey === systemKey,
     );
 
+  const hasArchiveOp = (sectionKey: string, systemKey: string): boolean =>
+    ops.some(
+      (op) => op.op === "archiveField" && op.sectionKey === sectionKey && op.systemKey === systemKey,
+    );
+
   const hasReduceOp = (sectionKey: string, groupKey?: string): boolean =>
     ops.some(
       (op) =>
@@ -669,7 +679,7 @@ export function validatePackUpgrade(
               `Protected field ${sectionKey}.${systemKey} cannot change type (renamed to ${renameTarget} with type ${renamedField.field.type}).`,
             );
           }
-        } else if (!renamedField) {
+        } else if (!renamedField && !hasArchiveOp(sectionKey, systemKey)) {
           warnings.push(
             `Field ${sectionKey}.${systemKey} was removed without an authored migration; existing values will become archived answers.`,
           );

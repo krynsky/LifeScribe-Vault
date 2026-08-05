@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormPack } from "../src/domain/formModel";
 import { mergePackWithOverlay } from "../src/domain/packMerge";
 import { validatePack } from "../src/domain/packValidation";
+import { deriveAutoMigration } from "../src/creator/packAutoMigrate";
 import { removeSection } from "../src/creator/packEdits";
 import { createSectionValues } from "../src/domain/valuesStore";
 import { FormRenderer } from "../src/forms/FormRenderer";
@@ -14,6 +15,7 @@ type Status = "loading" | "ready" | "error";
 export function PackEditorApp() {
   const [status, setStatus] = useState<Status>("loading");
   const [base, setBase] = useState<FormPack | null>(null);
+  const [previousPack, setPreviousPack] = useState<FormPack | null>(null);
   const [activeSection, setActiveSection] = useState<string>("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"design" | "preview" | "json">("design");
@@ -33,6 +35,7 @@ export function PackEditorApp() {
       .then(({ pack }) => {
         if (!current) return;
         setBase(pack);
+        setPreviousPack(structuredClone(pack));
         setActiveSection(pack.sections[0]?.sectionKey ?? "");
         setStatus("ready");
       })
@@ -86,10 +89,16 @@ export function PackEditorApp() {
   }
 
   async function handleSave() {
-    if (!base) return;
+    if (!base || !previousPack) return;
     const result = validatePack(base);
     if (!result.ok) {
       setSaveError(`Cannot save: ${result.errors.join("; ")}`);
+      setSaveMessage("");
+      return;
+    }
+    const derived = deriveAutoMigration(previousPack, result.pack);
+    if (!derived.ok) {
+      setSaveError(`Cannot save: ${derived.error}`);
       setSaveMessage("");
       return;
     }
@@ -97,9 +106,10 @@ export function PackEditorApp() {
     setSaveError("");
     setSaveMessage("");
     try {
-      await savePack(base);
-      const { pack } = await getPack();
+      const savedPack = await savePack(base, previousPack);
+      const pack = savedPack ?? (await getPack()).pack;
       setBase(pack);
+      setPreviousPack(structuredClone(pack));
       setSaveMessage("Saved.");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : String(error));

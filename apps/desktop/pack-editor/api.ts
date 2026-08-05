@@ -28,14 +28,16 @@ export async function backupPacks(): Promise<string> {
   return body.dir ?? "";
 }
 
-export async function savePack(base: FormPack): Promise<void> {
+export async function savePack(base: FormPack, previousPack: FormPack): Promise<FormPack | undefined> {
   const res = await fetch("/__pack", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(base),
+    body: JSON.stringify({ pack: base, previousPack }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Save failed (${res.status}).`);
   }
+  const body = (await res.json()) as { pack: FormPack };
+  return body.pack;
 }

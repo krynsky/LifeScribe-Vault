@@ -136,12 +136,14 @@ export type MigrationOperation =
       toType: FieldType;
       valueMap?: Record<string, string>;
     }
+  | { op: "archiveField"; sectionKey: string; systemKey: string }
   | { op: "reduceCardinality"; sectionKey: string; groupKey?: string };
 
 export const MIGRATION_OP_KINDS = [
   "renameField",
   "mapValue",
   "retypeField",
+  "archiveField",
   "reduceCardinality",
 ] as const;
 

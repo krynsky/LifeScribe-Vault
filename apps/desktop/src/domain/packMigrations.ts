@@ -122,6 +122,7 @@ function applyOperationToRecord(
       return { ...record, values: { ...record.values, [operation.systemKey]: mapped } };
     }
     case "reduceCardinality":
+    case "archiveField":
       // Authorization marker only — the record-level archival happens in
       // valuesStore.reconcileSectionValues against the new definition.
       return record;

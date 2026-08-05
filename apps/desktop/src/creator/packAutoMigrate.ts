@@ -57,6 +57,19 @@ function indexSectionFields(section: PackSection): Map<string, FieldInfo> {
 function deriveOperations(prevPack: FormPack, nextPack: FormPack): MigrationOperation[] {
   const operations: MigrationOperation[] = [];
   const prevSections = new Map(prevPack.sections.map((s) => [s.sectionKey, s]));
+  const nextSectionKeys = new Set(nextPack.sections.map((section) => section.sectionKey));
+
+  for (const previousSection of prevPack.sections) {
+    if (!nextSectionKeys.has(previousSection.sectionKey)) {
+      for (const field of previousSection.groups.flatMap((group) => group.fields)) {
+        operations.push({
+          op: "archiveField",
+          sectionKey: previousSection.sectionKey,
+          systemKey: field.systemKey,
+        });
+      }
+    }
+  }
 
   for (const nextSection of nextPack.sections) {
     const prevSection = prevSections.get(nextSection.sectionKey);
@@ -64,8 +77,14 @@ function deriveOperations(prevPack: FormPack, nextPack: FormPack): MigrationOper
       continue; // Brand-new section — nothing to migrate.
     }
 
-    // Field retypes.
+    // Field retypes and explicit archival authorization for removals.
     const prevFields = indexSectionFields(prevSection);
+    const nextFieldKeys = new Set(nextSection.groups.flatMap((group) => group.fields.map((field) => field.systemKey)));
+    for (const systemKey of prevFields.keys()) {
+      if (!nextFieldKeys.has(systemKey)) {
+        operations.push({ op: "archiveField", sectionKey: nextSection.sectionKey, systemKey });
+      }
+    }
     for (const group of nextSection.groups) {
       for (const field of group.fields) {
         const before = prevFields.get(field.systemKey);
@@ -119,7 +138,11 @@ export function deriveAutoMigration(prevPack: FormPack, nextPack: FormPack): Aut
   let changed: boolean;
 
   if (operations.length === 0) {
-    derivedPack = nextPack;
+    derivedPack = {
+      ...nextPack,
+      schemaVersion: prevPack.schemaVersion,
+      migrations: prevPack.migrations,
+    };
     changed = false;
   } else {
     const step: MigrationStep = {
@@ -129,7 +152,7 @@ export function deriveAutoMigration(prevPack: FormPack, nextPack: FormPack): Aut
     derivedPack = {
       ...nextPack,
       schemaVersion: prevPack.schemaVersion + 1,
-      migrations: [...nextPack.migrations, step],
+      migrations: [...prevPack.migrations, step],
     };
     changed = true;
   }
