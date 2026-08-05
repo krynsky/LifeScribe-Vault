@@ -212,7 +212,8 @@ export function createBackup(
 
 /**
  * Restore a backup. Safety-copies the current vault before swapping, writes
- * a restore-in-progress marker (auto-cleared on next successful unlock), and
+ * a restore-in-progress marker (cleared after the restored snapshot and form
+ * pack fully load), and
  * returns the path to the safety backup.
  *
  * Errors: "InvalidMasterPassword" (wrong password or corrupt backup),
@@ -223,6 +224,11 @@ export function restoreBackup(
   backupPassword: string,
 ): Promise<RestoreBackupResponse> {
   return invoke("restore_backup", { request: { backupPath, backupPassword } });
+}
+
+/** Remove restore safety files after the restored snapshot fully loads. */
+export function finalizeRestore(): Promise<void> {
+  return invoke("finalize_restore");
 }
 
 /** Write a generated Recovery Kit PDF to a path chosen by the user. */

@@ -14,6 +14,7 @@ import {
   changeVaultPassword,
   deleteAttachment,
   discardDraft,
+  finalizeRestore,
   getVaultStatus,
   loadVaultSnapshot,
   lockVault,
@@ -46,6 +47,7 @@ import type { FormPack, MergeNotice, ResolvedSection, UserOverlay } from "../dom
 import { loadDefaultPack } from "../domain/loadDefaultPack";
 import { rebaseCustomPack } from "../domain/packRebase";
 import { validatePack, validatePackUpgrade } from "../domain/packValidation";
+import { compareSemver } from "../domain/semver";
 import packageJson from "../../package.json";
 import {
   migrateVaultValues,
@@ -136,23 +138,13 @@ function errorCode(error: unknown): string {
  * The pack this vault renders from: the saved customPack (form-editor edits) or
  * the bundled base pack, as authored — no composition step.
  */
-function compareVersions(left: string, right: string): number {
-  const parts = (value: string) => value.split(".").map((part) => Number.parseInt(part, 10) || 0);
-  const a = parts(left);
-  const b = parts(right);
-  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
-    if ((a[index] ?? 0) !== (b[index] ?? 0)) return (a[index] ?? 0) - (b[index] ?? 0);
-  }
-  return 0;
-}
-
 async function resolveBasePack(parsed: ParsedSnapshot): Promise<{
   pack: FormPack;
   bundledBase: FormPack;
   customPack?: FormPack;
 }> {
   const bundledBase = await loadDefaultPack();
-  if (compareVersions(packageJson.version, bundledBase.minAppVersion) < 0) {
+  if (compareSemver(packageJson.version, bundledBase.minAppVersion) < 0) {
     throw new Error(`This form requires LifeScribe Vault ${bundledBase.minAppVersion} or later.`);
   }
   if (!parsed.customPack) return { pack: bundledBase, bundledBase };
@@ -180,7 +172,7 @@ async function resolveBasePack(parsed: ParsedSnapshot): Promise<{
   if (upgrade.errors.length > 0) {
     throw new Error(`The saved custom form is incompatible: ${upgrade.errors.join("; ")}`);
   }
-  if (compareVersions(packageJson.version, rebasedValidation.pack.minAppVersion) < 0) {
+  if (compareSemver(packageJson.version, rebasedValidation.pack.minAppVersion) < 0) {
     throw new Error(
       `This form requires LifeScribe Vault ${rebasedValidation.pack.minAppVersion} or later.`,
     );
@@ -203,6 +195,11 @@ function buildLoadedVault(
   generation: number,
   recovered: boolean,
 ): LoadedVault | { blocked: string } {
+  if (parsed.schemaVersion > pack.schemaVersion) {
+    return {
+      blocked: `This vault uses form schema ${parsed.schemaVersion}, but this app supports through ${pack.schemaVersion}. Install a newer LifeScribe Vault version.`,
+    };
+  }
   const merge = mergePackWithOverlay(pack, parsed.overlay, parsed.values);
   let values = applyKeyRenames(parsed.values, merge.keyRenames);
   const retypedFields = pendingRetypedFields(values, pack);
@@ -377,6 +374,18 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
         setPhase("blocked");
         return;
       }
+      try {
+        await finalizeRestore();
+      } catch {
+        if (isCurrent) {
+          setBlockedMessage(
+            "The restored vault could not be finalized. Restart LifeScribe Vault to recover the previous data.",
+          );
+          setPhase("blocked");
+        }
+        return;
+      }
+      if (!isCurrent) return;
       setLoaded(result);
       setPhase("ready");
 
@@ -611,7 +620,11 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
     const nextLoaded: LoadedVault = {
       ...loaded,
       pack: newPack,
-      vault: { ...loaded.vault, customPack: newPack },
+      vault: {
+        ...loaded.vault,
+        customPack: newPack,
+        customPackBase: loaded.vault.customPackBase ?? loaded.pack,
+      },
     };
     const ok = await persist(
       nextLoaded,

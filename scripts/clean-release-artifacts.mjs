@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,9 +15,5 @@ if (!bundle.startsWith(`${repository}${sep}`) || basename(bundle) !== "bundle") 
 const msi = resolve(bundle, "msi");
 if (existsSync(msi)) rmSync(msi, { recursive: true, force: true });
 const nsis = resolve(bundle, "nsis");
-if (existsSync(nsis)) {
-  for (const name of readdirSync(nsis)) {
-    if (!name.includes(`_${version}_`)) rmSync(resolve(nsis, name), { force: true });
-  }
-}
+if (existsSync(nsis)) rmSync(nsis, { recursive: true, force: true });
 console.log(`Release artifacts cleaned for NSIS ${version}.`);

@@ -28,6 +28,7 @@ vi.mock("../api/vaultApi", () => ({
   // Backup commands — not asserted in Dashboard tests.
   createBackup: vi.fn(),
   restoreBackup: vi.fn(),
+  finalizeRestore: vi.fn(),
   // Vault location — Settings reads the directory; relocation is user-driven.
   setVaultLocation: vi.fn(),
   // The chosen folder is pre-flighted before the confirmation appears; a plain
@@ -79,6 +80,7 @@ beforeEach(() => {
   mocked.lockVault.mockResolvedValue({ unlocked: false, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
   mocked.getVaultStatus.mockResolvedValue({ unlocked: true, vaultExists: true, vaultDir: "C:\\Users\\test\\AppData\\Roaming\\LifeScribe", vaultDirAvailable: true });
   mocked.saveVaultSnapshot.mockResolvedValue({ generation: 1 });
+  mocked.finalizeRestore.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -157,6 +159,19 @@ describe("Dashboard branded phase states", () => {
       await screen.findByText("Snapshot format 2 requires a newer version of LifeScribe Vault."),
     ).toBeInTheDocument();
     expect(mocked.readDefaultPack).not.toHaveBeenCalled();
+  });
+
+  it("blocks a future form schema even when it has no future-stamped records", async () => {
+    mocked.loadVaultSnapshot.mockResolvedValue({
+      snapshot: { snapshotFormat: 1, schemaVersion: 99, values: {} },
+      generation: 1,
+      recovered: false,
+    });
+
+    renderDashboard();
+
+    expect(await screen.findByText(/uses form schema 99/)).toBeInTheDocument();
+    expect(mocked.finalizeRestore).not.toHaveBeenCalled();
   });
 
   it("rebases saved form edits onto newly bundled fields", async () => {
@@ -778,6 +793,7 @@ describe("Inline form editor", () => {
     expect(mocked.saveVaultSnapshot).toHaveBeenCalled();
     const [snapshot] = mocked.saveVaultSnapshot.mock.calls[0];
     expect((snapshot as Record<string, unknown>).customPack).toBeDefined();
+    expect((snapshot as Record<string, unknown>).customPackBase).toBeDefined();
   });
 
   it("turning the Form Editor toggle off mid-edit exits editing state", async () => {
@@ -796,6 +812,31 @@ describe("Inline form editor", () => {
     await user.click(screen.getByRole("button", { name: "Save form changes" }));
     expect(await screen.findByRole("button", { name: "Save form changes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Done editing" })).toBeInTheDocument();
+  });
+});
+
+describe("Dashboard restore handoff", () => {
+  it("locks the UI after a successful backup restore", async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(open).mockResolvedValue("C:\\Backups\\vault.lsvbackup");
+    mocked.restoreBackup.mockResolvedValue({ safetyBackupPath: "C:\\safety.sqlite3" });
+    const { onLocked } = renderDashboard();
+    await screen.findByText("Welcome, Dana");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /^Backup$/ }));
+    await user.click(screen.getByRole("button", { name: /Browse/ }));
+    await user.type(screen.getByLabelText(/Backup password/), "backup password");
+    await user.click(screen.getByRole("button", { name: /Restore from this backup/ }));
+    await user.click(screen.getByRole("button", { name: "Yes, restore from backup" }));
+
+    expect(mocked.restoreBackup).toHaveBeenCalledWith(
+      "C:\\Backups\\vault.lsvbackup",
+      "backup password",
+    );
+    expect(onLocked).toHaveBeenCalledWith(
+      "Restore complete. Unlock the restored vault to verify its contents.",
+    );
   });
 });
 

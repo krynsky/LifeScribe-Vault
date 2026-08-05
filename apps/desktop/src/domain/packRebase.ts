@@ -35,7 +35,11 @@ function mergeValue(oldBase: unknown, custom: unknown, newBase: unknown): unknow
       const newItem = newMap.get(key);
       if (oldItem !== undefined && customItem === undefined) return [];
       if (customItem === undefined) return newItem === undefined ? [] : [structuredClone(newItem)];
-      if (newItem === undefined) return [structuredClone(customItem)];
+      if (newItem === undefined) {
+        return oldItem !== undefined && equal(customItem, oldItem)
+          ? []
+          : [structuredClone(customItem)];
+      }
       return [mergeValue(oldItem, customItem, newItem)];
     });
   }
@@ -63,7 +67,9 @@ function mergeValue(oldBase: unknown, custom: unknown, newBase: unknown): unknow
       continue;
     }
     if (!newPresent) {
-      result[key] = structuredClone(customRecord[key]);
+      if (!wasPresent || !equal(customRecord[key], oldRecord[key])) {
+        result[key] = structuredClone(customRecord[key]);
+      }
       continue;
     }
     result[key] = mergeValue(oldRecord[key], customRecord[key], newRecord[key]);
@@ -77,6 +83,7 @@ export function rebaseCustomPack(oldBase: FormPack, custom: FormPack, newBase: F
     throw new Error("The saved custom form belongs to a different base pack.");
   }
   const rebased = mergeValue(oldBase, custom, newBase) as FormPack;
+  rebased.schemaVersion = Math.max(custom.schemaVersion, newBase.schemaVersion);
   const oldSteps = new Map(oldBase.migrations.map((step) => [step.fromVersion, step]));
   const customSteps = new Map(custom.migrations.map((step) => [step.fromVersion, step]));
   const newSteps = new Map(newBase.migrations.map((step) => [step.fromVersion, step]));
@@ -85,9 +92,13 @@ export function rebaseCustomPack(oldBase: FormPack, custom: FormPack, newBase: F
     const customStep = customSteps.get(step.fromVersion);
     const newStep = newSteps.get(step.fromVersion);
     if (!customStep || !newStep || equal(customStep, oldStep) || equal(newStep, oldStep)) return step;
-    const operations = [...customStep.operations, ...newStep.operations].filter(
-      (operation, index, all) => all.findIndex((candidate) => equal(candidate, operation)) === index,
-    );
+    const seen = new Set<string>();
+    const operations = [...customStep.operations, ...newStep.operations].filter((operation) => {
+      const signature = JSON.stringify(operation);
+      if (seen.has(signature)) return false;
+      seen.add(signature);
+      return true;
+    });
     return { ...step, operations };
   });
   return rebased;

@@ -15,6 +15,7 @@ import {
   type MigrationOperation,
   isCustomFieldKey,
 } from "./formModel";
+import { isValidSemver } from "./semver";
 
 export type PackValidationResult =
   | { ok: true; pack: FormPack; errors: [] }
@@ -55,12 +56,11 @@ const RECORD_REFERENCE_FORMAT_SET: ReadonlySet<string> = new Set(RECORD_REFERENC
  * raw value of every field a section's kitMapping names.
  *
  * This is the AUTHORING gate: it stops a leaky pack being written or exported.
- * It is not the last line of defence, because it never runs on the pack the Kit
- * actually renders from — a stored `customPack` is returned as-authored by
- * `resolveBasePack` and persisted unvalidated by `handleSavePack`. The
- * enforcement that always runs lives in recoveryKit.ts, which drops these keys
- * at the point of consumption. Keep both: this one gives the author an error
- * message, that one guarantees the printed page.
+ * It is not the last line of defence. Saved custom packs are validated during
+ * normal loading, but the enforcement that always runs lives in
+ * recoveryKit.ts, which drops these keys at the point of consumption. Keep
+ * both: this one gives the author an error message, and that one guarantees the
+ * printed page even if a future load path changes.
  */
 export const KIT_EXCLUDED_SYSTEM_KEYS: readonly string[] = [
   "passwordManagerMasterPassword",
@@ -514,12 +514,16 @@ export function validatePack(candidate: unknown): PackValidationResult {
   }
   if (!isNonEmptyString(candidate.packVersion)) {
     errors.push("Pack must have a non-empty packVersion.");
+  } else if (!isValidSemver(candidate.packVersion)) {
+    errors.push("Pack packVersion must be a valid semantic version.");
   }
   if (!isPositiveInteger(candidate.schemaVersion)) {
     errors.push("Pack schemaVersion must be a positive integer.");
   }
   if (!isNonEmptyString(candidate.minAppVersion)) {
     errors.push("Pack must have a non-empty minAppVersion.");
+  } else if (!isValidSemver(candidate.minAppVersion)) {
+    errors.push("Pack minAppVersion must be a valid semantic version.");
   }
 
   if (!Array.isArray(candidate.sections) || candidate.sections.length === 0) {

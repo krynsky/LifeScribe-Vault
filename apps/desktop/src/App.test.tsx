@@ -25,6 +25,7 @@ vi.mock("./api/vaultApi", () => ({
   // Backup commands — not asserted in App-level tests.
   createBackup: vi.fn(),
   restoreBackup: vi.fn(),
+  finalizeRestore: vi.fn(),
   // Vault location — setup only calls these when the user picks a folder;
   // App-level tests accept the default.
   setVaultLocation: vi.fn(),
@@ -62,6 +63,7 @@ beforeEach(() => {
   });
   mocked.discardDraft.mockResolvedValue(undefined);
   mocked.saveVaultSnapshot.mockResolvedValue({ generation: 1 });
+  mocked.finalizeRestore.mockResolvedValue(undefined);
 });
 
 describe("App", () => {

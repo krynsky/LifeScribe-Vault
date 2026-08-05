@@ -4,12 +4,13 @@ use tempfile::tempdir;
 
 use crate::attachments::{attachment_dir, encrypt_attachment};
 use crate::backup::{
-    clear_restore_marker, create_backup, restore_backup, restore_in_progress,
-    rollback_if_marker_present, RestorePhase, RESTORE_MARKER_NAME,
+    clear_restore_marker, corrupt_authenticated_attachment_for_test, create_backup,
+    restore_backup, restore_in_progress, rollback_if_marker_present,
+    set_authenticated_payload_vault_id_for_test, RestorePhase, RESTORE_MARKER_NAME,
 };
 use crate::commands::{
-    create_vault_at_path, load_vault_snapshot_for_session, restore_backup_for_session,
-    save_vault_snapshot_for_session, unlock_vault_at_path, VaultSession,
+    create_vault_at_path, finalize_restore_for_session, load_vault_snapshot_for_session,
+    restore_backup_for_session, save_vault_snapshot_for_session, unlock_vault_at_path, VaultSession,
 };
 
 const MASTER_PASSWORD: &str = "vault-password-for-backup-tests";
@@ -63,15 +64,18 @@ fn backup_and_restore_round_trip_snapshot() {
     // Safety backup is created (vault existed before the swap).
     assert!(restore_result.safety_backup_db.exists());
 
-    // Marker cleared on next unlock.
+    // Authentication alone retains recovery. Full snapshot loading followed by
+    // explicit finalization clears the marker and safety copy.
     let mut fresh_session = VaultSession::new(vault_path.clone());
     unlock_vault_at_path(&vault_path, &mut fresh_session, MASTER_PASSWORD).unwrap();
-    assert!(!app_data_dir.join(RESTORE_MARKER_NAME).exists());
-    assert!(!restore_result.safety_backup_db.exists());
+    assert!(app_data_dir.join(RESTORE_MARKER_NAME).exists());
 
     // Load and verify snapshot survived.
     let load = load_vault_snapshot_for_session(&mut fresh_session).unwrap();
     assert_eq!(load.snapshot["profile"]["ownerName"], "Test User");
+    finalize_restore_for_session(&fresh_session).unwrap();
+    assert!(!app_data_dir.join(RESTORE_MARKER_NAME).exists());
+    assert!(!restore_result.safety_backup_db.exists());
 }
 
 // ---------------------------------------------------------------------------
@@ -315,6 +319,7 @@ fn restore_conflict_when_marker_present() {
         had_vault_db: true,
         phase: crate::backup::RestorePhase::Preparing,
     };
+    fs::create_dir_all(&marker.safety_backup_att).unwrap();
     let marker_path = app_data_dir.join(RESTORE_MARKER_NAME);
     fs::write(&marker_path, serde_json::to_vec(&marker).unwrap()).unwrap();
 
@@ -424,6 +429,7 @@ fn startup_rolls_back_incomplete_restore_even_when_live_db_is_valid() {
         had_vault_db: true,
         phase: RestorePhase::Preparing,
     };
+    fs::create_dir_all(&marker.safety_backup_att).unwrap();
     fs::write(
         dir.path().join(RESTORE_MARKER_NAME),
         serde_json::to_vec(&marker).unwrap(),
@@ -438,7 +444,7 @@ fn startup_rolls_back_incomplete_restore_even_when_live_db_is_valid() {
 }
 
 #[test]
-fn completed_restore_keeps_safety_copy_until_successful_unlock() {
+fn startup_rolls_back_completed_restore_that_was_not_fully_loaded() {
     let dir = tempdir().unwrap();
     let (_, vault_path) = create_test_vault(dir.path());
     let safety_db = dir.path().join("safety.sqlite3");
@@ -450,6 +456,7 @@ fn completed_restore_keeps_safety_copy_until_successful_unlock() {
         had_vault_db: true,
         phase: RestorePhase::Complete,
     };
+    fs::create_dir_all(&marker.safety_backup_att).unwrap();
     fs::write(
         dir.path().join(RESTORE_MARKER_NAME),
         serde_json::to_vec(&marker).unwrap(),
@@ -457,7 +464,45 @@ fn completed_restore_keeps_safety_copy_until_successful_unlock() {
     .unwrap();
 
     rollback_if_marker_present(&vault_path, &attachment_dir(&vault_path), dir.path()).unwrap();
-    assert!(safety_db.exists());
+    assert!(!safety_db.exists());
+    assert!(!dir.path().join(RESTORE_MARKER_NAME).exists());
+}
+
+#[test]
+fn rollback_keeps_live_attachments_when_the_safety_directory_is_missing() {
+    let dir = tempdir().unwrap();
+    let (session, vault_path) = create_test_vault(dir.path());
+    let att_dir = attachment_dir(&vault_path);
+    let source = dir.path().join("live.txt");
+    fs::write(&source, b"live attachment").unwrap();
+    let attachment = encrypt_attachment(
+        &source,
+        &att_dir,
+        session.key.as_ref().unwrap(),
+        session.vault_id.as_deref().unwrap(),
+    )
+    .unwrap();
+    let live_path = att_dir.join(format!("{}.bin", attachment.id));
+    let original = fs::read(&live_path).unwrap();
+    let safety_db = dir.path().join("safety.sqlite3");
+    fs::copy(&vault_path, &safety_db).unwrap();
+    let marker = crate::backup::RestoreMarker {
+        safety_backup_db: safety_db,
+        safety_backup_att: dir.path().join("missing-safety-att"),
+        started_at: "2026-01-01T00:00:00Z".to_string(),
+        had_vault_db: true,
+        phase: RestorePhase::Preparing,
+    };
+    fs::write(
+        dir.path().join(RESTORE_MARKER_NAME),
+        serde_json::to_vec(&marker).unwrap(),
+    )
+    .unwrap();
+
+    let result = rollback_if_marker_present(&vault_path, &att_dir, dir.path());
+
+    assert!(matches!(result, Err(crate::error::VaultError::CorruptVault)));
+    assert_eq!(fs::read(&live_path).unwrap(), original);
     assert!(dir.path().join(RESTORE_MARKER_NAME).exists());
 }
 
@@ -478,4 +523,69 @@ fn successful_restore_locks_the_in_memory_session() {
 
     assert!(!session.is_unlocked());
     assert!(session.vault_id.is_none());
+}
+
+#[test]
+fn restore_rejects_an_authenticated_payload_with_a_different_vault_id() {
+    let dir = tempdir().unwrap();
+    let (_, vault_path) = create_test_vault(dir.path());
+    let original = fs::read(&vault_path).unwrap();
+    let backup = create_backup(
+        &vault_path,
+        &attachment_dir(&vault_path),
+        MASTER_PASSWORD,
+        &dir.path().join("backups"),
+    )
+    .unwrap();
+    set_authenticated_payload_vault_id_for_test(
+        &backup.output_path,
+        MASTER_PASSWORD,
+        "different-vault-id",
+    )
+    .unwrap();
+
+    let result = restore_backup(
+        &backup.output_path,
+        MASTER_PASSWORD,
+        &vault_path,
+        &attachment_dir(&vault_path),
+        dir.path(),
+    );
+
+    assert!(matches!(result, Err(crate::error::VaultError::CorruptVault)));
+    assert_eq!(fs::read(&vault_path).unwrap(), original);
+    assert!(!dir.path().join(RESTORE_MARKER_NAME).exists());
+}
+
+#[test]
+fn restore_authenticates_every_staged_attachment_before_mutating_live_data() {
+    let dir = tempdir().unwrap();
+    let (session, vault_path) = create_test_vault(dir.path());
+    let att_dir = attachment_dir(&vault_path);
+    let source = dir.path().join("evidence.txt");
+    fs::write(&source, b"original evidence").unwrap();
+    let attachment = encrypt_attachment(
+        &source,
+        &att_dir,
+        session.key.as_ref().unwrap(),
+        session.vault_id.as_deref().unwrap(),
+    )
+    .unwrap();
+    let live_path = att_dir.join(format!("{}.bin", attachment.id));
+    let original = fs::read(&live_path).unwrap();
+    let backup = create_backup(&vault_path, &att_dir, MASTER_PASSWORD, &dir.path().join("backups"))
+        .unwrap();
+    corrupt_authenticated_attachment_for_test(&backup.output_path, MASTER_PASSWORD).unwrap();
+
+    let result = restore_backup(
+        &backup.output_path,
+        MASTER_PASSWORD,
+        &vault_path,
+        &att_dir,
+        dir.path(),
+    );
+
+    assert!(matches!(result, Err(crate::error::VaultError::CorruptVault)));
+    assert_eq!(fs::read(&live_path).unwrap(), original);
+    assert!(!dir.path().join(RESTORE_MARKER_NAME).exists());
 }

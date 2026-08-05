@@ -112,6 +112,21 @@ describe("forward compatibility", () => {
     expect(roundTrip.sectionMeta.identity.futureMeta).toBe(7);
     expect(roundTrip.kitMeta.futureKitField).toEqual([1, 2]);
   });
+
+  it("drops malformed known section metadata while preserving unknown metadata", () => {
+    const parsed = normalizeSnapshot({
+      sectionMeta: {
+        plan: {
+          na: "yes",
+          completed: 1,
+          lastReviewedAt: "",
+          lastSavedAt: 7,
+          futureMeta: { retained: true },
+        },
+      },
+    });
+    expect(parsed.sectionMeta.plan).toEqual({ futureMeta: { retained: true } });
+  });
 });
 
 describe("payload round-trip", () => {

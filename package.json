@@ -3,12 +3,13 @@
   "private": true,
   "scripts": {
     "dev": "npm --prefix apps/desktop run tauri dev",
-    "build": "npm --prefix apps/desktop run tauri build",
+    "build": "npm run release:clean && npm run release:precheck && npm --prefix apps/desktop run tauri build && npm run release:check",
     "test": "npm --prefix apps/desktop test",
     "typecheck": "npm --prefix apps/desktop run typecheck",
     "lint": "npm --prefix apps/desktop run lint",
     "pack-editor": "npm --prefix apps/desktop run pack-editor",
     "release:clean": "node scripts/clean-release-artifacts.mjs",
+    "release:precheck": "node scripts/release-check.mjs --prebuild",
     "release:check": "node scripts/release-check.mjs"
   },
   "workspaces": [

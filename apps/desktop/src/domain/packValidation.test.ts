@@ -63,6 +63,17 @@ describe("validatePack", () => {
     expect(result.errors).toContain("Pack schemaVersion must be a positive integer.");
   });
 
+  it("rejects malformed semantic versions", () => {
+    const result = validatePack(
+      mutatePack((pack) => {
+        pack.packVersion = "next";
+        pack.minAppVersion = "1.0";
+      }),
+    );
+    expect(result.errors).toContain("Pack packVersion must be a valid semantic version.");
+    expect(result.errors).toContain("Pack minAppVersion must be a valid semantic version.");
+  });
+
   it("rejects unsupported field types with a type whitelist error", () => {
     const result = validatePack(mutateFirstField((field) => (field.type = "javascript")));
     expect(result.errors.join(" ")).toMatch(/unsupported type "javascript"/);

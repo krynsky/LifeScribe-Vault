@@ -23,14 +23,23 @@ if (existsSync(new URL("apps/desktop/package-lock.json", root))) {
 }
 
 const bundle = new URL("apps/desktop/src-tauri/target/release/bundle/nsis", root);
-if (existsSync(bundle)) {
-  const expected = `_${desktop.version}_`;
-  const stale = readdirSync(bundle).filter((name) => !name.includes(expected));
-  if (stale.length > 0) failures.push(`Stale NSIS artifacts: ${stale.join(", ")}`);
+const prebuild = process.argv.includes("--prebuild");
+if (!prebuild) {
+  const expected = `LifeScribe Vault 2_${desktop.version}_x64-setup.exe`;
+  if (!existsSync(bundle)) {
+    failures.push("NSIS output directory is missing; run the release build first.");
+  } else {
+    const artifacts = readdirSync(bundle);
+    if (!artifacts.includes(expected)) failures.push(`Expected installer is missing: ${expected}`);
+    const unexpected = artifacts.filter((name) => name !== expected);
+    if (unexpected.length > 0) failures.push(`Unexpected NSIS artifacts: ${unexpected.join(", ")}`);
+  }
 }
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log(`Release contract OK: LifeScribe Vault ${desktop.version}, NSIS, ${tauri.identifier}`);
+console.log(
+  `Release ${prebuild ? "manifest" : "artifact"} contract OK: LifeScribe Vault ${desktop.version}, NSIS, ${tauri.identifier}`,
+);

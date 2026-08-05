@@ -254,7 +254,7 @@ pub fn create_vault_at_path(
     }
 }
 
-fn load_header_and_data_key(
+pub(crate) fn load_header_and_data_key(
     repository: &VaultRepository,
     master_password: &str,
 ) -> VaultResult<(VaultHeader, Zeroizing<[u8; KEY_LEN]>)> {
@@ -295,13 +295,18 @@ pub fn unlock_vault_at_path(
     session.loaded_generation = 0;
     session.recovered = false;
 
-    // Clear any restore-in-progress marker (and auto-delete safety backup)
-    // on the first successful unlock after a restore completes.
-    if let Some(app_data_dir) = vault_path.parent() {
-        crate::backup::clear_restore_marker(app_data_dir);
-    }
-
     Ok(get_status_for_session(session))
+}
+
+pub fn finalize_restore_for_session(session: &VaultSession) -> VaultResult<()> {
+    if !session.is_unlocked() {
+        return Err(VaultError::Locked);
+    }
+    let app_data_dir = session
+        .vault_path
+        .parent()
+        .ok_or_else(|| VaultError::FileOperation("vault path has no parent".to_string()))?;
+    crate::backup::finalize_completed_restore(app_data_dir)
 }
 
 pub fn lock_session(session: &mut VaultSession) -> VaultResult<VaultStatusResponse> {
@@ -734,6 +739,12 @@ pub fn restore_backup(
     Ok(RestoreBackupResponse {
         safety_backup_path: result.safety_backup_db.to_string_lossy().into_owned(),
     })
+}
+
+#[tauri::command]
+pub fn finalize_restore(session: State<'_, SharedVaultSession>) -> Result<(), String> {
+    let session = lock_state(&session)?;
+    finalize_restore_for_session(&session).map_err(command_error_code)
 }
 
 // ---------------------------------------------------------------------------

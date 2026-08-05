@@ -55,12 +55,30 @@ interface SaveRequest {
   previousPack: FormPack;
 }
 
+function mutationRequestIsTrusted(request: IncomingMessage): boolean {
+  if (request.headers["sec-fetch-site"] === "cross-site") return false;
+  const origin = request.headers.origin;
+  if (!origin) return true;
+  const host = request.headers.host;
+  if (!host) return false;
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === "http:" && parsed.host === host;
+  } catch {
+    return false;
+  }
+}
+
 export function packEditorSavePlugin(): Plugin {
   return {
     name: "pack-editor-save",
     configureServer(server) {
       server.middlewares.use("/__pack", (request: IncomingMessage, response: ServerResponse, next) => {
         const url = new URL(request.url ?? "/", "http://localhost");
+        if (request.method === "POST" && !mutationRequestIsTrusted(request)) {
+          sendJson(response, 403, { error: "Cross-site pack mutations are not allowed." });
+          return;
+        }
         if (request.method === "POST" && url.pathname === "/backup") {
           try {
             sendJson(response, 200, { ok: true, dir: backupCurrentPack() });
@@ -79,6 +97,10 @@ export function packEditorSavePlugin(): Plugin {
         }
         if (request.method !== "POST") {
           next();
+          return;
+        }
+        if (!request.headers["content-type"]?.toLowerCase().startsWith("application/json")) {
+          sendJson(response, 415, { error: "Pack saves require application/json." });
           return;
         }
 

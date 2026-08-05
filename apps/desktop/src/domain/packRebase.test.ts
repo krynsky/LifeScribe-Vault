@@ -50,4 +50,37 @@ describe("rebaseCustomPack", () => {
 
     expect(rebaseCustomPack(oldBase, custom, newBase).migrations[0].operations).toHaveLength(2);
   });
+
+  it("accepts upstream deletions that the user did not customize", () => {
+    const oldBase = makePlanPack();
+    const custom = structuredClone(oldBase);
+    custom.sections[0].title = "My plan";
+    const newBase = structuredClone(oldBase);
+    newBase.sections[0].groups[0].fields = newBase.sections[0].groups[0].fields
+      .filter((field) => field.systemKey !== "notes");
+
+    const rebased = rebaseCustomPack(oldBase, custom, newBase);
+
+    expect(rebased.sections[0].title).toBe("My plan");
+    expect(rebased.sections[0].groups[0].fields.some((field) => field.systemKey === "notes"))
+      .toBe(false);
+  });
+
+  it("advances to the newer schema while preserving both migration steps", () => {
+    const oldBase = makePlanPack();
+    const custom = structuredClone(oldBase);
+    custom.schemaVersion = 2;
+    custom.migrations = [{ fromVersion: 1, operations: [] }];
+    const newBase = structuredClone(oldBase);
+    newBase.schemaVersion = 3;
+    newBase.migrations = [
+      { fromVersion: 1, operations: [] },
+      { fromVersion: 2, operations: [] },
+    ];
+
+    const rebased = rebaseCustomPack(oldBase, custom, newBase);
+
+    expect(rebased.schemaVersion).toBe(3);
+    expect(rebased.migrations.map((step) => step.fromVersion)).toEqual([1, 2]);
+  });
 });

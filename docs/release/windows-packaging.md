@@ -13,11 +13,12 @@ From the repository root:
 
 ```powershell
 npm install
-npm run release:clean
-npm run release:check
 npm run build
-npm run release:check
 ```
+
+The root build command clears prior installers, checks the manifest contract,
+builds the NSIS installer, and then refuses to pass unless the exact versioned
+installer is present and is the only NSIS artifact.
 
 The distributable is written to
 `apps/desktop/src-tauri/target/release/bundle/nsis/` as

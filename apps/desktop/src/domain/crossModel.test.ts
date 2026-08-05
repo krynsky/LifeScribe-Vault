@@ -49,13 +49,20 @@ const VALUE_POOL = [
   "Spare key under planter",
 ] as const;
 
+function makeV2PlanPack(): FormPack {
+  return makePlanPack({
+    schemaVersion: 2,
+    migrations: [{ fromVersion: 1, operations: [] }],
+  });
+}
+
 /** Pack variants: each models one default-change type. */
 const PACK_VARIANTS: ReadonlyArray<{ name: string; build: () => FormPack }> = [
-  { name: "unchanged", build: () => makePlanPack({ schemaVersion: 2 }) },
+  { name: "unchanged", build: makeV2PlanPack },
   {
     name: "field removed",
     build: () => {
-      const pack = makePlanPack({ schemaVersion: 2 });
+      const pack = makeV2PlanPack();
       pack.sections[0].groups[0].fields = pack.sections[0].groups[0].fields.filter(
         (field) => field.systemKey !== "notes",
       );
@@ -65,7 +72,7 @@ const PACK_VARIANTS: ReadonlyArray<{ name: string; build: () => FormPack }> = [
   {
     name: "field retyped without migration",
     build: () => {
-      const pack = makePlanPack({ schemaVersion: 2 });
+      const pack = makeV2PlanPack();
       pack.sections[0].groups[0].fields[2].type = "date";
       return pack;
     },
@@ -73,7 +80,7 @@ const PACK_VARIANTS: ReadonlyArray<{ name: string; build: () => FormPack }> = [
   {
     name: "select options narrowed",
     build: () => {
-      const pack = makePlanPack({ schemaVersion: 2 });
+      const pack = makeV2PlanPack();
       pack.sections[0].groups[0].fields[0].options = [{ value: "Bitwarden", label: "Bitwarden" }];
       return pack;
     },
@@ -81,7 +88,7 @@ const PACK_VARIANTS: ReadonlyArray<{ name: string; build: () => FormPack }> = [
   {
     name: "repeatable group reduced",
     build: () => {
-      const pack = makePlanPack({ schemaVersion: 2 });
+      const pack = makeV2PlanPack();
       pack.sections[0].groups[1].repeatable = false;
       return pack;
     },
@@ -89,7 +96,7 @@ const PACK_VARIANTS: ReadonlyArray<{ name: string; build: () => FormPack }> = [
   {
     name: "group removed",
     build: () => {
-      const pack = makePlanPack({ schemaVersion: 2 });
+      const pack = makeV2PlanPack();
       pack.sections[0].groups = pack.sections[0].groups.filter((group) => group.groupKey !== "contact");
       return pack;
     },
@@ -97,7 +104,7 @@ const PACK_VARIANTS: ReadonlyArray<{ name: string; build: () => FormPack }> = [
   {
     name: "new default field collides with custom key",
     build: () => {
-      const pack = makePlanPack({ schemaVersion: 2 });
+      const pack = makeV2PlanPack();
       pack.sections[0].groups[0].fields.push(
         makeField({ systemKey: "custom.plan.note", label: "Planning note", order: 4 }),
       );

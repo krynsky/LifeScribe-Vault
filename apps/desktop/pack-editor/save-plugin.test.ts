@@ -16,7 +16,7 @@ vi.mock("node:fs", () => ({ ...fsMocks, default: fsMocks }));
 import { packEditorSavePlugin } from "./save-plugin";
 
 function handler() {
-  let middleware: ((request: EventEmitter & { method: string; url: string }, response: TestResponse, next: () => void) => void) | undefined;
+  let middleware: ((request: EventEmitter & { method: string; url: string; headers: Record<string, string> }, response: TestResponse, next: () => void) => void) | undefined;
   const server = { middlewares: { use: (_path: string, callback: typeof middleware) => { middleware = callback; } } };
   const configure = packEditorSavePlugin().configureServer!;
   if (typeof configure === "function") configure.call({} as never, server as never);
@@ -39,8 +39,21 @@ function response(): TestResponse {
   };
 }
 
-async function post(body: unknown) {
-  const request = Object.assign(new EventEmitter(), { method: "POST", url: "/" });
+async function post(
+  body: unknown,
+  options: { url?: string; headers?: Record<string, string> } = {},
+) {
+  const request = Object.assign(new EventEmitter(), {
+    method: "POST",
+    url: options.url ?? "/",
+    headers: {
+      host: "localhost:1430",
+      origin: "http://localhost:1430",
+      "content-type": "application/json",
+      "sec-fetch-site": "same-origin",
+      ...options.headers,
+    },
+  });
   const result = response();
   handler()(request, result, () => undefined);
   request.emit("data", Buffer.from(JSON.stringify(body)));
@@ -89,6 +102,24 @@ describe("pack editor save boundary", () => {
     const result = await post({ pack: { packId: "broken" }, previousPack: current });
 
     expect(result.statusCode).toBe(400);
+    expect(fsMocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-site mutations without touching the pack", async () => {
+    const result = await post({}, {
+      url: "/backup",
+      headers: { origin: "http://evil.example", "sec-fetch-site": "cross-site" },
+    });
+
+    expect(result.statusCode).toBe(403);
+    expect(fsMocks.copyFileSync).not.toHaveBeenCalled();
+    expect(fsMocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("requires JSON for save requests", async () => {
+    const result = await post({}, { headers: { "content-type": "text/plain" } });
+
+    expect(result.statusCode).toBe(415);
     expect(fsMocks.writeFileSync).not.toHaveBeenCalled();
   });
 });

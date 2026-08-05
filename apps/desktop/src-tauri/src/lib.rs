@@ -47,6 +47,7 @@ pub fn run() {
             commands::sweep_orphaned_attachments,
             commands::create_backup,
             commands::restore_backup,
+            commands::finalize_restore,
             commands::write_pdf_export,
             pack_resources::read_default_pack,
             pack_resources::write_default_pack

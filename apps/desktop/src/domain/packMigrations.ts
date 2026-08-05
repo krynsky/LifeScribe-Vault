@@ -38,12 +38,18 @@ export function pendingRetypedFields(
   pack: FormPack,
 ): Map<string, ReadonlySet<string>> {
   const mutable = new Map<string, Set<string>>();
+  const minimumVersions = new Map(
+    Object.entries(values).map(([sectionKey, sectionValues]) => [
+      sectionKey,
+      Math.min(...sectionValues.records.map((record) => record.schemaVersion)),
+    ]),
+  );
   for (const step of pack.migrations) {
     if (step.fromVersion >= pack.schemaVersion) continue;
     for (const operation of step.operations) {
       if (operation.op !== "retypeField") continue;
-      const sectionValues = values[operation.sectionKey];
-      if (!sectionValues?.records.some((record) => record.schemaVersion <= step.fromVersion)) {
+      const minimumVersion = minimumVersions.get(operation.sectionKey);
+      if (minimumVersion === undefined || minimumVersion > step.fromVersion) {
         continue;
       }
       const keys = mutable.get(operation.sectionKey) ?? new Set<string>();
@@ -195,29 +201,6 @@ function migrateSectionValues(
  * - Pure and idempotent: `migrate(migrate(x)) === migrate(x)` structurally,
  *   and the input is never mutated (crash-before-save is always safe).
  */
-/**
- * Cap every record's schemaVersion at `maxVersion`. Used when clearing a
- * customPack whose schemaVersion exceeds the new base pack's, so
- * checkSnapshotReadable doesn't block the next load.
- */
-export function capRecordSchemaVersions(
-  values: VaultValues,
-  maxVersion: number,
-): VaultValues {
-  if (maxVersion <= 0) return values;
-  let anyChanged = false;
-  const result: VaultValues = {};
-  for (const [sectionKey, sv] of Object.entries(values)) {
-    const cappedRecords = sv.records.map((r) =>
-      r.schemaVersion > maxVersion ? { ...r, schemaVersion: maxVersion } : r,
-    );
-    const changed = cappedRecords.some((r, i) => r !== sv.records[i]);
-    if (changed) anyChanged = true;
-    result[sectionKey] = changed ? { ...sv, records: cappedRecords } : sv;
-  }
-  return anyChanged ? result : values;
-}
-
 export function migrateVaultValues(values: VaultValues, pack: FormPack): MigrationResult {
   const readabilityError = checkSnapshotReadable(values, pack.schemaVersion);
   if (readabilityError) {
@@ -225,20 +208,20 @@ export function migrateVaultValues(values: VaultValues, pack: FormPack): Migrati
   }
 
   const authoredSteps = new Set(pack.migrations.map((step) => step.fromVersion));
-  for (const sectionValues of Object.values(values)) {
-    for (const record of sectionValues.records) {
-      for (let version = record.schemaVersion; version < pack.schemaVersion; version += 1) {
-        if (!authoredSteps.has(version)) {
-          return {
-            ok: false,
-            error: {
-              code: MIGRATION_CHAIN_INCOMPLETE,
-              message: `The form pack is missing its schema v${version} to v${version + 1} migration. Nothing has been changed. Restore the previous pack or install a corrected update.`,
-            },
-          };
-        }
+  const recordVersions = Object.values(values).flatMap((section) =>
+    section.records.map((record) => record.schemaVersion),
+  );
+  const minimumVersion = recordVersions.length > 0 ? Math.min(...recordVersions) : pack.schemaVersion;
+  for (let version = minimumVersion; version < pack.schemaVersion; version += 1) {
+    if (!authoredSteps.has(version)) {
+      return {
+        ok: false,
+        error: {
+          code: MIGRATION_CHAIN_INCOMPLETE,
+          message: `The form pack is missing its schema v${version} to v${version + 1} migration. Nothing has been changed. Restore the previous pack or install a corrected update.`,
+        },
+      };
       }
-    }
   }
 
   const migrated: VaultValues = {};

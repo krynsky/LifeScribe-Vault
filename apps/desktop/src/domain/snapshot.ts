@@ -159,7 +159,10 @@ function normalizeSectionMeta(raw: unknown): SectionMetaMap {
     if (!isRecord(entryRaw)) {
       continue;
     }
-    const entry: SectionMeta = { ...entryRaw };
+    const knownMetaKeys = new Set(["na", "completed", "lastReviewedAt", "lastSavedAt"]);
+    const entry: SectionMeta = Object.fromEntries(
+      Object.entries(entryRaw).filter(([key]) => !knownMetaKeys.has(key)),
+    );
     if (entryRaw.na === true) {
       entry.na = true;
     }

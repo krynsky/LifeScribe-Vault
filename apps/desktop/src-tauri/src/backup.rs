@@ -15,8 +15,8 @@
 //!
 //! Restore invariants:
 //! - Safety backup copied (raw, no password) before any vault file is touched.
-//! - Restore marker written before the swap begins; cleared after first
-//!   successful unlock; auto-deleted with the safety backup on that unlock.
+//! - Restore marker written before the swap begins; cleared only after the
+//!   restored snapshot and form pack load successfully after authentication.
 //! - Swap is atomic (temp + rename for the DB file); orphan sweep is skipped
 //!   while the marker is present.
 //! - A crash mid-restore leaves the original vault intact (marker points to
@@ -136,35 +136,19 @@ pub fn create_backup(
     dest_dir: &Path,
 ) -> VaultResult<BackupResult> {
     // Checkpoint WAL so the DB file is self-contained before reading bytes.
-    {
+    let vault_id = {
         let repo = VaultRepository::open_existing(vault_path).map_err(|_| VaultError::NotFound)?;
-        let header = repo.load_vault_header().map_err(|_| VaultError::NotFound)?;
-        unwrap_data_key(
-            master_password,
-            &header.kdf,
-            header.wrap_format_version,
-            &header.wrapped_data_key,
-        )
-        .map_err(|error| match error {
-            VaultError::DecryptionFailed => VaultError::InvalidMasterPassword,
-            other => other,
-        })?;
+        let (header, _verified_key) =
+            crate::commands::load_header_and_data_key(&repo, master_password)?;
         repo.checkpoint_truncate()?;
-    }
+        header.vault_id
+    };
 
     // Read raw vault DB bytes.
     let vault_db = fs::read(vault_path).map_err(|e| VaultError::FileOperation(e.to_string()))?;
 
     // Collect encrypted attachment files (already vault-encrypted).
     let attachments = collect_attachment_files(attachment_dir)?;
-
-    // Get the vault_id from the header (embedded in payload for display).
-    let vault_id = {
-        let repo = VaultRepository::open_existing(vault_path)?;
-        repo.load_vault_header()
-            .map(|h| h.vault_id)
-            .unwrap_or_default()
-    };
 
     // Fresh backup data key + KDF params (independent of vault's own params).
     let backup_kdf = KeyDerivationMetadata::new();
@@ -243,6 +227,13 @@ pub fn restore_backup(
             return Err(error);
         }
     };
+    if let Err(error) =
+        validate_staged_restore(&staged_db, &staged_att, &payload, master_password)
+    {
+        cleanup_restore_stage(&staged_db, &staged_att);
+        return Err(error);
+    }
+    drop(payload);
 
     let safety_db = app_data_dir.join(SAFETY_BACKUP_DB_NAME);
     let safety_att = app_data_dir.join(SAFETY_BACKUP_ATT_NAME);
@@ -271,7 +262,7 @@ pub fn restore_backup(
         let staged_bytes =
             fs::read(&staged_db).map_err(|e| VaultError::FileOperation(e.to_string()))?;
         restore_vault_db(vault_path, &staged_bytes)?;
-        restore_attachments_raw(attachment_dir, &staged_att)?;
+        install_attachment_directory(attachment_dir, &staged_att)?;
         marker.phase = RestorePhase::Complete;
         write_marker(&marker_path, &marker)
     })();
@@ -302,13 +293,9 @@ pub fn rollback_if_marker_present(
     let marker: RestoreMarker =
         serde_json::from_slice(&marker_bytes).map_err(|_| VaultError::CorruptVault)?;
 
-    // A completed restore is not trusted until its first authenticated unlock.
-    if marker.phase == RestorePhase::Complete {
-        return Ok(true);
-    }
-
-    // Any incomplete phase is rolled back even if the installed DB is valid;
-    // the attachment half may not have completed.
+    // A restore is not trusted until the frontend has authenticated and fully
+    // loaded its snapshot and form pack. Any marker left across a restart is
+    // therefore rolled back, regardless of the last installation phase.
     if marker.had_vault_db && marker.safety_backup_db.exists() {
         restore_vault_db(
             vault_path,
@@ -323,9 +310,25 @@ pub fn rollback_if_marker_present(
     Ok(true)
 }
 
-/// Clear the restore marker and delete the safety backup files. Called on the
-/// first successful unlock after a restore.
-pub fn clear_restore_marker(app_data_dir: &Path) {
+/// Finalize a restore only after authentication plus the complete frontend
+/// snapshot/pack migration pipeline succeeded.
+pub fn finalize_completed_restore(app_data_dir: &Path) -> VaultResult<()> {
+    let marker_path = app_data_dir.join(RESTORE_MARKER_NAME);
+    if !marker_path.exists() {
+        return Ok(());
+    }
+    let bytes = fs::read(&marker_path).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+    let marker: RestoreMarker =
+        serde_json::from_slice(&bytes).map_err(|_| VaultError::CorruptVault)?;
+    if marker.phase != RestorePhase::Complete {
+        return Err(VaultError::RestoreConflict);
+    }
+    clear_marker_and_safety_backup(app_data_dir, &marker);
+    Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn clear_restore_marker(app_data_dir: &Path) {
     let marker_path = app_data_dir.join(RESTORE_MARKER_NAME);
     if let Ok(bytes) = fs::read(&marker_path) {
         if let Ok(marker) = serde_json::from_slice::<RestoreMarker>(&bytes) {
@@ -333,7 +336,7 @@ pub fn clear_restore_marker(app_data_dir: &Path) {
             return;
         }
     }
-    let _ = fs::remove_file(&marker_path);
+    let _ = fs::remove_file(marker_path);
 }
 
 /// True when a restore-in-progress marker exists (orphan sweep must skip).
@@ -404,6 +407,42 @@ pub(crate) fn set_authenticated_payload_version_for_test(
     master_password: &str,
     version: u8,
 ) -> VaultResult<()> {
+    rewrite_authenticated_payload_for_test(backup_path, master_password, |payload| {
+        payload.version = version;
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn set_authenticated_payload_vault_id_for_test(
+    backup_path: &Path,
+    master_password: &str,
+    vault_id: &str,
+) -> VaultResult<()> {
+    rewrite_authenticated_payload_for_test(backup_path, master_password, |payload| {
+        payload.vault_id = vault_id.to_string();
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn corrupt_authenticated_attachment_for_test(
+    backup_path: &Path,
+    master_password: &str,
+) -> VaultResult<()> {
+    rewrite_authenticated_payload_for_test(backup_path, master_password, |payload| {
+        if let Some(first) = payload.attachments.first_mut() {
+            if let Some(byte) = first.data.first_mut() {
+                *byte ^= 0xff;
+            }
+        }
+    })
+}
+
+#[cfg(test)]
+fn rewrite_authenticated_payload_for_test(
+    backup_path: &Path,
+    master_password: &str,
+    mutate: impl FnOnce(&mut BackupPayload),
+) -> VaultResult<()> {
     let bytes = fs::read(backup_path).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     let mut envelope: BackupEnvelope =
         serde_json::from_slice(&bytes).map_err(|_| VaultError::CorruptVault)?;
@@ -417,7 +456,7 @@ pub(crate) fn set_authenticated_payload_version_for_test(
     let plaintext = decrypt_bytes(&envelope.payload, &key, &aad)?;
     let mut payload: BackupPayload =
         serde_json::from_slice(&plaintext).map_err(|_| VaultError::CorruptVault)?;
-    payload.version = version;
+    mutate(&mut payload);
     envelope.payload = encrypt_bytes(
         &serde_json::to_vec(&payload).map_err(|e| VaultError::Storage(e.to_string()))?,
         &key,
@@ -479,12 +518,13 @@ fn create_safety_backup(
         }
         fs::copy(vault_path, safety_db).map_err(|e| VaultError::FileOperation(e.to_string()))?;
     }
-    // Copy attachments dir if it exists.
+    // The safety directory always exists, including for a vault with no
+    // attachments, so rollback never confuses "empty" with "missing".
     if attachment_dir.exists() {
-        if safety_att.exists() {
-            fs::remove_dir_all(safety_att).map_err(|e| VaultError::FileOperation(e.to_string()))?;
-        }
         copy_dir_all(attachment_dir, safety_att)?;
+    } else {
+        fs::create_dir_all(safety_att)
+            .map_err(|e| VaultError::FileOperation(e.to_string()))?;
     }
     Ok(())
 }
@@ -566,6 +606,37 @@ fn stage_vault_db(vault_path: &Path, vault_db: &[u8]) -> VaultResult<PathBuf> {
     }
 }
 
+fn validate_staged_restore(
+    staged_db: &Path,
+    staged_att: &Path,
+    payload: &BackupPayload,
+    master_password: &str,
+) -> VaultResult<()> {
+    let repository =
+        VaultRepository::open_existing(staged_db).map_err(|_| VaultError::CorruptVault)?;
+    let (header, data_key) =
+        crate::commands::load_header_and_data_key(&repository, master_password)
+            .map_err(|_| VaultError::CorruptVault)?;
+    if header.vault_id != payload.vault_id {
+        return Err(VaultError::CorruptVault);
+    }
+    for attachment in &payload.attachments {
+        if attachment.file_name != format!("{}.bin", attachment.id)
+            || attachment.size_bytes != attachment.data.len() as u64
+        {
+            return Err(VaultError::CorruptVault);
+        }
+        crate::attachments::decrypt_attachment(
+            staged_att,
+            &attachment.id,
+            &data_key,
+            &header.vault_id,
+        )
+        .map_err(|_| VaultError::CorruptVault)?;
+    }
+    Ok(())
+}
+
 fn stage_attachments(
     attachment_dir: &Path,
     attachments: &[BackupAttachment],
@@ -587,13 +658,31 @@ fn cleanup_restore_stage(staged_db: &Path, staged_att: &Path) {
 }
 
 fn restore_attachments_raw(attachment_dir: &Path, src_dir: &Path) -> VaultResult<()> {
+    if !src_dir.is_dir() {
+        return Err(VaultError::CorruptVault);
+    }
+    let staged = attachment_dir.with_extension(format!(
+        "rollback-stage-{}",
+        uuid::Uuid::new_v4()
+    ));
+    if let Err(error) = copy_dir_all(src_dir, &staged) {
+        let _ = fs::remove_dir_all(&staged);
+        return Err(error);
+    }
+    let result = install_attachment_directory(attachment_dir, &staged);
+    let _ = fs::remove_dir_all(&staged);
+    result
+}
+
+fn install_attachment_directory(attachment_dir: &Path, staged: &Path) -> VaultResult<()> {
+    if !staged.is_dir() {
+        return Err(VaultError::CorruptVault);
+    }
     if attachment_dir.exists() {
-        fs::remove_dir_all(attachment_dir).map_err(|e| VaultError::FileOperation(e.to_string()))?;
+        fs::remove_dir_all(attachment_dir)
+            .map_err(|e| VaultError::FileOperation(e.to_string()))?;
     }
-    if src_dir.exists() {
-        copy_dir_all(src_dir, attachment_dir)?;
-    }
-    Ok(())
+    fs::rename(staged, attachment_dir).map_err(|e| VaultError::FileOperation(e.to_string()))
 }
 
 fn copy_dir_all(src: &Path, dst: &Path) -> VaultResult<()> {
