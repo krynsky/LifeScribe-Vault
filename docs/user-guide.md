@@ -15,7 +15,7 @@ Setting up takes one screen. You'll be asked for:
 - **Where the vault should live** — the default folder is fine for most people, and you can change it later (see [Where your vault is stored](#where-your-vault-is-stored)). If the folder you pick already holds a LifeScribe vault, the app opens that one instead of replacing it, and sends you to the unlock screen.
 - **Your name** — used to personalize the app and your Recovery Kit.
 - **A master password** — at least 15 characters, typed twice. A passphrase of a few unrelated words (like `correct horse battery staple`, but your own) is strong and easy to remember. Pasting from a password manager works too.
-- **An acknowledgment** — you tick a box confirming you understand the password can't be recovered. That's the only way past this screen.
+- **An acknowledgment** — you tick a box confirming you understand the password can't be recovered, and that deleting your vault file without a backup means losing your data permanently. That's the only way past this screen.
 
 > **There is no password reset.** Your vault is encrypted with this password and nothing else. If you lose it, nobody — including the app's developers — can recover your data. Store it somewhere safe, such as your password manager or a sealed note in a location your executor knows about.
 

@@ -204,7 +204,7 @@ export function SetupScreen({ onCreate, onVaultFound }: SetupScreenProps) {
           <label className="checkbox-control checkbox-control--acknowledge">
             <input type="checkbox" checked={acknowledgedNoRecovery}
               onChange={(e) => { setError(""); setAcknowledgedNoRecovery(e.currentTarget.checked); }} />
-            <span>I understand there is no recovery — this password cannot be reset, and losing it means losing access to the vault.</span>
+            <span>I understand there is no recovery — this password cannot be reset, and losing it or deleting my vault file without a backup means losing access to my data permanently.</span>
           </label>
         </div>
 
