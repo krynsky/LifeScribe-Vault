@@ -5,8 +5,10 @@
 A Windows-first local desktop app for building an encrypted digital legacy plan. Helps you document your digital executors, password-manager emergency access, devices, photos and videos, financial accounts and subscriptions, important documents, online accounts, platform legacy settings, and backups — plus a printable Recovery Kit — without putting any data on a server.
 
 **Version:** 1.0.0
-**Platform:** Windows (x64)  
+**Platform:** Windows (x64), macOS (Apple Silicon, unsigned)  
 **Status:** Active development
+
+> The macOS build is not code-signed or notarized (no Apple Developer account). macOS will warn "Apple could not verify this app" the first time you open it — right-click the app and choose **Open** to bypass this, once. See [macOS packaging](docs/release/macos-packaging.md#gatekeeper) for details.
 
 ---
 
