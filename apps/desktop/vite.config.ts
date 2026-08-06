@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 
 // @ts-expect-error process is a nodejs global
@@ -20,6 +20,12 @@ export default defineConfig(async () => ({
       : undefined,
     watch: {
       ignored: ["**/src-tauri/**"],
+    },
+    fs: {
+      // apps/desktop is the Vite project root, but HelpPage.tsx imports
+      // docs/user-guide.md (repo root) via a `?raw` import — allow the dev
+      // server to read across that workspace-root boundary.
+      allow: [searchForWorkspaceRoot(process.cwd())],
     },
   },
 }));
