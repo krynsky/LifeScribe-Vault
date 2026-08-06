@@ -49,6 +49,16 @@ stale bundle artifacts, enforces DMG as the only macOS target, and freezes the
 application identifier as `com.lifescribe.vault.v2` — same identifier as
 Windows, since it's the same app.
 
+## Upgrade policy
+
+Updates are complete `.dmg` images. Install the new version by opening the
+`.dmg` and dragging the new `.app` to `/Applications`, overwriting the
+previous copy; do not delete the old app first. Vault data lives outside the
+app bundle, in Application Support (see [Version and identity
+contract](#version-and-identity-contract) above), and must remain untouched
+by this. Version 1.0 has no automatic updater on macOS either, so each
+release announcement must link the complete `.dmg`.
+
 ## Gatekeeper
 
 This build is not signed with an Apple Developer certificate and is not
