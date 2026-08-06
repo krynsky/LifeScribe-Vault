@@ -12,12 +12,25 @@ if (!bundle.startsWith(`${repository}${sep}`) || basename(bundle) !== "bundle") 
   throw new Error("Refusing to clean outside the release bundle directory.");
 }
 
+const removed = [];
 const msi = resolve(bundle, "msi");
-if (existsSync(msi)) rmSync(msi, { recursive: true, force: true });
+if (existsSync(msi)) {
+  rmSync(msi, { recursive: true, force: true });
+  removed.push("msi");
+}
 const nsis = resolve(bundle, "nsis");
-if (existsSync(nsis)) rmSync(nsis, { recursive: true, force: true });
+if (existsSync(nsis)) {
+  rmSync(nsis, { recursive: true, force: true });
+  removed.push("nsis");
+}
 const dmg = resolve(bundle, "dmg");
-if (existsSync(dmg)) rmSync(dmg, { recursive: true, force: true });
+if (existsSync(dmg)) {
+  rmSync(dmg, { recursive: true, force: true });
+  removed.push("dmg");
+}
 
-const target = process.platform === "darwin" ? "DMG" : "NSIS";
-console.log(`Release artifacts cleaned for ${target} ${version}.`);
+console.log(
+  removed.length > 0
+    ? `Release artifacts cleaned (${removed.join(", ")}) for ${version}.`
+    : `No stale release artifacts found for ${version}.`,
+);
