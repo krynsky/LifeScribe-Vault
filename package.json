@@ -1,6 +1,7 @@
 {
   "name": "lifescribe-vault-v2-workspace",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "npm --prefix apps/desktop run tauri dev",
     "build": "npm run release:clean && npm run release:precheck && npm --prefix apps/desktop run tauri build && npm run release:check",

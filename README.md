@@ -1,5 +1,7 @@
 # LifeScribe Vault
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A Windows-first local desktop app for building an encrypted digital legacy plan. Helps you document your digital executors, password-manager emergency access, devices, photos and videos, financial accounts and subscriptions, important documents, online accounts, platform legacy settings, and backups — plus a printable Recovery Kit — without putting any data on a server.
 
 **Version:** 1.0.0
@@ -160,3 +162,9 @@ apps/desktop/
 - `requirements.md`, `challenges.md` — the original brief and market research
 
 Historical documents describe what was decided at the time. Some describe systems since removed — the composable form-module system, deleted 2026-07-30, is the big one. Read them for *why*; where they disagree with `docs/development.md` or the code, they are out of date.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE) for the full text.
