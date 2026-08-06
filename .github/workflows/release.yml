@@ -31,8 +31,6 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    env:
-      CARGO_BUILD_TARGET: aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
 
