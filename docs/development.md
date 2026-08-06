@@ -199,6 +199,14 @@ Anything that locks as a side effect (moving the vault, for instance) must go
 through the same path — calling the raw `lockVault` IPC skips the draft stash
 and silently discards unsaved work.
 
+### Help Page
+
+`HelpPage.tsx` renders `docs/user-guide.md` directly via `react-markdown`,
+importing the file as raw text at build time (Vite's `?raw` suffix). The
+markdown file is the only copy of this content — there is no separate in-app
+rewrite to keep in sync. It is fully static: no `vaultApi`, no Tauri IPC, no
+vault data, reachable from the sidebar once the vault is unlocked.
+
 ### Snapshot shape
 
 Defined once, in [snapshot.ts](../apps/desktop/src/domain/snapshot.ts):
