@@ -86,6 +86,7 @@ import { RecoveryKitPage } from "./RecoveryKitPage";
 
 import { SectionPage, type DraftBannerState } from "./SectionPage";
 import { SettingsPage } from "./SettingsPage";
+import { HelpPage } from "./HelpPage";
 import { ACTIVITY_EVENTS, INACTIVITY_LOCK_MS } from "./lockPolicy";
 
 export interface DashboardProps {
@@ -103,7 +104,8 @@ type Route =
   | { kind: "section"; sectionKey: string }
   | { kind: "recovery-kit" }
   | { kind: "backup" }
-  | { kind: "settings" };
+  | { kind: "settings" }
+  | { kind: "help" };
 
 interface VaultState {
   generation: number;
@@ -1175,6 +1177,20 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
               <span className="sidebar__item-title">Settings</span>
             </button>
           </li>
+          <li>
+            <button
+              aria-current={route.kind === "help" ? "page" : undefined}
+              className={
+                route.kind === "help"
+                  ? "sidebar__item sidebar__item--active"
+                  : "sidebar__item"
+              }
+              type="button"
+              onClick={() => setRoute({ kind: "help" })}
+            >
+              <span className="sidebar__item-title">Help</span>
+            </button>
+          </li>
         </ul>
       </nav>
 
@@ -1468,6 +1484,8 @@ export function Dashboard({ ownerNameHint = "", onLocked }: DashboardProps) {
         onChangePassword={changeVaultPassword}
       />
     );
+  } else if (route.kind === "help") {
+    content = <HelpPage />;
   }
 
   if (!content) {

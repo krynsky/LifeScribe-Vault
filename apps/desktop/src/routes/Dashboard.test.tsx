@@ -1089,6 +1089,29 @@ describe("Dashboard Settings page", () => {
   });
 });
 
+describe("Dashboard Help page", () => {
+  it("shows Help in the main pane with the sidebar nav intact, and a section returns to the dashboard", async () => {
+    renderDashboard();
+    await screen.findByText("Welcome, Dana");
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /^Help$/ }));
+
+    // Help renders in the right pane, showing the guide's own top-level heading...
+    expect(
+      await screen.findByRole("heading", { name: /LifeScribe Vault — User Guide/i, level: 1 }),
+    ).toBeInTheDocument();
+    // ...while the left navigation stays put (a guided-checklist section is still there).
+    expect(sidebarSectionButton()).toBeInTheDocument();
+
+    // Navigating to a section from the sidebar leaves Help.
+    await user.click(sidebarSectionButton());
+    expect(
+      screen.queryByRole("heading", { name: /LifeScribe Vault — User Guide/i, level: 1 }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("Dashboard vault relocation", () => {
   async function openMoveConfirmation(onLocked: (notice?: string) => void) {
     const { open } = await import("@tauri-apps/plugin-dialog");
