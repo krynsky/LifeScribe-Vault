@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LifeScribe Vault 2",
+  "productName": "LifeScribe Vault",
   "version": "1.0.0",
   "identifier": "com.lifescribe.vault.v2",
   "build": {

@@ -20,10 +20,13 @@ describe("tauri window configuration", () => {
     expect(window.resizable).toBe(true);
   });
 
-  it("uses an app identity distinct from v1 so both apps can coexist", () => {
+  it("uses an app identifier distinct from v1 so app data can't collide", () => {
+    // Identifier, not productName, is what keys app-data isolation (Tauri's
+    // app_data_dir) — the display name is free to read "LifeScribe Vault"
+    // even though the identifier stays versioned.
     expect(config.identifier).not.toBe("com.lifescribe.vault");
     expect(config.identifier).toMatch(/^com\.lifescribe\./);
-    expect(config.productName).not.toBe("LifeScribe Vault");
+    expect(config.productName).toBe("LifeScribe Vault");
   });
 });
 

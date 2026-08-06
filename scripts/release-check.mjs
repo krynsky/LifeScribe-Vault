@@ -37,8 +37,8 @@ const bundle = new URL(`apps/desktop/src-tauri/target/release/bundle/${bundleDir
 const prebuild = process.argv.includes("--prebuild");
 if (!prebuild) {
   const expected = isMac
-    ? `LifeScribe Vault 2_${desktop.version}_aarch64.dmg`
-    : `LifeScribe Vault 2_${desktop.version}_x64-setup.exe`;
+    ? `${tauri.productName}_${desktop.version}_aarch64.dmg`
+    : `${tauri.productName}_${desktop.version}_x64-setup.exe`;
   if (!existsSync(bundle)) {
     failures.push(`${targetLabel} output directory is missing; run the release build first.`);
   } else {

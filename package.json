@@ -4,13 +4,14 @@
   "license": "MIT",
   "scripts": {
     "dev": "npm --prefix apps/desktop run tauri dev",
-    "build": "npm run release:clean && npm run release:precheck && npm --prefix apps/desktop run tauri build && npm run release:check",
+    "build": "npm run release:clean && npm run release:precheck && npm --prefix apps/desktop run tauri build && npm run release:tidy && npm run release:check",
     "test": "npm --prefix apps/desktop test",
     "typecheck": "npm --prefix apps/desktop run typecheck",
     "lint": "npm --prefix apps/desktop run lint",
     "pack-editor": "npm --prefix apps/desktop run pack-editor",
     "release:clean": "node scripts/clean-release-artifacts.mjs",
     "release:precheck": "node scripts/release-check.mjs --prebuild",
+    "release:tidy": "node scripts/tidy-release-artifacts.mjs",
     "release:check": "node scripts/release-check.mjs"
   },
   "workspaces": [

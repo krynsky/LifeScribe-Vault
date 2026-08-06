@@ -22,7 +22,7 @@ installer is present and is the only NSIS artifact.
 
 The distributable is written to
 `apps/desktop/src-tauri/target/release/bundle/nsis/` as
-`LifeScribe Vault 2_<version>_x64-setup.exe`.
+`LifeScribe Vault_<version>_x64-setup.exe`.
 
 The standalone Pack Editor is a development-only Vite app and is not bundled.
 The default form pack is bundled as a read-only resource.

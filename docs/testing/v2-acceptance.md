@@ -140,7 +140,7 @@ For each section, open it and verify:
 
 ## 11. Pack integrity check
 
-- [ ] Close the app. Locate the bundled pack file in the installation directory (e.g. `C:\Program Files\LifeScribe Vault 2\resources\packs\default-pack.json`).
+- [ ] Close the app. Locate the bundled pack file in the installation directory (e.g. `C:\Program Files\LifeScribe Vault\resources\packs\default-pack.json`).
 - [ ] Edit the file to introduce a structural error (e.g. delete a required field key).
 - [ ] Relaunch the app; the app should fail gracefully (show an error or fallback message) rather than silently accept the corrupted pack.
 - [ ] Restore the original pack file; app relaunches normally.

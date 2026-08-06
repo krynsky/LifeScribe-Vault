@@ -20,16 +20,18 @@ npm run build
 ```
 
 The root build command clears prior installers (including any stale `.dmg`),
-checks the manifest contract, builds the DMG, and then refuses to pass unless
-the exact versioned DMG is present and is the only artifact in the `dmg`
-output directory. On macOS this automatically picks up
-`apps/desktop/src-tauri/tauri.macos.conf.json`, which overrides the bundle
-target to `dmg` — the base `tauri.conf.json` (targeting NSIS) is unchanged and
-still applies on Windows.
+checks the manifest contract, builds the DMG, tidies the bundler's leftover
+helper files (macOS's `dmg` target drops `bundle_dmg.sh` and a spare
+`icon.icns` alongside the installer — these are removed before the next
+step), and then refuses to pass unless the exact versioned DMG is present and
+is the only artifact in the `dmg` output directory. On macOS this
+automatically picks up `apps/desktop/src-tauri/tauri.macos.conf.json`, which
+overrides the bundle target to `dmg` — the base `tauri.conf.json` (targeting
+NSIS) is unchanged and still applies on Windows.
 
 The distributable is written to
 `apps/desktop/src-tauri/target/release/bundle/dmg/` as
-`LifeScribe Vault 2_<version>_aarch64.dmg`.
+`LifeScribe Vault_<version>_aarch64.dmg`.
 
 The standalone Pack Editor is a development-only Vite app and is not bundled.
 The default form pack is bundled as a read-only resource — identical to the
@@ -68,7 +70,7 @@ verify this app is free of malware." This is expected, not a bug. To open it:
 - Right-click (or Control-click) the app in Finder and choose **Open**, then
   confirm in the dialog that appears. This only needs to be done once — after
   that, the app opens normally.
-- Alternatively, from Terminal: `xattr -d com.apple.quarantine "/path/to/LifeScribe Vault 2.app"`
+- Alternatively, from Terminal: `xattr -d com.apple.quarantine "/path/to/LifeScribe Vault.app"`
 
 ## Manual QA checklist
 
