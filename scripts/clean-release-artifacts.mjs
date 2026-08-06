@@ -16,4 +16,8 @@ const msi = resolve(bundle, "msi");
 if (existsSync(msi)) rmSync(msi, { recursive: true, force: true });
 const nsis = resolve(bundle, "nsis");
 if (existsSync(nsis)) rmSync(nsis, { recursive: true, force: true });
-console.log(`Release artifacts cleaned for NSIS ${version}.`);
+const dmg = resolve(bundle, "dmg");
+if (existsSync(dmg)) rmSync(dmg, { recursive: true, force: true });
+
+const target = process.platform === "darwin" ? "DMG" : "NSIS";
+console.log(`Release artifacts cleaned for ${target} ${version}.`);
