@@ -1,20 +1,46 @@
 # LifeScribe Vault
 
+[![Latest Release](https://img.shields.io/github/v/release/krynsky/LifeScribe-Vault)](https://github.com/krynsky/LifeScribe-Vault/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Windows](https://img.shields.io/badge/Windows-x64-0078D6?logo=windows&logoColor=white)](docs/release/windows-packaging.md)
+[![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple&logoColor=white)](docs/release/macos-packaging.md)
+[![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/krynsky)
 
-A Windows-first local desktop app for building an encrypted digital legacy plan. Helps you document your digital executors, password-manager emergency access, devices, photos and videos, financial accounts and subscriptions, important documents, online accounts, platform legacy settings, and backups — plus a printable Recovery Kit — without putting any data on a server.
+A local desktop app for building an encrypted digital legacy plan. Helps you document your digital executors, password-manager emergency access, devices, photos and videos, financial accounts and subscriptions, important documents, online accounts, platform legacy settings, and backups — plus a printable Recovery Kit — without putting any data on a server.
 
-**Version:** 1.0.0
-**Platform:** Windows (x64), macOS (Apple Silicon, unsigned)  
+- 🔒 **Fully local and encrypted** — your data never leaves your machine
+- 🧭 **Ten guided sections** walk you through the whole plan, with a readiness indicator so nothing gets missed
+- 🖨️ **A printable Recovery Kit** is the document your family actually starts from
+- 🆓 **Free and open source**, MIT-licensed, no account required
+
+**Platform:** Windows (x64), macOS (Apple Silicon, unsigned)
 **Status:** Active development
 
 > The macOS build is not code-signed or notarized (no Apple Developer account). macOS will warn "Apple could not verify this app" the first time you open it — right-click the app and choose **Open** to bypass this, once. See [macOS packaging](docs/release/macos-packaging.md#gatekeeper) for details.
 
 **[⬇ Download the latest release](https://github.com/krynsky/LifeScribe-Vault/releases/latest)** — Windows (x64) and macOS (Apple Silicon) installers.
 
+![LifeScribe Vault dashboard — guided checklist sidebar and the in-app Help page](docs/screenshots/dashboard.png)
+
 ---
 
-## What It Does
+## Table of Contents
+
+- [What It Does](#what-it-does)
+- [Security Model](#security-model)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Security Constraints](#security-constraints)
+- [Documentation](#documentation)
+- [License](#license)
+
+---
+
+## 🧭 What It Does
 
 LifeScribe Vault walks you through ten guided sections of your digital legacy plan:
 
@@ -35,7 +61,7 @@ Each section has identifying fields and optional supporting details — fill in 
 
 ---
 
-## Security Model
+## 🔐 Security Model
 
 - **Local-only** — no cloud sync, no telemetry, no remote services of any kind
 - **Argon2id** key derivation from your master password
@@ -48,7 +74,7 @@ Each section has identifying fields and optional supporting details — fill in 
 
 ---
 
-## Tech Stack
+## 🧰 Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -59,7 +85,7 @@ Each section has identifying fields and optional supporting details — fill in 
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ### Vault Snapshot
 The vault is stored as an encrypted opaque JSON blob (`VaultSnapshot`). Rust never inspects field names — it stores and returns bytes identically, so the TypeScript domain model is the only place the shape is defined. Same-format unknown fields are preserved at every modeled level; a future snapshot format is refused until the app is upgraded.
@@ -87,7 +113,7 @@ A separate encrypted draft stash holds in-progress edits so a locked session nev
 
 ---
 
-## Development
+## 💻 Development
 
 ### Prerequisites
 - Node.js 20+
@@ -139,7 +165,7 @@ apps/desktop/
 
 ---
 
-## Security Constraints
+## 🚧 Security Constraints
 
 - Never ask the user for a real master password in development or tests
 - Never request plaintext sensitive vault content
@@ -148,7 +174,7 @@ apps/desktop/
 
 ---
 
-## Documentation
+## 📚 Documentation
 
 **Current — describes how the app works today:**
 
@@ -169,6 +195,6 @@ Historical documents describe what was decided at the time. Some describe system
 
 ---
 
-## License
+## 📄 License
 
 MIT — see [LICENSE](LICENSE) for the full text.
