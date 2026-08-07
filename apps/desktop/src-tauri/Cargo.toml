@@ -1,6 +1,6 @@
 [package]
 name = "lifescribe-vault-v2"
-version = "1.0.0"
+version = "1.0.1"
 description = "Local encrypted digital legacy vault (v2)"
 authors = ["LifeScribe Vault"]
 edition = "2021"
