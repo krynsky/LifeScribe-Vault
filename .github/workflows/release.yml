@@ -48,6 +48,16 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify app code signature inside DMG
+        run: |
+          DMG=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg)
+          MOUNT=$(mktemp -d)
+          hdiutil attach "$DMG" -mountpoint "$MOUNT" -nobrowse -readonly
+          APP=$(ls -d "$MOUNT"/*.app)
+          codesign -dv --verbose=2 "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          hdiutil detach "$MOUNT"
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos-installer

@@ -18,7 +18,7 @@ A local desktop app for building an encrypted digital legacy plan. Helps you doc
 **Platform:** Windows (x64), macOS (Apple Silicon, unsigned)
 **Status:** Active development
 
-> The macOS build is not code-signed or notarized (no Apple Developer account). macOS will warn "Apple could not verify this app" the first time you open it — right-click the app and choose **Open** to bypass this, once. See [macOS packaging](docs/release/macos-packaging.md#gatekeeper) for details.
+> The macOS build is not code-signed or notarized (no Apple Developer account). macOS will warn "Apple could not verify this app" the first time you open it — right-click the app and choose **Open** (or, on macOS 15+, use **System Settings → Privacy & Security → Open Anyway**) to bypass this, once. See [macOS packaging](docs/release/macos-packaging.md#gatekeeper) for details.
 
 **[⬇ Download the latest release](https://github.com/krynsky/LifeScribe-Vault/releases/latest)** — Windows (x64) and macOS (Apple Silicon) installers.
 

@@ -63,14 +63,24 @@ release announcement must link the complete `.dmg`.
 
 ## Gatekeeper
 
-This build is not signed with an Apple Developer certificate and is not
-notarized. The first time someone opens it, macOS will show "Apple could not
-verify this app is free of malware." This is expected, not a bug. To open it:
+This build is ad-hoc signed (`signingIdentity: "-"` in `tauri.macos.conf.json`)
+but is not signed with an Apple Developer certificate and is not notarized.
+The ad-hoc signature matters: without it, a downloaded copy fails signature
+validation and macOS reports "LifeScribe Vault is damaged and can't be
+opened" (v1.0.1 shipped that way). CI verifies the signature inside the DMG
+with `codesign --verify --deep --strict` before publishing.
 
-- Right-click (or Control-click) the app in Finder and choose **Open**, then
-  confirm in the dialog that appears. This only needs to be done once — after
-  that, the app opens normally.
-- Alternatively, from Terminal: `xattr -d com.apple.quarantine "/path/to/LifeScribe Vault.app"`
+The first time someone opens it, macOS will show "Apple could not verify this
+app is free of malware." This is expected, not a bug. To open it:
+
+- macOS 14 and earlier: right-click (or Control-click) the app in Finder,
+  choose **Open**, and confirm.
+- macOS 15 (Sequoia) and later: try to open the app once, then go to
+  **System Settings → Privacy & Security**, scroll to the Security section,
+  and click **Open Anyway**.
+- Alternatively, from Terminal: `xattr -d com.apple.quarantine "/Applications/LifeScribe Vault.app"`
+
+You only need to do this once per install.
 
 ## Manual QA checklist
 
